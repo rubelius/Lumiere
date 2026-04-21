@@ -1,0 +1,38 @@
+# Django Core
+Django==5.0.1
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-filter==23.5
+drf-spectacular==0.27.1  # OpenAPI/Swagger
+
+# Database
+psycopg2-binary==2.9.9
+pgvector==0.2.4
+
+# Authentication
+djangorestframework-simplejwt==5.3.1
+django-allauth==0.61.1
+
+# Celery
+celery==5.3.6
+redis==5.0.1
+django-celery-beat==2.5.0
+django-celery-results==2.5.1
+
+# Machine Learning
+torch==2.2.0
+sentence-transformers==2.3.1
+scikit-learn==1.4.0
+numpy==1.26.3
+
+# HTTP & Scraping
+httpx==0.26.0
+beautifulsoup4==4.12.3
+feedparser==6.0.11
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.25.0
+
+# Utilities
+python-dotenv==1.0.1
+pillow==10.2.0
+python-dateutil==2.8.2
