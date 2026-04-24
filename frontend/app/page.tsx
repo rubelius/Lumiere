@@ -5,16 +5,17 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { MovieCard } from "@/components/ui/movie-card";
 import { PlayCircle, Clock, ChevronRight, Sparkles, Play, Users, Compass, Music, TrendingUp, Search, Ticket, Film, Target, CalendarDays, Eye, Heart, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const [activeMood, setActiveMood] = useState("Melancólico");
 
   const recommendations = [
-    { id: 1, title: "L'Aventura", year: "1960", img: "/images/poster-1.png", qualities: ["REMUX", "4K"] as any },
-    { id: 2, title: "Solaris", year: "1972", img: "/images/poster-2.png", qualities: ["4K", "HDR"] as any },
-    { id: 3, title: "Persona", year: "1966", img: "/images/poster-3.png", qualities: ["REMUX", "ATMOS"] as any },
-    { id: 4, title: "Barry Lyndon", year: "1975", img: "/images/poster-4.png", qualities: ["4K"] as any },
-    { id: 5, title: "Metropolis", year: "1927", img: "/images/poster-5.png", qualities: ["REMUX", "HDR"] as any },
+    { id: 1, title: "L'Aventura", year: "1960", imageUrl: "/images/poster-1.png", qualities: ["REMUX", "4K"] as any },
+    { id: 2, title: "Solaris", year: "1972", imageUrl: "/images/poster-2.png", qualities: ["4K", "HDR"] as any },
+    { id: 3, title: "Persona", year: "1966", imageUrl: "/images/poster-3.png", qualities: ["REMUX", "ATMOS"] as any },
+    { id: 4, title: "Barry Lyndon", year: "1975", imageUrl: "/images/poster-4.png", qualities: ["4K"] as any },
+    { id: 5, title: "Metropolis", year: "1927", imageUrl: "/images/poster-5.png", qualities: ["REMUX", "HDR"] as any },
   ];
 
   return (
@@ -24,64 +25,73 @@ export default function Home() {
       
       <main className="max-w-480 mx-auto">
         {/* Hero Section */}
-        <section className="relative h-[75vh] min-h-150 w-full mb-16 rounded-bl-[4rem] overflow-hidden shadow-2xl">
-          <div className="absolute inset-0 bg-background/20" />
-          <motion.img 
-            initial={{ scale: 1.05 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 1.5, ease: "easeOut" }}
-            src={"/images/hero-backdrop.png"} 
-            alt="Hero Backdrop" 
-            className="absolute inset-0 w-full h-full object-cover object-top -z-10 opacity-60 mix-blend-screen"
-          />
-          <div className="absolute inset-0 bg-linear-to-t from-background via-background/40 to-transparent -z-10" />
-          <div className="absolute inset-0 bg-linear-to-r from-background via-background/80 to-transparent -z-10" />
-          <div className="absolute inset-0 bg-linear-to-l from-transparent via-transparent to-background/30 -z-10" />
-
-          <div className="absolute bottom-20 left-16 max-w-3xl">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.8 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-sm font-semibold mb-6 tracking-wide uppercase backdrop-blur-md"
-            >
-              <Clock className="w-4 h-4" />
-              Começa em 2 dias
-            </motion.div>
-            
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.8 }}
-              className="text-7xl md:text-8xl font-serif font-bold mb-6 leading-[1.1] text-gradient drop-shadow-2xl"
-            >
-              Noite Noir <br/> Francesa
-            </motion.h1>
-            
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-              className="text-2xl text-white/70 mb-10 font-light max-w-2xl leading-relaxed"
-            >
-              Uma seleção meticulosa de três clássicos do cinema noir francês, curados para a máxima atmosfera.
-            </motion.p>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.8 }}
-              className="flex items-center gap-4"
-            >
-              <button className="group flex items-center gap-4 px-10 py-5 bg-white text-background rounded-2xl hover:bg-gray-200 tv-focus text-xl font-bold shadow-[0_0_40px_rgba(255,255,255,0.3)] transition-all duration-300">
-                <Ticket className="w-7 h-7 fill-background text-white group-hover:scale-110 transition-transform" />
-                Reservar Ingresso Virtual
-              </button>
-              <button className="group flex items-center gap-3 px-8 py-5 bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-2xl hover:bg-black/60 tv-focus text-xl font-medium transition-all duration-300">
-                <Search className="w-6 h-6 text-white group-hover:text-primary transition-colors" />
-                Explorar Coleção Noir
-              </button>
-            </motion.div>
+        <section className="relative min-h-screen flex items-center mb-24">
+          {/* Background Image */}
+          <div className="absolute inset-0 -z-10">
+            <motion.img 
+              initial={{ scale: 1.05, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.3 }}
+              transition={{ duration: 1, ease: [0.4, 0, 0.2, 1] }}
+              src="/images/hero-backdrop.png"
+              alt=""
+              className="w-full h-full object-cover"
+            />
+            {/* Gradientes sutis */}
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-100 via-neutral-100/80 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-neutral-100 via-neutral-100/50 to-transparent" />
+          </div>
+          
+          {/* Content */}
+          <div className="container mx-auto px-8 max-w-7xl">
+            <div className="max-w-3xl space-y-6">
+              {/* Label */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.5 }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-400/10 border border-primary-400/20 text-primary-400 text-sm font-semibold tracking-wide uppercase"
+              >
+                <Clock className="w-4 h-4" />
+                Começa em 2 dias
+              </motion.div>
+              
+              {/* Headline */}
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className="text-6xl font-display font-bold leading-tight tracking-tight text-neutral-1200"
+              >
+                Noite Noir <br/> Francesa
+              </motion.h1>
+              
+              {/* Description */}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="text-xl text-neutral-900 leading-relaxed max-w-2xl"
+              >
+                Uma seleção meticulosa de três clássicos do cinema noir francês, curados para a máxima atmosfera.
+              </motion.p>
+              
+              {/* CTAs */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="flex items-center gap-4"
+              >
+                <button className="inline-flex items-center gap-2 px-6 py-3 bg-primary-400 text-white font-semibold rounded-lg shadow-lg shadow-primary-400/20 hover:bg-primary-500 hover:shadow-xl hover:shadow-primary-500/30 transition-all duration-200 tv-focus">
+                  <Ticket className="w-5 h-5" />
+                  Reservar Ingresso Virtual
+                </button>
+                <button className="inline-flex items-center gap-2 px-6 py-3 bg-transparent border border-neutral-500 text-neutral-1000 font-semibold rounded-lg hover:bg-neutral-300/30 hover:border-neutral-600 hover:text-neutral-1100 transition-all duration-200 tv-focus">
+                  <Search className="w-5 h-5" />
+                  Explorar Coleção Noir
+                </button>
+              </motion.div>
+            </div>
           </div>
         </section>
 
@@ -232,7 +242,7 @@ export default function Home() {
                         className="group cursor-pointer tv-focus rounded-3xl relative perspective-[1000px]"
                       >
                         <div className="aspect-2/3 rounded-3xl overflow-hidden relative shadow-2xl border border-white/10 group-hover:border-primary/50 transition-colors">
-                          <img src={movie.img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
+                          <img src={movie.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
                           <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
                           <div className="absolute bottom-6 left-6 right-6 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
                             <h3 className="font-serif text-xl text-white font-medium mb-2">{movie.title}</h3>
@@ -430,28 +440,35 @@ export default function Home() {
               </button>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-              {recommendations.map((movie, i) => (
-                <motion.div
-                  key={movie.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1, duration: 0.5 }}
-                  className={i === 0 ? "lg:col-span-2 lg:row-span-2" : ""}
-                >
-                  <MovieCard 
-                    id={movie.id}
-                    title={movie.title}
-                    year={movie.year}
-                    imageUrl={movie.img}
-                    qualities={movie.qualities}
-                    index={i}
-                    className="h-full"
-                  />
-                </motion.div>
-              ))}
-            </div>
+            <section className="py-24">
+              <div className="container mx-auto px-8 max-w-7xl">
+                {/* Section Header */}
+                <div className="flex items-end justify-between mb-12">
+                  <div>
+                    <h2 className="text-4xl font-heading font-semibold text-neutral-1200 mb-2">
+                      Recomendações da Semana
+                    </h2>
+                    <p className="text-lg text-neutral-800">
+                      Curadoria especial baseada no seu perfil
+                    </p>
+                  </div>
+                  
+                  <Button variant="ghost" size="md" rightIcon={<ChevronRight />}>
+                    Ver catálogo completo
+                  </Button>
+                </div>
+                
+                {/* Grid - spacing reduzido para 6 (24px) */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                  {recommendations.map((movie, i) => (
+                    <MovieCard 
+                      key={movie.id}
+                      {...movie}
+                      index={i}                    />
+                  ))}
+                </div>
+              </div>
+            </section>
           </section>
 
           {/* Cinephile Articles (Polished) */}
