@@ -1,346 +1,523 @@
-/* ════════════════════════════════════════════════════════════════
-   LUMIÈRE — CINEMATIC DESIGN SYSTEM
-   Identity: Private projection room / Film archive / A24 meets
-             the Cinemathèque Française
-   
-   Font stack: Cormorant Garamond (display) + DM Mono (metadata)
-               + Geist Sans (UI text)
-   ════════════════════════════════════════════════════════════════ */
-
-
-/* ── Google Fonts ─────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,700&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
-   
 @import "tailwindcss";
+@import "tw-animate-css";
 
+/* ─────────────────────────────────────────────────────────────
+   LUMIÈRE — CINEMATIC DESIGN SYSTEM
+   Inspired by: siena.film, A24, FIGUREFILM, Danik Bartolini
+   Philosophy: Theatrical darkness, warm film-stock whites,
+               editorial typography, architectural precision.
+   ───────────────────────────────────────────────────────────── */
 
+@custom-variant dark (&:is(.dark *));
 
-/* ── Design Tokens ────────────────────────────────────────────── */
-:root {
-  /* Voids & Surfaces — warm blacks, film-stock feel */
-  --void:      #040402;   /* absolute void */
-  --bg:        #080806;   /* base background */
-  --s1:        #0C0B08;   /* surface 1 */
-  --s2:        #111009;   /* surface 2 */
-  --s3:        #181612;   /* surface 3 */
-  --s4:        #201E18;   /* surface 4, raised */
-  --s5:        #2A2820;   /* surface 5, elevated */
+@theme inline {
+  /* ── NEUTRALS — True cinema blacks, not navy ── */
+  --color-ink-950:  #060606;   /* void — deepest background */
+  --color-ink-900:  #0A0A0A;   /* base background */
+  --color-ink-800:  #111111;   /* surface */
+  --color-ink-700:  #181818;   /* surface raised */
+  --color-ink-600:  #222222;   /* elevated surface */
+  --color-ink-500:  #2C2C2C;   /* borders, dividers */
+  --color-ink-400:  #3D3D3D;   /* inactive elements */
+  --color-ink-300:  #555550;   /* tertiary text */
+  --color-ink-200:  #88887E;   /* secondary text (warm tint) */
+  --color-ink-100:  #C2BDB4;   /* muted primary text */
+  --color-ink-50:   #E8E2D8;   /* secondary text */
+  --color-ink-0:    #F5F0E8;   /* primary text — aged paper */
 
-  /* Film stock whites — never pure white */
-  --film:      #EDE8DC;   /* primary text, aged paper */
-  --m1:        #C4BEB4;   /* muted 1 */
-  --m2:        #8C8880;   /* muted 2 */
-  --m3:        #565450;   /* muted 3 */
-  --m4:        #302E2A;   /* muted 4, borders */
-  --m5:        #1C1B18;   /* muted 5, subtle borders */
+  /* ── GOLD — The single warm accent, like film projector light ── */
+  --color-gold-900: #3A2B12;
+  --color-gold-800: #5C4220;
+  --color-gold-700: #7A5A2E;
+  --color-gold-600: #9A7240;
+  --color-gold-500: #B8894E;   /* base gold */
+  --color-gold-400: #C9A96E;   /* primary accent */
+  --color-gold-300: #D9C090;
+  --color-gold-200: #E8D5B0;   /* light champagne */
+  --color-gold-100: #F2E8D0;
 
-  /* Gold — the SINGLE warm accent. Warm amber, not yellow. */
-  --gold:      #BF8F3C;   /* primary gold */
-  --gold-hi:   #D4A94E;   /* gold highlight */
-  --gold-dim:  #7A5A20;   /* dark gold */
-  --gold-α08:  rgba(191,143,60,0.08);
-  --gold-α15:  rgba(191,143,60,0.15);
-  --gold-α30:  rgba(191,143,60,0.30);
+  /* ── QUALITY INDICATORS — Desaturated, filmic ── */
+  --color-quality-remux:  #6B9E84;   /* sage green */
+  --color-quality-atmos:  #8E7FA8;   /* dusty violet */
+  --color-quality-4k:     #C9A96E;   /* same gold */
+  --color-quality-hdr:    #B87B5E;   /* warm terracotta */
+  --color-quality-dv:     #6B8EA8;   /* dusty steel blue */
+  --color-quality-imax:   #7A9E9E;   /* slate teal */
+  --color-quality-webdl:  #6B6B6B;   /* neutral gray */
 
-  /* Quality indicators — desaturated, filmic */
-  --sage:    #5E8872;   /* REMUX */
-  --slate:   #607898;   /* WEB-DL */
-  --terra:   #9E6858;   /* HDR */
-  --violet:  #7E6E9A;   /* Atmos */
-  --teal:    #5E8888;   /* IMAX */
+  /* ── SEMANTIC (Shadcn/Radix compat) ── */
+  --color-background:           var(--color-ink-900);
+  --color-foreground:           var(--color-ink-0);
+  --color-card:                 var(--color-ink-800);
+  --color-card-foreground:      var(--color-ink-0);
+  --color-popover:              var(--color-ink-700);
+  --color-popover-foreground:   var(--color-ink-0);
+  --color-primary:              var(--color-gold-400);
+  --color-primary-foreground:   var(--color-ink-900);
+  --color-secondary:            var(--color-ink-700);
+  --color-secondary-foreground: var(--color-ink-50);
+  --color-muted:                var(--color-ink-700);
+  --color-muted-foreground:     var(--color-ink-200);
+  --color-accent:               var(--color-ink-600);
+  --color-accent-foreground:    var(--color-ink-0);
+  --color-destructive:          #B05050;
+  --color-destructive-foreground: var(--color-ink-0);
+  --color-border:               rgba(245, 240, 232, 0.07);
+  --color-input:                var(--color-ink-700);
+  --color-ring:                 var(--color-gold-400);
 
-  /* Borders */
-  --border:    rgba(237,232,220,0.06);
-  --border-md: rgba(237,232,220,0.10);
-  --border-hi: rgba(237,232,220,0.18);
+  /* ── RADIUS — Minimal, architectural ── */
+  --radius-none: 0px;
+  --radius-xs:   2px;
+  --radius-sm:   3px;
+  --radius-md:   4px;
+  --radius-lg:   6px;
+  --radius-xl:   8px;
+  --radius:      3px;
 
-  /* Typography */
-  --font-display: 'Cormorant Garamond', 'Georgia', ui-serif, serif;
-  --font-mono:    'DM Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --font-ui:      'DM Sans', system-ui, sans-serif;
+  /* ── TYPOGRAPHY ── */
+  --font-sans:    'Inter', system-ui, sans-serif;
+  --font-serif:   'Playfair Display', 'Georgia', ui-serif, serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  --font-display: 'Playfair Display', 'Georgia', ui-serif, serif;
 
-  /* Motion */
-  --ease-film: cubic-bezier(0.25, 0.10, 0.10, 1.00);
-  --ease-out:  cubic-bezier(0.16, 1, 0.30, 1);
-  --ease-in:   cubic-bezier(0.70, 0, 0.84, 0);
-
-  /* Radius — near zero. Film is architectural. */
-  --r0: 0px;
-  --r1: 2px;
-  --r2: 3px;
-  --r3: 4px;
+  /* ── SPACING (tighter, more editorial) ── */
+  --space-px:  1px;
+  --space-0:   0px;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+  --space-24:  96px;
+  --space-32:  128px;
 }
 
-/* ── Reset & Base ─────────────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* ─────────────────────────────────────────────────────────────
+   BASE STYLES
+   ───────────────────────────────────────────────────────────── */
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    border-color: rgba(245, 240, 232, 0.07);
+  }
+
+  html {
+    background-color: #0A0A0A;
+    color: #F5F0E8;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+    text-rendering: optimizeLegibility;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(201, 169, 110, 0.2) transparent;
+  }
+
+  html::-webkit-scrollbar { width: 6px; }
+  html::-webkit-scrollbar-track { background: transparent; }
+  html::-webkit-scrollbar-thumb {
+    background: rgba(201, 169, 110, 0.18);
+    border-radius: 0;
+  }
+  html::-webkit-scrollbar-thumb:hover {
+    background: rgba(201, 169, 110, 0.35);
+  }
+
+  body {
+    background-color: #0A0A0A;
+    color: #F5F0E8;
+    min-height: 100dvh;
+    position: relative;
+    /* Film grain texture */
+    background-image:
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    overscroll-behavior-y: none;
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(201, 169, 110, 0.25);
+    color: #F5F0E8;
+  }
+
+  /* Headlines — Playfair Display */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', 'Georgia', ui-serif, serif;
+    font-weight: 700;
+    color: #F5F0E8;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    color: #C2BDB4;
+    line-height: 1.65;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  input, textarea, select {
+    background: var(--color-ink-700);
+    border: 1px solid rgba(245, 240, 232, 0.10);
+    color: #F5F0E8;
+    font-family: inherit;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: #55554E;
+  }
 }
 
-html {
-  background: var(--bg);
-  color: var(--film);
-  font-family: var(--font-ui);
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'kern' 1, 'liga' 1;
-  text-rendering: optimizeLegibility;
-  overflow-x: hidden;
-  /* Custom scrollbar */
-  scrollbar-width: thin;
-  scrollbar-color: var(--m4) transparent;
+/* ─────────────────────────────────────────────────────────────
+   CINEMATIC UTILITIES
+   ───────────────────────────────────────────────────────────── */
+
+@layer utilities {
+
+  /* ── Film Grain (variable intensity) ── */
+  .grain-soft {
+    position: relative;
+    isolation: isolate;
+  }
+  .grain-soft::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+  }
+
+  /* ── Vignette ── */
+  .vignette {
+    position: relative;
+  }
+  .vignette::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(6,6,6,0.8) 100%);
+  }
+
+  /* ── Typography Utilities ── */
+  .text-display {
+    font-family: 'Playfair Display', 'Georgia', ui-serif, serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .text-label {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #88887E;
+  }
+
+  .text-label-gold {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #C9A96E;
+  }
+
+  .text-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Gold text effect ── */
+  .text-gold { color: #C9A96E; }
+  .text-gold-light { color: #E8D5B0; }
+  .text-film { color: #F5F0E8; }
+
+  /* ── Glow — Very restrained, warm only ── */
+  .glow-gold {
+    text-shadow: 0 0 40px rgba(201, 169, 110, 0.3);
+  }
+
+  /* ── Border utilities ── */
+  .border-subtle { border-color: rgba(245, 240, 232, 0.06); }
+  .border-film   { border-color: rgba(245, 240, 232, 0.10); }
+  .border-strong { border-color: rgba(245, 240, 232, 0.18); }
+  .border-gold   { border-color: rgba(201, 169, 110, 0.30); }
+
+  /* ── Surface utilities ── */
+  .surface-0   { background-color: #060606; }
+  .surface-1   { background-color: #0A0A0A; }
+  .surface-2   { background-color: #111111; }
+  .surface-3   { background-color: #181818; }
+  .surface-4   { background-color: #222222; }
+
+  /* ── Quality Badge Colors ── */
+  .badge-remux  { color: #6B9E84; background: rgba(107,158,132,0.08); border-color: rgba(107,158,132,0.25); }
+  .badge-atmos  { color: #8E7FA8; background: rgba(142,127,168,0.08); border-color: rgba(142,127,168,0.25); }
+  .badge-4k     { color: #C9A96E; background: rgba(201,169,110,0.08); border-color: rgba(201,169,110,0.25); }
+  .badge-hdr    { color: #B87B5E; background: rgba(184,123,94,0.08);  border-color: rgba(184,123,94,0.25);  }
+  .badge-dv     { color: #6B8EA8; background: rgba(107,142,168,0.08); border-color: rgba(107,142,168,0.25); }
+  .badge-imax   { color: #7A9E9E; background: rgba(122,158,158,0.08); border-color: rgba(122,158,158,0.25); }
+  .badge-webdl  { color: #6B6B6B; background: rgba(107,107,107,0.08); border-color: rgba(107,107,107,0.25); }
+
+  /* ── Scrollbar hidden ── */
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* ── Divider line (like film strip perforation) ── */
+  .divider-film {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #55554E;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .divider-film::before, .divider-film::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(245, 240, 232, 0.07);
+  }
+
+  /* ── Focus ring — Gold, architectural ── */
+  .focus-film:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px rgba(201, 169, 110, 0.6);
+  }
+
+  /* ── Hover link underline — filmic ── */
+  .hover-underline {
+    position: relative;
+  }
+  .hover-underline::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: #C9A96E;
+    transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .hover-underline:hover::after { width: 100%; }
+
+  /* ── Aspect ratios ── */
+  .aspect-poster    { aspect-ratio: 2/3; }
+  .aspect-backdrop  { aspect-ratio: 16/9; }
+  .aspect-film      { aspect-ratio: 2.39/1; }
+
+  /* ── Smooth text balance ── */
+  .text-balance  { text-wrap: balance; }
+  .text-pretty   { text-wrap: pretty; }
+
+  /* ── Number / Index style ── */
+  .index-number {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.65rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    color: #3D3D3D;
+  }
+
+  /* ── Marquee animation ── */
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .animate-marquee { animation: marquee 30s linear infinite; }
+
+  /* ── Fade up ── */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-up {
+    animation: fade-up 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  /* ── Slow reveal ── */
+  @keyframes reveal {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .animate-reveal {
+    animation: reveal 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  /* ── Stagger delays ── */
+  .delay-100  { animation-delay: 100ms; }
+  .delay-200  { animation-delay: 200ms; }
+  .delay-300  { animation-delay: 300ms; }
+  .delay-500  { animation-delay: 500ms; }
+  .delay-700  { animation-delay: 700ms; }
+  .delay-1000 { animation-delay: 1000ms; }
+
+  /* ── Cursor ── */
+  .cursor-cinema { cursor: none; }
+
+  /* ── Line clamp ── */
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* ── TV Focus — Gold outline, no scale ── */
+  .tv-focus {
+    outline: none;
+    transition: box-shadow 0.2s, opacity 0.2s;
+  }
+  .tv-focus:focus-visible {
+    box-shadow: 0 0 0 1px rgba(201, 169, 110, 0.5), inset 0 0 0 1px rgba(201, 169, 110, 0.15);
+  }
+  .tv-focus:hover {
+    opacity: 0.88;
+  }
+
+  /* ── Image treatment — film-like desaturation ── */
+  .img-cinema {
+    filter: saturate(0.85) contrast(1.05);
+    transition: filter 0.6s ease;
+  }
+  .img-cinema:hover {
+    filter: saturate(1) contrast(1.02);
+  }
+
+  /* ── Ticket/stamp aesthetic ── */
+  .ticket-border {
+    border: 1px solid rgba(245, 240, 232, 0.10);
+    position: relative;
+  }
+  .ticket-border::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    border: 1px solid rgba(201, 169, 110, 0.08);
+    pointer-events: none;
+  }
 }
 
-html::-webkit-scrollbar { width: 4px; }
-html::-webkit-scrollbar-track { background: transparent; }
-html::-webkit-scrollbar-thumb {
-  background: var(--m4);
-  border-radius: 0;
+/* ─────────────────────────────────────────────────────────────
+   GLOBAL CINEMATIC LAYOUT
+   ───────────────────────────────────────────────────────────── */
+
+/* Fixed film-strip notch on sidebar */
+.sidebar-notch {
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(201, 169, 110, 0.4) 30%,
+    rgba(201, 169, 110, 0.4) 70%,
+    transparent 100%
+  );
 }
 
-body {
-  background: var(--bg);
-  color: var(--film);
-  min-height: 100dvh;
-  position: relative;
-  overflow-x: hidden;
-}
-
-/* Film grain — applied to body */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 9999;
-  opacity: 1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeBlend in='SourceGraphic' mode='multiply'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23g)' opacity='0.035'/%3E%3C/svg%3E");
-  background-size: 200px 200px;
-  mix-blend-mode: overlay;
-}
-
-/* Selection */
-::selection {
-  background: var(--gold-α30);
-  color: var(--film);
-}
-
-/* Typography base */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
-  font-weight: 400;
-  color: var(--film);
-  line-height: 1.08;
-  letter-spacing: -0.01em;
-}
-
-/* ── Utility Classes ──────────────────────────────────────────── */
-
-/* Font families */
-.font-display { font-family: var(--font-display); }
-.font-mono    { font-family: var(--font-mono); }
-.font-ui      { font-family: var(--font-ui); }
-
-/* Label — the workhorse of cinema metadata */
-.label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--m3);
-  line-height: 1.4;
-}
-
-.label-gold {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--gold);
-  line-height: 1.4;
-}
-
-.label-md {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--m2);
-  line-height: 1.4;
-}
-
-/* Surfaces */
-.bg-void  { background: var(--void); }
-.bg-s1    { background: var(--s1); }
-.bg-s2    { background: var(--s2); }
-.bg-s3    { background: var(--s3); }
-.bg-s4    { background: var(--s4); }
-
-/* Gold text */
-.text-gold    { color: var(--gold); }
-.text-gold-hi { color: var(--gold-hi); }
-.text-film    { color: var(--film); }
-.text-m1      { color: var(--m1); }
-.text-m2      { color: var(--m2); }
-.text-m3      { color: var(--m3); }
-.text-m4      { color: var(--m4); }
-
-/* Borders */
-.border-base { border-color: var(--border); }
-.border-md   { border-color: var(--border-md); }
-.border-hi   { border-color: var(--border-hi); }
-.border-gold { border-color: var(--gold-α30); }
-
-/* Quality badge base */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border: 1px solid;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  border-radius: var(--r1);
-  line-height: 1.6;
-}
-
-.badge-4k     { color: var(--gold);   background: var(--gold-α08); border-color: var(--gold-α30); }
-.badge-remux  { color: var(--sage);   background: rgba(94,136,114,0.08); border-color: rgba(94,136,114,0.28); }
-.badge-hdr    { color: var(--terra);  background: rgba(158,104,88,0.08);  border-color: rgba(158,104,88,0.28); }
-.badge-atmos  { color: var(--violet); background: rgba(126,110,154,0.08); border-color: rgba(126,110,154,0.28); }
-.badge-imax   { color: var(--teal);   background: rgba(94,136,136,0.08);  border-color: rgba(94,136,136,0.28); }
-.badge-webdl  { color: var(--slate);  background: rgba(96,120,152,0.08);  border-color: rgba(96,120,152,0.28); }
-.badge-dv     { color: var(--slate);  background: rgba(96,120,152,0.08);  border-color: rgba(96,120,152,0.28); }
-
-/* Aspect ratios */
-.ratio-poster   { aspect-ratio: 2 / 3; }
-.ratio-wide     { aspect-ratio: 16 / 9; }
-.ratio-cinema   { aspect-ratio: 2.39 / 1; }
-.ratio-square   { aspect-ratio: 1 / 1; }
-.ratio-tall     { aspect-ratio: 9 / 16; }
-
-/* Image treatment */
-.img-film {
-  filter: saturate(0.78) contrast(1.06) brightness(0.97);
-  transition: filter 0.8s var(--ease-film);
-}
-.img-film:hover, .group:hover .img-film {
-  filter: saturate(0.95) contrast(1.03) brightness(1.00);
-}
-
-/* Interaction */
-.interact {
-  transition: opacity 0.3s var(--ease-film), border-color 0.3s;
-  cursor: pointer;
-}
-.interact:hover { opacity: 0.82; }
-.interact:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 1px var(--gold-α30), inset 0 0 0 1px var(--gold-α15);
-}
-
-/* Scrollbar hidden */
-.no-scroll::-webkit-scrollbar { display: none; }
-.no-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* Divider */
-.rule {
-  height: 1px;
-  background: var(--border);
-}
-.rule-gold {
-  height: 1px;
-  background: linear-gradient(to right, var(--gold-α30), transparent);
-}
-
-/* Section title pattern */
-.section-head {
+/* Section heading style — editorial */
+.section-heading {
   display: flex;
   align-items: baseline;
-  gap: 20px;
-  padding-bottom: 28px;
-  border-bottom: 1px solid var(--border);
+  gap: 16px;
+}
+.section-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(245, 240, 232, 0.06);
 }
 
-/* Film strip perforation pattern */
-.perforation-v {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* Progress bar — film-like */
+.progress-film {
+  height: 2px;
+  background: rgba(245, 240, 232, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+.progress-film-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #C9A96E;
+  transition: width 0.6s ease;
+}
+
+/* Quality score ring */
+.quality-ring {
+  display: inline-flex;
   align-items: center;
-}
-.perforation-v span {
-  display: block;
-  width: 8px;
-  height: 6px;
-  border: 1px solid var(--m5);
-  border-radius: 1px;
-}
-
-/* Overflow scroll horizontal */
-.scroll-x {
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(245, 240, 232, 0.10);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #C9A96E;
 }
 
-/* Marquee keyframe */
-@keyframes marquee-left {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+/* Interactive card — no scale, just opacity + border shift */
+.card-interactive {
+  border: 1px solid rgba(245, 240, 232, 0.07);
+  transition: border-color 0.3s ease, background-color 0.3s ease;
+  cursor: pointer;
 }
-.marquee-track { animation: marquee-left 40s linear infinite; }
-.marquee-track:hover { animation-play-state: paused; }
-
-/* Fade up */
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
+.card-interactive:hover {
+  border-color: rgba(245, 240, 232, 0.14);
+  background-color: rgba(245, 240, 232, 0.02);
 }
-.anim-fade-up {
-  opacity: 0;
-  animation: fade-up 0.9s var(--ease-out) forwards;
-}
-.delay-0   { animation-delay: 0ms; }
-.delay-1   { animation-delay: 120ms; }
-.delay-2   { animation-delay: 240ms; }
-.delay-3   { animation-delay: 360ms; }
-.delay-4   { animation-delay: 480ms; }
-.delay-5   { animation-delay: 600ms; }
-
-/* Slow fade */
-@keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-.anim-fade {
-  opacity: 0;
-  animation: fade-in 1.4s var(--ease-out) forwards;
-}
-
-/* Poster reveal (from bottom) */
-@keyframes poster-reveal {
-  from { opacity: 0; transform: translateY(32px) rotate(2deg); }
-  to   { opacity: 1; transform: translateY(0px) rotate(2deg); }
-}
-.anim-poster-reveal {
-  opacity: 0;
-  animation: poster-reveal 1.1s var(--ease-out) 0.4s forwards;
-}
-
-/* TV focus */
-[data-tv-focusable] {
+.card-interactive:focus-visible {
   outline: none;
-  transition: box-shadow 0.2s, opacity 0.2s;
+  border-color: rgba(201, 169, 110, 0.4);
 }
-[data-tv-focusable]:focus-visible {
-  box-shadow: 0 0 0 1px var(--gold), 0 0 0 3px var(--gold-α15);
+
+/* Poster card hover */
+.poster-card {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.poster-card img {
+  transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              filter 0.6s ease;
+  filter: saturate(0.85);
+}
+.poster-card:hover img {
+  transform: scale(1.03);
+  filter: saturate(1);
+}
+.poster-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(6, 6, 6, 0.95) 0%,
+    rgba(6, 6, 6, 0.4) 40%,
+    transparent 70%
+  );
 }

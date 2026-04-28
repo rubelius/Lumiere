@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
-
+import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence, useAnimationFrame, useMotionValue, useTransform, useSpring } from 'framer-motion'
 /* ─────────────────────────────────────────────────────────────
    MARQUEE — Horizontal scrolling film titles.
    Like a cinema marquee sign or end credits crawl.
@@ -18,11 +18,31 @@ const MARQUEE_ITEMS = [
   'Aguirre', 'Sans Soleil', 'The Tree of Life',
 ]
 
+
+
 export function CinemaMarquee() {
-  const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS] // duplicate for seamless loop
+  const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS]
+
+  const baseX = useMotionValue(0)
+  const x = useTransform(baseX, (v) => `${v}%`)
+  const directionFactor = useRef<number>(-1)
+  const isHovered = useRef(false)
+
+  useAnimationFrame((t, delta) => {
+    // MELHORIA 3: Pausa suave no hover
+    if (isHovered.current) return
+    
+    // Deixei o letreiro significativamente mais lento (0.8 em vez de 4)
+    let moveBy = directionFactor.current * (delta / 1000) * 0.8 
+    if (baseX.get() <= -50) baseX.set(0)
+    baseX.set(baseX.get() + moveBy)
+  })
+
 
   return (
     <div
+      onMouseEnter={() => (isHovered.current = true)}
+      onMouseLeave={() => (isHovered.current = false)}
       style={{
         borderTop: '1px solid rgba(237,232,220,0.05)',
         borderBottom: '1px solid rgba(237,232,220,0.05)',
@@ -47,9 +67,15 @@ export function CinemaMarquee() {
         pointerEvents: 'none',
       }} />
 
-      <div
+      <motion.div
         className="marquee-track"
-        style={{ display: 'flex', gap: 0, whiteSpace: 'nowrap', width: 'max-content' }}
+        style={{ 
+          x: x, // <-- AQUI! Isso liga o cálculo matemático ao elemento visual
+          display: 'flex', 
+          gap: 0, 
+          whiteSpace: 'nowrap', 
+          width: 'max-content' 
+        }}
       >
         {items.map((film, i) => (
           <span
@@ -86,7 +112,7 @@ export function CinemaMarquee() {
             />
           </span>
         ))}
-      </div>
+      </motion.div>
     </div>
   )
 }
@@ -113,7 +139,9 @@ export interface FilmEntry {
   runtime: string
   qualities: string[]
   posterSrc: string
+  backgroundSrc: string
   genre?: string
+  synopsis: string
 }
 
 interface FilmProgrammeProps {
@@ -154,269 +182,252 @@ function QualityDots({ qualities }: { qualities: string[] }) {
   )
 }
 
-function FilmRow({ film, index }: { film: FilmEntry; index: number }) {
-  const [hovered, setHovered] = useState(false)
-  const [imagePos, setImagePos] = useState({ x: 0, y: 0 })
+const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    setImagePos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    })
-  }
-
+function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, router }: any) {
   return (
-    <Link
-      href={`/movie/${film.id}`}
-      data-tv-focusable
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onMouseMove={handleMouseMove}
+    <div
+      onClick={() => {
+        if (!isExpanded) {
+          onClick(film.id);
+          // A MÁGICA DA NAVEGAÇÃO ATRASADA:
+          // Espera a animação de expansão terminar (800ms) antes de ir pra página do filme
+          setTimeout(() => {
+            router.push(`/movie/${film.id}`);
+          }, 800); 
+        }
+      }}
+      onMouseEnter={() => !isExpanded && onHover(film.id)}
+      onMouseLeave={() => !isExpanded && onHover(null)}
       style={{
-        position: 'relative',
-        display: 'grid',
-        gridTemplateColumns: '52px 1fr 200px 64px 64px 120px',
-        alignItems: 'center',
-        gap: 0,
-        padding: '18px 0',
-        borderBottom: '1px solid rgba(237,232,220,0.04)',
-        textDecoration: 'none',
-        cursor: 'pointer',
-        background: hovered ? 'rgba(237,232,220,0.018)' : 'transparent',
-        transition: 'background 0.3s',
+        display: 'block', position: 'relative', 
+        zIndex: isHovered || isExpanded ? 10 : 1,
+        cursor: isExpanded ? 'default' : 'crosshair'
       }}
     >
-      {/* Index number */}
-      <span
+      <motion.div
+        layout
+        initial={false}
+        animate={{
+          height: isExpanded ? '100vh' : isHovered ? 300 : 70, 
+          opacity: isDimmed ? 0.15 : 1, 
+          backgroundColor: isHovered ? 'rgba(237,232,220,0.01)' : 'rgba(237,232,220,0)',
+        }}
+        transition={{ duration: 0.85, ease: FINE_ART_EASE }}
         style={{
-          fontFamily: "'DM Mono', monospace",
-          fontSize: '10px',
-          letterSpacing: '0.08em',
-          color: hovered ? '#BF8F3C' : '#1C1B18',
-          transition: 'color 0.3s',
-          userSelect: 'none',
-          paddingRight: 16,
-          textAlign: 'right',
+          borderBottom: '1px solid rgba(237,232,220,0.03)',
+          overflow: 'hidden',
+          position: 'relative' 
         }}
       >
-        {film.number}
-      </span>
 
-      {/* Title */}
-      <div style={{ padding: '0 16px 0 0' }}>
-        <div
+        {/* ── 0. IMAGEM DE FUNDO (O retorno da animação charmosa) ── */}
+        <motion.div
+          // ATENÇÃO: Removi a prop 'layout' daqui! É isso que tira o "engasgo".
+          initial={false}
+          animate={{ 
+            opacity: isExpanded ? 1 : isHovered ? 0.10 : 0, 
+            // Voltamos para a expansão original da largura que você gostou!
+            width: isExpanded ? '100%' : isHovered ? '50%' : '0%',
+          }}
+          transition={{ duration: 0.85, ease: FINE_ART_EASE }}
           style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: '1.18rem',
-            fontWeight: 400,
-            color: hovered ? '#EDE8DC' : '#B4AFA4',
-            lineHeight: 1.2,
-            letterSpacing: '-0.01em',
-            transition: 'color 0.3s',
-            marginBottom: film.originalTitle ? 2 : 0,
+            position: 'absolute', top: 0, bottom: 0, right: 0,
+            overflow: 'hidden', zIndex: -1,
+            filter: 'grayscale(100%)', 
+            // Avisa a placa de vídeo para focar nisso
+            willChange: 'width, opacity' 
+          }}
+        >
+          {/* O gradiente escuro que protege a leitura do texto */}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #080806 0%, transparent 100%)', zIndex: 1 }} />
+          
+          {/* A lógica purista do fundo vazio se não houver imagem */}
+          {film.backgroundSrc ? (
+            <img 
+              src={film.backgroundSrc} 
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              alt=""
+            />
+          ) : null}
+        </motion.div>
+
+        {/* ── 1. NÚMERO DO ÍNDICE ── */}
+        <motion.div
+          animate={{ color: isHovered ? '#BF8F3C' : '#565450' }}
+          transition={{ duration: 0.8 }}
+          style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}
+        >
+          {film.number}
+        </motion.div>
+
+        {/* ── 2. O PÔSTER (Revelação Óptica por Desfoque) ── */}
+        <AnimatePresence>
+          {isHovered && !isExpanded && ( // Esconde o mini-poster se expandir
+            <motion.div
+              initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }}
+              animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
+              exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }}
+              transition={{ duration: 0.85, ease: FINE_ART_EASE }}
+              style={{
+                position: 'absolute', left: 90, top: 35, width: 110, height: 160, 
+              }}
+            >
+              <img 
+                src={film.posterSrc} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(25%) contrast(1.1)' }} 
+                alt=""
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── 3. TÍTULO (Escala Vetorial) ── */}
+        <motion.h3
+          animate={{
+            scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1, // Cresce ainda mais no clique
+            color: isExpanded ? '#FFFFFF' : isHovered ? '#EDE8DC' : '#8C8880',
+            y: isExpanded ? '30vh' : isHovered ? 12 : 0, // Desce para o meio da tela no clique
+            x: isExpanded ? '10vw' : 0
+          }}
+          transition={{ duration: 0.85, ease: FINE_ART_EASE }}
+          style={{
+            position: 'absolute', left: 240, top: 22, 
+            fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', fontWeight: 400,
+            margin: 0, lineHeight: 1, letterSpacing: '-0.01em',
+            transformOrigin: 'left top',
+            willChange: 'transform, color',
+            zIndex: 10
           }}
         >
           {film.title}
-        </div>
-        {film.originalTitle && film.originalTitle !== film.title && (
-          <div
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: '9px',
-              letterSpacing: '0.1em',
-              color: '#302E2A',
-              textTransform: 'uppercase',
-            }}
-          >
-            {film.originalTitle}
-          </div>
-        )}
-      </div>
+        </motion.h3>
 
-      {/* Director */}
-      <span
-        style={{
-          fontFamily: "'DM Mono', monospace",
-          fontSize: '10px',
-          letterSpacing: '0.12em',
-          color: hovered ? '#8C8880' : '#565450',
-          textTransform: 'uppercase',
-          transition: 'color 0.3s',
-          textAlign: 'left',
-        }}
-      >
-        {film.director}
-      </span>
+        {/* ── 4. A SINOPSE EDITORIAL ── */}
+        <AnimatePresence>
+          {isHovered && !isExpanded && ( // Esconde a sinopse se expandir
+            <div style={{ position: 'absolute', left: 240, top: 100, display: 'flex', gap: 24, maxWidth: 1120 }}>
+              
+              {/* A Linha Dourada */}
+              <motion.div
+                initial={{ scaleY: 0 }}
+                animate={{ scaleY: 1 }}
+                exit={{ scaleY: 0 }}
+                transition={{ duration: 0.9, delay: 0.1, ease: FINE_ART_EASE }}
+                style={{ width: 1, backgroundColor: 'rgba(191,143,60,0.3)', transformOrigin: 'top' }}
+              />
 
-      {/* Year */}
-      <span
-        style={{
-          fontFamily: "'DM Mono', monospace",
-          fontSize: '10px',
-          letterSpacing: '0.10em',
-          color: '#302E2A',
-          textAlign: 'center',
-        }}
-      >
-        {film.year}
-      </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden', paddingBottom: 10 }}>
+                <div style={{ overflow: 'hidden' }}>
+                  <motion.div
+                    initial={{ y: '100%', filter: 'blur(4px)' }}
+                    animate={{ y: '0%', filter: 'blur(0px)' }}
+                    exit={{ y: '100%', filter: 'blur(4px)' }}
+                    transition={{ duration: 0.8, delay: 0.15, ease: FINE_ART_EASE }}
+                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#7A5A20', textTransform: 'uppercase' }}
+                  >
+                    {film.director} // {film.year} // {film.genre}
+                  </motion.div>
+                </div>
 
-      {/* Runtime */}
-      <span
-        style={{
-          fontFamily: "'DM Mono', monospace",
-          fontSize: '10px',
-          letterSpacing: '0.08em',
-          color: '#302E2A',
-          textAlign: 'center',
-        }}
-      >
-        {film.runtime}
-      </span>
+                <div style={{ overflow: 'hidden' }}>
+                  <motion.p
+                    initial={{ y: '100%', filter: 'blur(8px)', opacity: 0 }}
+                    animate={{ y: '0%', filter: 'blur(0px)', opacity: 1 }}
+                    exit={{ y: '50%', filter: 'blur(4px)', opacity: 0 }}
+                    transition={{ duration: 0.9, delay: 0.2, ease: FINE_ART_EASE }}
+                    style={{ 
+                      fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', lineHeight: 1.6, 
+                      color: 'rgba(237,232,220,0.55)', fontStyle: 'italic', margin: 0 
+                    }}
+                  >
+                    {film.synopsis}
+                  </motion.p>
+                </div>
+              </div>
+            </div>
+          )}
+        </AnimatePresence>
 
-      {/* Quality indicators */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <QualityDots qualities={film.qualities} />
-      </div>
+        {/* ── 5. DADOS DA TABELA DE REPOUSO ── */}
+        <AnimatePresence>
+          {!isHovered && !isExpanded && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              style={{ position: 'absolute', right: 40, top: 28, display: 'flex', gap: 40, color: '#565450', fontFamily: "'DM Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+            >
+              <span>{film.director}</span>
+              <span>{film.year}</span>
+              <span style={{ width: 80, textAlign: 'right' }}>{film.runtime}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* Hover: floating poster thumbnail */}
-      <AnimatePresence>
-        {hovered && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.88 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.92 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.30, 1] }}
-            style={{
-              position: 'fixed',
-              top: imagePos.y - 140,
-              left: 'calc(52px + 120px + 24px)', // always on the left side
-              width: 100,
-              height: 150,
-              zIndex: 999,
-              pointerEvents: 'none',
-              boxShadow: '0 24px 60px rgba(4,4,2,0.8)',
-              overflow: 'hidden',
-              borderRadius: 1,
-            }}
-          >
-            <img
-              src={film.posterSrc}
-              alt=""
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                filter: 'saturate(0.80)',
-                display: 'block',
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </Link>
+      </motion.div>
+    </div>
   )
 }
 
-export function FilmProgramme({ title, subtitle, films }: FilmProgrammeProps) {
+export function FilmProgramme({ title, subtitle, films }: any) {
+  const [hoveredId, setHoveredId] = useState<string | number | null>(null)
+  const [expandedId, setExpandedId] = useState<string | number | null>(null)
+  
+  // Pegamos o router do Next.js para fazer a navegação manual
+  const router = useRouter() 
+
   return (
     <section style={{ padding: '80px 72px' }}>
-
-      {/* Section header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          marginBottom: 48,
-          paddingBottom: 28,
-          borderBottom: '1px solid rgba(237,232,220,0.05)',
-        }}
-      >
+      
+      {/* CABEÇALHO */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 48, paddingBottom: 28, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
         <div>
           {subtitle && (
-            <div className="label-gold" style={{ marginBottom: 10 }}>{subtitle}</div>
+            <div style={{ overflow: 'hidden', marginBottom: 10 }}>
+              <motion.div initial={{ y: '100%' }} whileInView={{ y: '0%' }} viewport={{ once: true }} transition={{ duration: 1, ease: FINE_ART_EASE }} className="label-gold" style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#BF8F3C' }}>
+                {subtitle}
+              </motion.div>
+            </div>
           )}
-          <h2
-            style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 'clamp(2rem, 3vw, 2.8rem)',
-              fontWeight: 400,
-              color: '#EDE8DC',
-              lineHeight: 1,
-              letterSpacing: '-0.01em',
-            }}
-          >
-            {title}
-          </h2>
+          {/* Adicionamos paddingBottom para a perna do 'g' não bater no fundo da caixa */}
+          <div style={{ overflow: 'hidden', paddingBottom: 16 }}> 
+            <motion.h2
+              initial={{ y: '100%' }} whileInView={{ y: '0%' }} viewport={{ once: true }} transition={{ duration: 1.2, ease: FINE_ART_EASE }}
+              // Mudamos o lineHeight de 1 para 1.1 para dar respiro interno
+              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(2rem, 3vw, 2.8rem)', fontWeight: 400, color: '#EDE8DC', lineHeight: 1.1, letterSpacing: '-0.01em', margin: 0 }}
+            >
+              {title}
+            </motion.h2>
+          </div>
         </div>
-        <Link
-          href="/library"
-          style={{
-            fontFamily: "'DM Mono', monospace",
-            fontSize: '10px',
-            letterSpacing: '0.16em',
-            textTransform: 'uppercase',
-            color: '#565450',
-            textDecoration: 'none',
-            borderBottom: '1px solid rgba(237,232,220,0.08)',
-            paddingBottom: 2,
-            transition: 'color 0.2s, border-color 0.2s',
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLElement
-            el.style.color = '#BF8F3C'
-            el.style.borderColor = 'rgba(191,143,60,0.3)'
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLElement
-            el.style.color = '#565450'
-            el.style.borderColor = 'rgba(237,232,220,0.08)'
-          }}
-        >
-          Arquivo completo →
-        </Link>
+        
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 1, delay: 0.4 }}>
+          <Link href="/library" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#565450', textDecoration: 'none', borderBottom: '1px solid rgba(237,232,220,0.08)', paddingBottom: 2, transition: 'color 0.2s, border-color 0.2s' }}>
+            Arquivo completo →
+          </Link>
+        </motion.div>
       </div>
 
-      {/* Column headers */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '52px 1fr 200px 64px 64px 120px',
-          gap: 0,
-          padding: '0 0 16px',
-          marginBottom: 4,
-        }}
-      >
-        {['#', 'Título', 'Realizador', 'Ano', 'Dur.', 'Qualidade'].map((h) => (
-          <span
-            key={h}
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: '9px',
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: '#1C1B18',
-              textAlign: h === '#' ? 'right' : h === 'Qualidade' ? 'right' : h === 'Ano' || h === 'Dur.' ? 'center' : 'left',
-              paddingRight: h === '#' ? 16 : 0,
-            }}
-          >
-            {h}
-          </span>
-        ))}
-      </div>
-
-      {/* Films */}
-      <div>
-        {films.map((film, i) => (
+      <div style={{ position: 'relative' }}>
+        {films.map((film: any, i: number) => (
           <motion.div
             key={film.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06, duration: 0.5, ease: [0.16, 1, 0.30, 1] }}
+            initial={{ opacity: 0, y: 12 }} 
+            whileInView={{ opacity: 1, y: 0 }} 
+            viewport={{ once: true, margin: "-5%" }} 
+            transition={{ delay: i * 0.08, duration: 0.8, ease: FINE_ART_EASE }}
           >
-            <FilmRow film={film} index={i} />
+            <FilmRow 
+              film={film} 
+              isHovered={hoveredId === film.id && expandedId === null}
+              isDimmed={(hoveredId !== null && hoveredId !== film.id) || (expandedId !== null && expandedId !== film.id)}
+              isExpanded={expandedId === film.id}
+              onHover={setHoveredId}
+              onClick={setExpandedId} 
+              router={router} // Passamos o router para o FilmRow poder navegar
+            />
           </motion.div>
         ))}
       </div>
