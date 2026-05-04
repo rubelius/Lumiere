@@ -153,7 +153,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         
         {/* Shimmer effect (primary button only by default) */}
         {withShimmer && !isLoading && (
-          <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/10 to-transparent" />
         )}
       </button>
     )
@@ -205,7 +205,7 @@ const MotionButton = React.forwardRef<HTMLButtonElement, MotionButtonProps>(
         </span>
         
         {withShimmer && !isLoading && (
-          <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-linear-to-r from-transparent via-white/10 to-transparent" />
         )}
       </motion.button>
     )

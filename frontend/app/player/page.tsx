@@ -1,18 +1,64 @@
 'use client';
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import { 
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, 
-  Maximize, Minimize, Settings2, Subtitles, Layers, 
-  ChevronLeft, MessageSquare, Info, SignalHigh, PlaySquare,
-  MoreHorizontal
+  Maximize, Minimize, Settings2, MessageSquare, Info, SignalHigh,
+  ChevronLeft, ArrowLeft
 } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
+
+const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
+
+
+
+// ── 1. DEFINIÇÃO DE VARIANTS (Coreografia de Vida) ──
+
+const panelVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { 
+    opacity: 1, 
+    transition: { 
+      duration: 0.6, 
+      ease: FINE_ART_EASE, 
+      staggerChildren: 0.08, 
+      delayChildren: 0.1 
+    } 
+  },
+  exit: { opacity: 0, transition: { duration: 0.4, ease: FINE_ART_EASE } }
+};
+
+const barVariants: Variants = {
+  hidden: { y: -20, opacity: 0 },
+  visible: { 
+    y: 0, opacity: 1, 
+    transition: { duration: 0.8, ease: FINE_ART_EASE, staggerChildren: 0.1 } 
+  },
+  exit: { y: -10, opacity: 0, transition: { duration: 0.4, ease: FINE_ART_EASE } }
+};
+
+const bottomVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: { 
+    y: 0, opacity: 1, 
+    transition: { duration: 0.8, ease: FINE_ART_EASE, staggerChildren: 0.1 } 
+  },
+  exit: { y: 10, opacity: 0, transition: { duration: 0.4, ease: FINE_ART_EASE } }
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 10, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { duration: 0.6, ease: FINE_ART_EASE } }
+};
+
+const settingsItemVariants: Variants = {
+  hidden: { x: -10, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.5, ease: FINE_ART_EASE } }
+};
+
 
 export default function Player() {
   const router = useRouter();
-  const [, setLocation] = usePathname();
   const [isPlaying, setIsPlaying] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [progress, setProgress] = useState(35);
@@ -21,7 +67,12 @@ export default function Player() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSubtitles, setShowSubtitles] = useState(false);
-  const [activeTab, setActiveTab] = useState("video"); // video, audio, subtitles
+  const [selectedQuality, setSelectedQuality] = useState("Original (4K HDR REMUX)");
+  const [selectedAudio, setSelectedAudio] = useState("English (TrueHD 7.1)");
+  const [selectedSubtitle, setSelectedSubtitle] = useState("Português (Brasil)");
+  
+  // Terminal Tabs (Substitui as "abas de iOS")
+  const [activeTab, setActiveTab] = useState<"video" | "audio" | "sub">("video"); 
   
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -33,7 +84,7 @@ export default function Player() {
       
       if (isPlaying) {
         controlsTimeoutRef.current = setTimeout(() => {
-          if (!showSettings && !showSubtitles) {
+          if (!showSettings) {
             setShowControls(false);
           }
         }, 3000);
@@ -45,7 +96,7 @@ export default function Player() {
       window.removeEventListener("mousemove", handleMouseMove);
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
-  }, [isPlaying, showSettings, showSubtitles]);
+  }, [isPlaying, showSettings]);
 
   const togglePlay = () => setIsPlaying(!isPlaying);
   const toggleMute = () => setIsMuted(!isMuted);
@@ -56,299 +107,424 @@ export default function Player() {
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
     if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
   const totalTime = 8580; // 2h 23m
   const currentTime = (progress / 100) * totalTime;
 
   return (
-    <div className={`fixed inset-0 bg-black text-white overflow-hidden ${!showControls && isPlaying ? 'cursor-none' : ''}`}>
-      {/* Fake Video Background */}
+    <div className={`fixed inset-0 bg-[#040402] text-[#EDE8DC] overflow-hidden ${!showControls && isPlaying ? 'cursor-none' : ''}`} style={{ fontFamily: "'DM Mono', monospace" }}>
+      
+      {/* Fake Video Background (Litográfico) */}
       <div className="absolute inset-0">
         <img 
-          src={"/images/hero-backdrop.png"} 
+          src={"/images/backgrounds/chefao.jpg"}
           alt="Movie" 
-          className={`w-full h-full object-cover transition-transform duration-[30s] ease-linear ${isPlaying ? 'scale-105' : 'scale-100'}`}
+          className="w-full h-full object-cover"
+          style={{
+            transform: isPlaying ? 'scale(1.02)' : 'scale(1)',
+            transition: 'transform 30s ease-linear',
+            filter: 'grayscale(30%) contrast(1.1) brightness(0.6)'
+          }}
         />
-        <div className="absolute inset-0 bg-black/40" /> {/* Subtle vignette */}
-        
-        {/* Film Grain Overlay */}
+        {/* Vignette mais dramática para as bordas e ruído */}
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at center, transparent 30%, rgba(4,4,2,0.8) 100%)' }} />
         <div className="absolute inset-0 bg-noise opacity-[0.04] mix-blend-overlay pointer-events-none" />
       </div>
 
-      {/* Network / Buffer Warning (Simulated) */}
+      {/* Network / Buffer Warning (Telemetria) */}
       {!isPlaying && progress === 0 && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-40">
-          <div className="w-16 h-16 rounded-full border-4 border-white/20 border-t-primary animate-spin" />
-          <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-2 text-sm font-mono">
-            <SignalHigh className="w-4 h-4 text-primary" />
-            Buffer: 86.4 GB (4K REMUX)
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-6 z-40">
+          <motion.div 
+            animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+            style={{ width: 40, height: 40, border: '1px solid rgba(237,232,220,0.1)', borderTop: '1px solid #BF8F3C', borderRadius: '50%' }} 
+          />
+          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: '#BF8F3C', textTransform: 'uppercase' }}>
+            AQUISIÇÃO DE STREAM... [86.4 GB]
           </div>
         </div>
       )}
 
-      {/* Top Bar */}
+      {/* TOP BAR (Identificação do Rolo de Filme com Cascata) */}
       <AnimatePresence>
         {showControls && (
           <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-0 left-0 right-0 p-8 flex items-start justify-between z-50 bg-linear-to-b from-black/80 via-black/40 to-transparent"
+            initial="hidden" animate="visible" exit="exit" variants={barVariants}
+            className="absolute top-0 left-0 right-0 p-12 flex items-start justify-between z-50"
+            style={{ background: 'linear-gradient(to bottom, rgba(4,4,2,0.9) 0%, transparent 100%)', display: 'flex', gap: 24 }}
           >
-            <div className="flex items-center gap-6">
-              <button 
-                onClick={() => router.push("/session")}
-                className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-md transition-colors"
+            {/* Bloco Esquerdo: Título e Retorno */}
+            <motion.div variants={itemVariants} className="flex items-center gap-8">
+              <motion.button 
+                onClick={() => router.back()}
+                whileHover={{ borderColor: '#BF8F3C', color: '#BF8F3C', scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EDE8DC', cursor: 'pointer' }}
               >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
+                <ArrowLeft style={{ width: 16, height: 16 }} />
+              </motion.button>
+              
               <div>
-                <h1 className="text-2xl font-serif font-bold text-white drop-shadow-lg">L'Aventura</h1>
-                <p className="text-white/70 text-sm flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-primary/20 border border-primary/30 text-primary text-xs font-bold tracking-wider">4K HDR</span>
-                  • 1960 • Michelangelo Antonioni
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="bg-black/50 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 flex items-center gap-3 text-sm">
-                <div className="flex items-center gap-1.5 text-primary">
-                  <SignalHigh className="w-4 h-4" />
-                  <span className="font-mono">145 Mbps</span>
+                <motion.h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', fontWeight: 400, margin: '0 0 8px 0', lineHeight: 1 }}>
+                  L'Avventura
+                </motion.h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '9px', letterSpacing: '0.15em', color: '#8C8880' }}>
+                  <span style={{ color: '#BF8F3C', border: '1px solid rgba(191,143,60,0.4)', padding: '2px 6px', background: 'rgba(191,143,60,0.1)' }}>4K HDR REMUX</span>
+                  <span>1960</span>
+                  <span>MICHELANGELO ANTONIONI</span>
                 </div>
-                <div className="w-px h-4 bg-white/20" />
-                <span className="text-white/70 font-mono">Direct Play</span>
               </div>
-              <button className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-md transition-colors">
-                <Info className="w-5 h-5" />
+            </motion.div>
+
+            {/* Bloco Direito: Telemetria de Rede */}
+            <motion.div variants={itemVariants} className="flex items-center gap-6">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 16px', border: '1px solid rgba(237,232,220,0.1)', background: 'rgba(4,4,2,0.6)', fontSize: '9px', letterSpacing: '0.1em' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#BF8F3C' }}>
+                  <SignalHigh style={{ width: 12, height: 12 }} /> 145 MBPS
+                </div>
+                <div style={{ width: 1, height: 12, backgroundColor: 'rgba(237,232,220,0.2)' }} />
+                <span style={{ color: '#8C8880' }}>DIRECT PLAY</span>
+              </div>
+              <button style={{ background: 'transparent', border: 'none', color: '#565450', cursor: 'pointer' }}>
+                <Info style={{ width: 16, height: 16 }} />
               </button>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main Controls (Bottom) */}
+      {/* MAIN CONTROLS (Mesa de Corte com Cascata) */}
       <AnimatePresence>
         {showControls && (
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-0 left-0 right-0 p-8 pt-32 bg-linear-to-t from-black/90 via-black/60 to-transparent z-50 flex flex-col gap-6"
+            initial="hidden" animate="visible" exit="exit" variants={bottomVariants}
+            className="absolute bottom-0 left-0 right-0 p-12 z-50 flex flex-col gap-8"
+            style={{ background: 'linear-gradient(to top, rgba(4,4,2,0.95) 0%, transparent 100%)' }}
           >
-            {/* Timeline */}
-            <div className="flex items-center gap-4 group">
-              <span className="text-sm font-mono text-white/70 w-16 text-right">{formatTime(currentTime)}</span>
+            {/* Timeline (Precision Scrubber com Shimmer Vivo) */}
+            <motion.div variants={itemVariants} className="flex items-center gap-6 group">
+              <span style={{ fontSize: '10px', letterSpacing: '0.1em', color: '#BF8F3C', width: 48, textAlign: 'right' }}>
+                {formatTime(currentTime)}
+              </span>
               
-              <div className="flex-1 h-2 relative cursor-pointer flex items-center" onClick={(e) => {
+              <div className="flex-1 relative cursor-pointer flex items-center" style={{ height: 24 }} onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const percent = ((e.clientX - rect.left) / rect.width) * 100;
                 setProgress(Math.max(0, Math.min(100, percent)));
               }}>
-                {/* Background track */}
-                <div className="absolute inset-0 bg-white/20 rounded-full overflow-hidden">
-                  {/* Buffer track */}
-                  <div className="absolute top-0 left-0 h-full bg-white/30" style={{ width: `${progress + 15}%` }} />
-                  {/* Progress track */}
-                  <div className="absolute top-0 left-0 h-full bg-primary" style={{ width: `${progress}%` }} />
+                {/* Linha de Base (1px) */}
+                <div style={{ position: 'absolute', top: 11, left: 0, right: 0, height: 1, backgroundColor: 'rgba(237,232,220,0.1)' }} />
+                
+                {/* Linha de Buffer com Shimmer Vivo */}
+                <div style={{ position: 'absolute', top: 11, left: 0, height: 1, backgroundColor: 'rgba(237,232,220,0.25)', width: `${progress + 15}%`, overflow: 'hidden' }}>
+                    <motion.div 
+                      animate={{ x: ['-100%', '300%'] }} transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+                      style={{ position: 'absolute', top: 0, left: 0, width: '30%', height: '100%', background: 'linear-gradient(90deg, transparent, rgba(237,232,220,0.4), transparent)' }}
+                    />
                 </div>
-                {/* Playhead thumb */}
-                <div 
-                  className="absolute w-4 h-4 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] scale-0 group-hover:scale-100 transition-transform -translate-x-1/2"
-                  style={{ left: `${progress}%` }}
+                
+                {/* Linha de Progresso (Dourada) */}
+                <div style={{ position: 'absolute', top: 11, left: 0, height: 1, backgroundColor: '#BF8F3C', width: `${progress}%` }} />
+                
+                {/* Playhead Marker (Cirúrgico e Pulsante) */}
+                <motion.div 
+                  animate={{ boxShadow: ['0 0 10px rgba(237,232,220,0.8)', '0 0 15px rgba(237,232,220,1)', '0 0 10px rgba(237,232,220,0.8)'] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  style={{ 
+                    position: 'absolute', top: 6, width: 2, height: 12, backgroundColor: '#EDE8DC', 
+                    left: `${progress}%`, transform: 'translateX(-50%)',
+                  }}
                 />
                 
-                {/* Chapters/Markers */}
-                <div className="absolute top-0 left-[25%] w-0.5 h-full bg-black/50" />
-                <div className="absolute top-0 left-[60%] w-0.5 h-full bg-black/50" />
+                {/* Marcadores de Capítulo (Marcas de Corte) */}
+                <div style={{ position: 'absolute', top: 8, left: '25%', width: 1, height: 8, backgroundColor: '#565450' }} />
+                <div style={{ position: 'absolute', top: 8, left: '60%', width: 1, height: 8, backgroundColor: '#565450' }} />
               </div>
               
-              <span className="text-sm font-mono text-white/70 w-16">{formatTime(totalTime)}</span>
-            </div>
+              <span style={{ fontSize: '10px', letterSpacing: '0.1em', color: '#565450', width: 48 }}>
+                {formatTime(totalTime)}
+              </span>
+            </motion.div>
 
-            {/* Controls Row */}
+            {/* Controls Row (Hardware Buttons com Cascata) */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <button onClick={togglePlay} className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform">
-                  {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
-                </button>
-                
-                <div className="flex items-center gap-4">
-                  <button className="text-white/70 hover:text-white transition-colors">
-                    <SkipBack className="w-6 h-6" />
+              
+              {/* Bloco Esquerdo: Transporte */}
+              <motion.div variants={itemVariants} className="flex items-center gap-10">
+                <div className="flex items-center gap-6">
+                  <button style={{ background: 'transparent', border: 'none', color: '#8C8880', cursor: 'pointer', transition: 'color 0.3s' }} onMouseEnter={e => e.currentTarget.style.color = '#EDE8DC'} onMouseLeave={e => e.currentTarget.style.color = '#8C8880'}>
+                    <SkipBack style={{ width: 16, height: 16 }} />
                   </button>
-                  <button className="text-white/70 hover:text-white transition-colors">
-                    <SkipForward className="w-6 h-6" />
+                  
+                  {/* Botão Play Gigante, Geométrico e com Feedback Físico */}
+                  <motion.button 
+                    onClick={togglePlay} 
+                    whileHover={{ backgroundColor: '#BF8F3C', color: '#040402', scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{ 
+                      width: 56, height: 56, border: '1px solid #BF8F3C', background: 'rgba(191,143,60,0.1)', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#BF8F3C', cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                      {isPlaying ? <Pause style={{ width: 20, height: 20 }} /> : <Play style={{ width: 20, height: 20, marginLeft: 4 }} />}
+                    </div>
+                  </motion.button>
+                  
+                  <button style={{ background: 'transparent', border: 'none', color: '#8C8880', cursor: 'pointer', transition: 'color 0.3s' }} onMouseEnter={e => e.currentTarget.style.color = '#EDE8DC'} onMouseLeave={e => e.currentTarget.style.color = '#8C8880'}>
+                    <SkipForward style={{ width: 16, height: 16 }} />
                   </button>
                 </div>
 
-                <div className="flex items-center gap-3 group ml-4">
-                  <button onClick={toggleMute} className="text-white/70 hover:text-white transition-colors">
-                    {isMuted || volume === 0 ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
-                  </button>
-                  <div className="w-0 group-hover:w-24 overflow-hidden transition-all duration-300 flex items-center">
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="100" 
-                      value={isMuted ? 0 : volume}
-                      onChange={(e) => {
-                        setVolume(parseInt(e.target.value));
-                        setIsMuted(false);
-                      }}
-                      className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
-                    />
+                {/* Bloco de Volume Estilo Mesa de Som (Fader Vertical) */}
+                <motion.div whileHover="hover" initial="rest" animate="rest" className="flex items-center gap-4 cursor-pointer">
+                  <motion.button 
+                    onClick={toggleMute} 
+                    variants={{ rest: { color: '#565450', scale: 1 }, hover: { color: '#EDE8DC', scale: 1.1 } }}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  >
+                    {isMuted || volume === 0 ? <VolumeX style={{ width: 14, height: 14 }} /> : <Volume2 style={{ width: 14, height: 14 }} />}
+                  </motion.button>
+                  
+                  {/* Slider de Volume Interativo */}
+                  <div style={{ width: 60, height: 24, display: 'flex', alignItems: 'center', position: 'relative' }}>
+                     {/* Linha de Base Fixa (1px) */}
+                     <div style={{ width: '100%', height: 1, backgroundColor: 'rgba(237,232,220,0.1)' }} />
+                     
+                     {/* Linha de Progresso (Dourada e Engrossa no hover) */}
+                     <motion.div 
+                       variants={{ rest: { height: 1 }, hover: { height: 2 } }}
+                       style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: `${isMuted ? 0 : volume}%`, backgroundColor: '#BF8F3C' }} 
+                     />
+                     
+                     {/* Pino de Ajuste: Linha Vertical */}
+                     <motion.div 
+                       variants={{ rest: { opacity: 0, scaleY: 0 }, hover: { opacity: 1, scaleY: 1 } }}
+                       transition={{ duration: 0.3 }}
+                       style={{ 
+                         position: 'absolute', left: `${isMuted ? 0 : volume}%`, top: 6, 
+                         width: 1, height: 12, backgroundColor: '#EDE8DC', 
+                         transform: 'translateX(-50%)', // Centraliza o pino
+                         boxShadow: '0 0 5px rgba(237,232,220,0.8)' 
+                       }}
+                     />
                   </div>
-                </div>
-              </div>
+                  <motion.span variants={{ rest: { color: '#565450' }, hover: { color: '#EDE8DC' } }} style={{ fontSize: '9px', width: 20, textAlign: 'left' }}>
+                    {isMuted ? '00' : volume.toString().padStart(2, '0')}
+                  </motion.span>
+                </motion.div>
+              </motion.div>
 
-              <div className="flex items-center gap-6">
-                {/* Party Mode indicator */}
-                <div className="flex items-center gap-2 bg-primary/20 border border-primary/30 rounded-full px-3 py-1.5">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-xs font-bold text-primary tracking-wider uppercase">Party Mode: 3</span>
-                </div>
-
-                <button 
-                  onClick={() => setShowSubtitles(!showSubtitles)}
-                  className={`text-white/70 hover:text-white transition-colors relative ${showSubtitles ? 'text-primary' : ''}`}
-                >
-                  <MessageSquare className="w-6 h-6" />
-                  {showSubtitles && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />}
-                </button>
+              {/* Bloco Direito: Ferramentas */}
+              <motion.div variants={itemVariants} className="flex items-center gap-8">
                 
-                <button 
-                  onClick={() => setShowSettings(!showSettings)}
-                  className={`text-white/70 hover:text-white transition-colors relative ${showSettings ? 'text-primary' : ''}`}
+                {/* Telemetria de Nó Cacheado (Real-Debrid) */}
+                <motion.div 
+                  whileHover={{ backgroundColor: 'rgba(191,143,60,0.1)', borderColor: 'rgba(191,143,60,0.5)', scale: 1.02 }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', border: '1px solid rgba(191,143,60,0.2)', fontSize: '8px', letterSpacing: '0.2em', color: '#BF8F3C', cursor: 'default' }}
                 >
-                  <Settings2 className="w-6 h-6" />
-                  {showSettings && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />}
-                </button>
+                  <motion.div animate={{ opacity: [1, 0, 1] }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} style={{ width: 4, height: 4, backgroundColor: '#BF8F3C' }} />
+                  RD CACHE // SECURE
+                </motion.div>
 
-                <button onClick={toggleFullscreen} className="text-white/70 hover:text-white transition-colors">
-                  {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
-                </button>
-              </div>
+                <div style={{ display: 'flex', gap: 24 }}>
+                  <motion.button 
+                    onClick={() => setShowSubtitles(!showSubtitles)}
+                    whileHover={{ scale: 1.15, color: showSubtitles ? '#BF8F3C' : '#EDE8DC', y: -2 }}
+                    whileTap={{ scale: 0.9 }}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: showSubtitles ? '#BF8F3C' : '#565450', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+                  >
+                    <MessageSquare style={{ width: 16, height: 16 }} />
+                    {showSubtitles && <div style={{ width: 2, height: 2, backgroundColor: '#BF8F3C' }} />}
+                  </motion.button>
+                  
+                  <motion.button 
+                    onClick={() => setShowSettings(!showSettings)}
+                    whileHover={{ scale: 1.15, color: showSettings ? '#BF8F3C' : '#EDE8DC', y: -2 }}
+                    whileTap={{ scale: 0.9 }}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: showSettings ? '#BF8F3C' : '#565450', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+                  >
+                    <Settings2 style={{ width: 16, height: 16 }} />
+                    {showSettings && <div style={{ width: 2, height: 2, backgroundColor: '#BF8F3C' }} />}
+                  </motion.button>
+
+                  <motion.button 
+                    onClick={toggleFullscreen}
+                    whileHover={{ scale: 1.15, color: '#EDE8DC', y: -2 }}
+                    whileTap={{ scale: 0.9 }}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8C8880' }}
+                  >
+                    {isFullscreen ? <Minimize style={{ width: 16, height: 16 }} /> : <Maximize style={{ width: 16, height: 16 }} />}
+                  </motion.button>
+                </div>
+              </motion.div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Settings Menu Panel */}
+      {/* PAINEL DE DIAGNÓSTICO (Agora Orquestrado com Cascata) */}
       <AnimatePresence>
         {showSettings && (
           <motion.div 
-            initial={{ opacity: 0, x: 20, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 20, scale: 0.95 }}
-            className="absolute bottom-32 right-8 w-80 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden z-50 shadow-2xl"
+            initial="hidden" animate="visible" exit="exit" variants={panelVariants}
+            className="absolute bottom-40 right-12 z-50"
+            style={{ width: 400, background: 'rgba(4,4,2,0.98)', border: '1px solid rgba(237,232,220,0.1)', padding: 32 }}
           >
-            <div className="flex p-2 gap-1 bg-white/5 border-b border-white/10">
-              {['video', 'audio', 'subtitles'].map(tab => (
+            {/* Navegação Interna (Tabs) */}
+            <motion.div variants={settingsItemVariants} style={{ display: 'flex', gap: 24, borderBottom: '1px solid rgba(237,232,220,0.05)', paddingBottom: 16, marginBottom: 24 }}>
+              {['video', 'audio', 'sub'].map(tab => (
                 <button 
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-2 text-xs font-bold tracking-wider uppercase rounded-lg transition-colors ${activeTab === tab ? 'bg-primary text-white' : 'text-white/50 hover:text-white hover:bg-white/5'}`}
+                  key={tab} onClick={() => setActiveTab(tab as any)}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab ? '#BF8F3C' : '#565450', padding: 0 }}
                 >
-                  {tab === 'video' && 'Vídeo'}
-                  {tab === 'audio' && 'Áudio'}
-                  {tab === 'subtitles' && 'Legendas'}
+                  [{tab}]
                 </button>
               ))}
-            </div>
+            </motion.div>
             
-            <div className="p-4 max-h-75 overflow-y-auto">
+            {/* Conteúdo Técnico (Com interatividade real) */}
+            <motion.div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 24, paddingRight: 10 }} className="scrollbar-terminal">
+              
               {activeTab === 'video' && (
-                <div className="space-y-2">
-                  <div className="text-xs text-primary font-bold mb-2 uppercase tracking-wider">Qualidade da Fonte</div>
-                  <button className="w-full flex items-center justify-between p-3 rounded-xl bg-white/10 text-sm border border-primary/30">
-                    <span className="font-medium">Original (4K HDR REMUX)</span>
-                    <span className="text-primary font-mono">145 Mbps</span>
-                  </button>
-                  <button className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 text-sm text-white/70 transition-colors">
-                    <span>1080p (Transcode)</span>
-                    <span className="font-mono">20 Mbps</span>
-                  </button>
-                  <button className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 text-sm text-white/70 transition-colors">
-                    <span>720p (Transcode)</span>
-                    <span className="font-mono">8 Mbps</span>
-                  </button>
-                  
-                  <div className="h-px bg-white/10 my-4" />
-                  <div className="text-xs text-white/50 font-bold mb-2 uppercase tracking-wider">Processamento</div>
-                  <label className="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg cursor-pointer">
-                    <span className="text-sm text-white/90">HDR Tone Mapping</span>
-                    <div className="w-8 h-4 bg-primary rounded-full relative">
-                      <div className="absolute right-0.5 top-0.5 w-3 h-3 bg-white rounded-full" />
+                <>
+                  <motion.div variants={settingsItemVariants}>
+                    <div style={{ fontSize: '8px', color: '#565450', letterSpacing: '0.2em', marginBottom: 12 }}>// FONTE DE REPRODUÇÃO</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {["Original (4K HDR REMUX)", "1080P (TRANSCODE)", "720P (TRANSCODE)"].map((quality, i) => {
+                        const isSelected = selectedQuality === quality;
+                        return (
+                          <motion.button 
+                            key={quality}
+                            onClick={() => setSelectedQuality(quality)}
+                            whileHover={{ borderColor: isSelected ? '#BF8F3C' : 'rgba(237,232,220,0.3)', backgroundColor: isSelected ? 'rgba(191,143,60,0.05)' : 'rgba(237,232,220,0.02)', x: 4 }}
+                            whileTap={{ scale: 0.98 }}
+                            style={{ 
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', 
+                                border: isSelected ? '1px solid #BF8F3C' : '1px solid rgba(237,232,220,0.05)', 
+                                backgroundColor: isSelected ? 'rgba(191,143,60,0.05)' : 'transparent',
+                                cursor: 'pointer', transition: 'border-color 0.3s',
+                                fontFamily: "'DM Mono', monospace", width: '100%'
+                            }}
+                          >
+                            <span style={{ fontSize: '10px', color: isSelected ? '#EDE8DC' : '#8C8880', textTransform: 'uppercase' }}>{quality}</span>
+                            <span style={{ fontSize: '9px', color: isSelected ? '#BF8F3C' : '#565450' }}>
+                                {i === 0 ? "145 MBPS" : i === 1 ? "20 MBPS" : "8 MBPS"}
+                            </span>
+                          </motion.button>
+                        )
+                      })}
                     </div>
-                  </label>
-                </div>
+                  </motion.div>
+                  
+                  <motion.div variants={settingsItemVariants} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#EDE8DC', marginBottom: 4 }}>HDR TONE MAPPING</div>
+                      <div style={{ fontSize: '8px', color: '#565450', letterSpacing: '0.1em' }}>AUTO-DIAGNOSTIC</div>
+                    </div>
+                    {/* Switch Geométrico */}
+                    <motion.div 
+                      whileHover={{ scale: 1.1 }}
+                      style={{ width: 32, height: 16, border: '1px solid #BF8F3C', position: 'relative', cursor: 'pointer', transition: 'all 0.3s', backgroundColor: 'rgba(191,143,60,0.1)' }}
+                    >
+                      <motion.div animate={{ x: [-2, 0, -2] }} transition={{ repeat: Infinity, duration: 1.5 }} style={{ position: 'absolute', top: 2, right: 2, width: 10, height: 10, backgroundColor: '#BF8F3C' }} />
+                    </motion.div>
+                  </motion.div>
+                </>
               )}
               
               {activeTab === 'audio' && (
-                <div className="space-y-2">
-                  <button className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/10 text-sm border border-primary/30 text-left">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                    <div>
-                      <div className="font-medium text-white">Italiano (TrueHD 7.1)</div>
-                      <div className="text-xs text-primary/80 font-mono mt-1">Direct Play</div>
-                    </div>
-                  </button>
-                  <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-sm text-white/70 transition-colors text-left">
-                    <div className="w-2 h-2 rounded-full bg-transparent" />
-                    <div>
-                      <div className="font-medium text-white">Italiano (AC3 5.1)</div>
-                      <div className="text-xs text-white/50 mt-1">Compatibilidade</div>
-                    </div>
-                  </button>
+                <>
+                  <motion.div variants={settingsItemVariants} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[ { name: "English (TrueHD 7.1)", specs: "DIRECT PLAY // MASTER AUDIO" }, { name: "Italiano (AC3 5.1)", specs: "COMPATIBILIDADE // TRANSCODE" } ].map(audio => {
+                        const isSelected = selectedAudio === audio.name;
+                        return (
+                            <motion.button 
+                              key={audio.name}
+                              onClick={() => setSelectedAudio(audio.name)}
+                              whileHover={{ borderColor: isSelected ? '#BF8F3C' : 'rgba(237,232,220,0.1)', x: 4 }}
+                              whileTap={{ scale: 0.98 }}
+                              style={{ 
+                                display: 'flex', gap: 12, padding: '12px', border: isSelected ? '1px solid #BF8F3C' : '1px solid rgba(237,232,220,0.05)', 
+                                backgroundColor: isSelected ? 'rgba(191,143,60,0.05)' : 'transparent',
+                                cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: "'DM Mono', monospace", transition: 'border-color 0.3s'
+                              }}
+                            >
+                                <div style={{ width: 4, height: 4, backgroundColor: isSelected ? '#BF8F3C' : 'transparent', border: isSelected ? 'none' : '1px solid #565450', marginTop: 4, flexShrink: 0 }} />
+                                <div>
+                                    <div style={{ fontSize: '10px', color: isSelected ? '#EDE8DC' : '#8C8880', marginBottom: 4, textTransform: 'uppercase' }}>{audio.name}</div>
+                                    <div style={{ fontSize: '8px', color: isSelected ? '#BF8F3C' : '#565450', letterSpacing: '0.1em' }}>{audio.specs}</div>
+                                </div>
+                            </motion.button>
+                        )
+                    })}
+                  </motion.div>
                   
-                  <div className="h-px bg-white/10 my-4" />
-                  <div className="text-xs text-white/50 font-bold mb-2 uppercase tracking-wider">Ajuste de Sincronia (Party)</div>
-                  <div className="flex items-center gap-2">
-                    <button className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center">-</button>
-                    <div className="flex-1 bg-black/50 border border-white/10 rounded-lg py-1.5 text-center font-mono text-sm">0 ms</div>
-                    <button className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center">+</button>
-                  </div>
+                  <motion.div variants={settingsItemVariants}>
+                    <div style={{ fontSize: '8px', color: '#565450', letterSpacing: '0.2em', marginBottom: 12 }}>// OFFSET (SYNC PLEX)</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                      <motion.button whileHover={{ backgroundColor: 'rgba(237,232,220,0.1)', borderColor: 'rgba(237,232,220,0.3)' }} whileTap={{ scale: 0.9 }} style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', color: '#EDE8DC', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: "'DM Mono', monospace" }}>-</motion.button>
+                      <div style={{ flex: 1, textAlign: 'center', fontSize: '10px', color: '#BF8F3C' }}>0 MS</div>
+                      <motion.button whileHover={{ backgroundColor: 'rgba(237,232,220,0.1)', borderColor: 'rgba(237,232,220,0.3)' }} whileTap={{ scale: 0.9 }} style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', color: '#EDE8DC', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: "'DM Mono', monospace" }}>+</motion.button>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+
+              {activeTab === 'sub' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[ "Desativado", "Português (Brasil)", "Português (Portugal)", "English (SDH)" ].map(sub => {
+                    const isSelected = selectedSubtitle === sub;
+                    return (
+                      <motion.button 
+                        key={sub}
+                        onClick={() => setSelectedSubtitle(sub)}
+                        whileHover={{ borderColor: isSelected ? '#BF8F3C' : 'rgba(237,232,220,0.15)', x: 4 }}
+                        whileTap={{ scale: 0.98 }}
+                        style={{ 
+                          display: 'flex', gap: 12, padding: '12px', 
+                          // A borda agora depende estritamente do isSelected
+                          border: isSelected ? '1px solid #BF8F3C' : '1px solid rgba(237,232,220,0.05)', 
+                          backgroundColor: isSelected ? 'rgba(191,143,60,0.05)' : 'transparent',
+                          cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: "'DM Mono', monospace", transition: 'all 0.2s'
+                        }}
+                      >
+                        <div style={{ 
+                          width: 4, height: 4, 
+                          backgroundColor: isSelected ? '#BF8F3C' : 'transparent', 
+                          border: isSelected ? 'none' : '1px solid #565450', 
+                          marginTop: 4, flexShrink: 0 
+                        }} />
+                        <div style={{ 
+                          fontSize: '10px', 
+                          color: isSelected ? '#EDE8DC' : '#8C8880', 
+                          textTransform: 'uppercase' 
+                        }}>{sub}</div>
+                      </motion.button>
+                    )
+                  })}
                 </div>
               )}
 
-              {activeTab === 'subtitles' && (
-                <div className="space-y-2">
-                  <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-sm text-white/70 transition-colors text-left">
-                    <div className="w-2 h-2 rounded-full bg-transparent" />
-                    <div>Desativado</div>
-                  </button>
-                  <button className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/10 text-sm border border-primary/30 text-left">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                    <div>
-                      <div className="font-medium text-white">Português (Brasil)</div>
-                      <div className="text-xs text-primary/80 font-mono mt-1">SRT Externo</div>
-                    </div>
-                  </button>
-                  <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-sm text-white/70 transition-colors text-left">
-                    <div className="w-2 h-2 rounded-full bg-transparent" />
-                    <div>
-                      <div className="font-medium text-white">English (SDH)</div>
-                      <div className="text-xs text-white/50 font-mono mt-1">PGS Embutido</div>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Simulated Subtitles overlay */}
+      {/* Simulated Subtitles overlay (Cormorant Itálico) */}
       {showControls && progress > 10 && progress < 80 && (
-        <div className="absolute bottom-36 left-1/2 -translate-x-1/2 text-center pointer-events-none z-40">
-          <p className="text-3xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] [text-shadow:0_2px_10px_black] tracking-wide" style={{ WebkitTextStroke: '1px black' }}>
+        <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.8 }}
+            className="absolute bottom-40 left-1/2 -translate-x-1/2 text-center pointer-events-none z-40"
+        >
+          <p style={{ 
+            fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', fontStyle: 'italic', color: '#FFFFFF',
+            textShadow: '0 2px 10px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,1)'
+          }}>
             A ilha está completamente vazia.
           </p>
-        </div>
+        </motion.div>
       )}
     </div>
   );

@@ -131,7 +131,7 @@ export default function HomePage() {
           runtime="149m"
           synopsis="Uma jornada do ser humano primitivo ao limiar da transcendência, mediada por monólitos silenciosos e uma inteligência artificial que aprendeu a temer a morte."
           qualities={['4K', 'REMUX', 'ATMOS']}
-          backdropSrc="/images/backdrops/2001.jpg"
+          backdropSrc="/images/backgrounds/2001.jpg"
           posterSrc="/images/posters/2001.jpg"
           href="/player"
         />
@@ -153,7 +153,7 @@ export default function HomePage() {
           year="1979"
           progress={34}
           remainingTime="1h 47m"
-          frameSrc="/images/backdrops/stalker.jpg"
+          frameSrc="/images/backgrounds/stalker.jpg"
           href="/player"
         />
 

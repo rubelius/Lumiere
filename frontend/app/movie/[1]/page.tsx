@@ -1,18 +1,29 @@
 'use client';
-import { Sidebar } from "@/components/layout/Sidebar";
-import { QualityBadge } from "@/components/ui/quality-badge";
-import { MovieCard } from "@/components/ui/movie-card";
-import { Download, Play, CheckCircle2, ChevronLeft, Star, Clock, Calendar, Globe, Plus, Heart, Share2, Film, Pause, SkipBack, SkipForward, Volume2, Maximize, MessageSquare, Award, Image as ImageIcon, Music, Subtitles, Settings2, Layers, Bookmark, Camera } from "lucide-react";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Play, CheckCircle2, ChevronLeft, Star, Clock, Calendar, Globe, Plus, Heart, Award, Camera, Bookmark, Layers, X, Settings2, Subtitles, Maximize, Volume2, SkipBack, SkipForward, Pause, Music } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { MovieCard } from "@/components/ui/movie-card";
 
+const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } }
+};
+
+const fadeUpItem = {
+  hidden: { y: 20, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { duration: 0.8, ease: FINE_ART_EASE } }
+};
 
 export default function MovieDetail() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("overview");
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [isCollectionOpen, setIsCollectionOpen] = useState(false);
   const [showFullSynopsis, setShowFullSynopsis] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
 
   const releases = [
     { group: "FraMeSToR", res: "2160p", audio: "TrueHD Atmos 7.1", size: "86.4 GB", score: 98, type: "REMUX" },
@@ -49,611 +60,464 @@ export default function MovieDetail() {
     { label: "Aspect Ratio", value: "1.85:1" },
     { label: "Câmera", value: "Mitchell BNC" },
     { label: "Lentes", value: "Cooke Speed Panchro" },
-    { label: "Processo Cinematográfico", value: "Spherical (35mm)" },
-    { label: "Som Original", value: "Mono (Westrex Recording System)" },
-    { label: "Diretor de Fotografia", value: "Aldo Scavarda" },
-    { label: "Design de Produção", value: "Piero Poletto" },
+    { label: "Processo", value: "Spherical (35mm)" },
+    { label: "Som Original", value: "Mono (Westrex)" },
+    { label: "Dir. Fotografia", value: "Aldo Scavarda" },
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground pl-24 selection:bg-primary/30 pb-32 overflow-x-hidden">
-      <div className="fixed inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none z-50" />
-      <Sidebar />
+    <div style={{ background: '#080806', color: '#EDE8DC', minHeight: '100dvh', display: 'flex', overflowX: 'hidden', position: 'relative' }}>
       
-      {/* Trailer Modal (New Feature) */}
+      {/* ── TELA DO TRAILER (Monitor de Edição) ── */}
       <AnimatePresence>
         {isTrailerOpen && (
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-200 bg-black/90 backdrop-blur-2xl flex items-center justify-center p-12"
-            onClick={() => setIsTrailerOpen(false)}
+            key="trailer-modal"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px' }}
           >
+            <div 
+              onClick={() => setIsTrailerOpen(false)}
+              style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(4,4,2,0.9)', backdropFilter: 'blur(12px)', cursor: 'pointer', zIndex: 0 }} 
+            />
+            
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-7xl aspect-video bg-black rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,1)] border border-white/10 relative group/player"
-              onClick={e => e.stopPropagation()}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} transition={{ duration: 0.4, ease: FINE_ART_EASE }}
+              onClick={(e) => e.stopPropagation()}
+              className="group/player"
+              style={{ position: 'relative', width: '100%', maxWidth: '1200px', aspectRatio: '16/9', backgroundColor: '#040402', border: '1px solid #BF8F3C', boxShadow: '0 0 100px rgba(0,0,0,1)', zIndex: 1, overflow: 'hidden' }}
             >
-              {/* Mock Video Player (Enhanced Feature) */}
-              <div className="absolute inset-0">
-                <img src={"/images/hero-backdrop.png"} className="w-full h-full object-cover opacity-80" alt="Video Poster" />
+              <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+                <img src="/images/hero-backdrop.png" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', opacity: 0.6 }} alt="Video Poster" />
               </div>
               
-              {/* Top Bar */}
-              <div className="absolute top-0 left-0 right-0 p-6 bg-linear-to-b from-black/80 to-transparent flex justify-between items-start opacity-0 group-hover/player:opacity-100 transition-opacity duration-300">
-                <h3 className="text-2xl font-serif text-white font-medium">L'Aventura - Trailer Oficial</h3>
-                <button 
-                  onClick={() => setIsTrailerOpen(false)}
-                  className="w-12 h-12 bg-black/50 hover:bg-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-md transition-colors tv-focus"
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 10, background: 'linear-gradient(to bottom, rgba(4,4,2,0.9), transparent)', opacity: 0, transition: 'opacity 0.3s' }} className="group-hover/player:opacity-100">
+                <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em', marginBottom: '8px' }}>[ SINAL DE VÍDEO ATIVO ]</div>
+                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: '#EDE8DC', margin: 0 }}>L'Aventura - Trailer Oficial</h3>
+                </motion.div>
+                <motion.button 
+                  onClick={() => setIsTrailerOpen(false)} 
+                  whileHover={{ scale: 1.1, backgroundColor: 'rgba(191,143,60,0.1)', borderColor: '#BF8F3C', color: '#BF8F3C' }} whileTap={{ scale: 0.9 }}
+                  style={{ background: 'transparent', border: '1px solid #565450', padding: '12px', color: '#565450', cursor: 'pointer', transition: 'all 0.3s' }}
                 >
-                  ✕
-                </button>
+                  <X style={{ width: 20, height: 20 }} />
+                </motion.button>
               </div>
 
-              {/* Bottom Controls */}
-              <div className="absolute bottom-0 left-0 right-0 p-6 bg-linear-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 flex flex-col gap-4">
-                {/* Progress */}
-                <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden cursor-pointer relative tv-focus hover:h-2 transition-all">
-                  <div className="absolute top-0 left-0 h-full bg-primary w-1/3" />
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px', zIndex: 10, background: 'linear-gradient(to top, rgba(4,4,2,0.95), transparent)', opacity: 0, transition: 'opacity 0.3s', display: 'flex', flexDirection: 'column', gap: '24px' }} className="group-hover/player:opacity-100">
+                <div style={{ width: '100%', height: '2px', backgroundColor: 'rgba(86,84,80,0.3)', position: 'relative', cursor: 'pointer' }} className="group/timeline">
+                  <motion.div variants={{ rest: { height: 2, filter: 'brightness(1)' }, hover: { height: 4, filter: 'brightness(1.5)' } }} initial="rest" whileHover="hover" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: 0, height: '2px', backgroundColor: '#BF8F3C', width: '33%', boxShadow: '0 0 10px rgba(191,143,60,0.5)' }} />
+                  <div className="absolute top-1/2 -translate-y-1/2 left-1/3 w-1.5 h-3 bg-[#EDE8DC] opacity-0 group-hover/timeline:opacity-100 transform -translate-x-1/2 transition-opacity" />
                 </div>
                 
-                {/* Buttons */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <button className="text-white hover:text-primary transition-colors tv-focus"><SkipBack className="w-6 h-6" fill="currentColor" /></button>
-                    <button className="text-white hover:text-primary transition-colors tv-focus"><Pause className="w-8 h-8" fill="currentColor" /></button>
-                    <button className="text-white hover:text-primary transition-colors tv-focus"><SkipForward className="w-6 h-6" fill="currentColor" /></button>
-                    <div className="flex items-center gap-2 ml-4">
-                      <Volume2 className="w-5 h-5 text-white" />
-                      <div className="w-24 h-1.5 bg-white/20 rounded-full"><div className="w-2/3 h-full bg-white rounded-full" /></div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <motion.button whileHover={{ color: '#EDE8DC', scale: 1.1 }} whileTap={{ scale: 0.9 }} style={{ background: 'transparent', border: 'none', color: '#8C8880', cursor: 'pointer' }}><SkipBack style={{ width: 20, height: 20 }} fill="currentColor" /></motion.button>
+                      <motion.button whileHover={{ color: '#BF8F3C', scale: 1.1 }} whileTap={{ scale: 0.9 }} style={{ background: 'transparent', border: 'none', color: '#EDE8DC', cursor: 'pointer' }}><Pause style={{ width: 32, height: 32 }} fill="currentColor" /></motion.button>
+                      <motion.button whileHover={{ color: '#EDE8DC', scale: 1.1 }} whileTap={{ scale: 0.9 }} style={{ background: 'transparent', border: 'none', color: '#8C8880', cursor: 'pointer' }}><SkipForward style={{ width: 20, height: 20 }} fill="currentColor" /></motion.button>
                     </div>
-                    <span className="text-sm font-mono text-white/70 ml-2">01:24 / 02:45</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '1px solid rgba(86,84,80,0.3)', paddingLeft: '32px' }}>
+                      <Volume2 style={{ width: 16, height: 16, color: '#8C8880' }} />
+                      <div style={{ width: '96px', height: '1px', backgroundColor: 'rgba(86,84,80,0.3)', position: 'relative' }}><div style={{ width: '66%', height: '100%', backgroundColor: '#EDE8DC', boxShadow: '0 0 5px rgba(237,232,220,0.5)' }} /></div>
+                    </div>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.1em', marginLeft: '16px' }}>01:24 / 02:45</span>
                   </div>
                   
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2 relative group/audio">
-                      <button className="text-white hover:text-primary transition-colors tv-focus flex items-center gap-2"><Settings2 className="w-5 h-5" /> Áudio</button>
-                      <div className="absolute bottom-full mb-2 bg-card/90 backdrop-blur-xl border border-white/10 rounded-xl p-2 hidden group-hover/audio:block min-w-40 z-50">
-                        <div className="text-xs text-white/50 mb-2 px-2">Trilha de Áudio</div>
-                        <button className="w-full text-left px-3 py-2 text-sm text-primary bg-white/10 rounded-lg font-medium">ITA - TrueHD Atmos</button>
-                        <button className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/5 rounded-lg">ENG - Dolby Digital</button>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 relative group/sub">
-                      <button className="text-white hover:text-primary transition-colors tv-focus flex items-center gap-2"><Subtitles className="w-5 h-5" /> Legendas</button>
-                      <div className="absolute bottom-full mb-2 bg-card/90 backdrop-blur-xl border border-white/10 rounded-xl p-2 hidden group-hover/sub:block min-w-40 z-50">
-                        <div className="text-xs text-white/50 mb-2 px-2">Legendas</div>
-                        <button className="w-full text-left px-3 py-2 text-sm text-primary bg-white/10 rounded-lg font-medium">PT-BR (Forced)</button>
-                        <button className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/5 rounded-lg">ENG (SDH)</button>
-                        <button className="w-full text-left px-3 py-2 text-sm text-white/50 hover:bg-white/5 rounded-lg">Desativar</button>
-                      </div>
-                    </div>
-                    <button className="text-white font-bold text-sm px-2 py-1 rounded border border-white/20 hover:bg-white/10 tv-focus">4K</button>
-                    <button className="text-white hover:text-primary transition-colors tv-focus"><Maximize className="w-6 h-6" /></button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                    <motion.button whileHover={{ color: '#EDE8DC' }} style={{ background: 'transparent', border: 'none', color: '#8C8880', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}><Settings2 style={{ width: 16, height: 16 }} /> [ AUDIO ]</motion.button>
+                    <motion.button whileHover={{ color: '#EDE8DC' }} style={{ background: 'transparent', border: 'none', color: '#8C8880', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}><Subtitles style={{ width: 16, height: 16 }} /> [ LEG ]</motion.button>
+                    <div style={{ height: '16px', width: '1px', backgroundColor: 'rgba(86,84,80,0.3)' }} />
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.15em', border: '1px solid #BF8F3C', padding: '4px 8px', backgroundColor: 'rgba(191,143,60,0.1)' }}>4K HDR</span>
+                    <motion.button whileHover={{ color: '#EDE8DC', scale: 1.1 }} whileTap={{ scale: 0.9 }} style={{ background: 'transparent', border: 'none', color: '#8C8880', cursor: 'pointer', marginLeft: '8px' }}><Maximize style={{ width: 20, height: 20 }} /></motion.button>
                   </div>
                 </div>
-              </div>
-              
-              {/* Big center play/pause for clicking */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                 <div className="w-24 h-24 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white/80 opacity-0 group-hover/player:opacity-100 transition-opacity transform scale-150 group-hover/player:scale-100 duration-500">
-                    <Pause className="w-10 h-10" fill="currentColor" />
-                 </div>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Backdrop */}
-      <div className="absolute top-0 left-0 right-0 h-[85vh] -z-10 overflow-hidden">
-        <motion.img 
-          initial={{ scale: 1.1, opacity: 0 }}
-          animate={{ scale: 1, opacity: 0.4 }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
-          src={"/images/hero-backdrop.png"} 
-          className="w-full h-full object-cover mix-blend-luminosity" 
-          alt="" 
-        />
-        <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-transparent" />
-        <div className="absolute inset-0 bg-linear-to-r from-background via-background/50 to-transparent" />
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background" />
-      </div>
-
-      <main className="max-w-480 mx-auto px-16 pt-16">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <Link 
-            href="/"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-white mb-12 tv-focus rounded-full px-5 py-2.5 bg-white/5 backdrop-blur-md border border-white/10 transition-all hover:bg-white/10"
-          >
-            <ChevronLeft className="w-5 h-5" />
-            <span className="font-medium">Voltar</span>
-          </Link>
-        </motion.div>
-
-        <div className="flex flex-col lg:flex-row gap-16 items-start mb-24">
-          
-          {/* Left Column: Poster */}
-          <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="w-85 shrink-0"
-          >
-            <div className="aspect-2/3 rounded-3xl overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.9)] border border-white/10 relative group">
-              <img src={"/images/poster-1.png"} alt="Poster" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-              <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              
-              <button 
-                onClick={() => setIsTrailerOpen(true)}
-                className="absolute inset-0 m-auto w-20 h-20 bg-primary/90 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all duration-300 scale-75 group-hover:scale-100 shadow-[0_0_30px_rgba(99,102,241,0.6)] backdrop-blur-md"
-              >
-                <Play className="w-8 h-8 ml-1" />
-              </button>
-            </div>
-            
-            {/* Download / Collections Button Group (New Feature) */}
-            <div className="mt-8 relative flex gap-2">
-              <button className="flex-1 py-5 rounded-2xl bg-white text-background font-bold text-lg flex items-center justify-center gap-3 tv-focus shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:bg-gray-100 transition-colors">
-                <Download className="w-6 h-6" />
-                Baixar
-              </button>
-              
-              <div className="relative">
-                <button 
-                  onClick={() => setIsCollectionOpen(!isCollectionOpen)}
-                  className="w-16 h-full rounded-2xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors border border-white/10 tv-focus"
-                >
-                  <Plus className="w-6 h-6" />
-                </button>
-
-                {/* Collection Dropdown */}
-                <AnimatePresence>
-                  {isCollectionOpen && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute top-full right-0 mt-4 w-64 bg-card/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 p-2"
-                    >
-                      <h4 className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Adicionar à Coleção</h4>
-                      <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/10 text-white transition-colors text-left tv-focus">
-                        <Heart className="w-5 h-5 text-primary" /> Favoritos
-                      </button>
-                      <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/10 text-white transition-colors text-left tv-focus">
-                        <Clock className="w-5 h-5 text-blue-400" /> Assistir Depois
-                      </button>
-                      <div className="h-px bg-white/10 my-2 mx-2" />
-                      <button className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl hover:bg-white/10 text-white/70 transition-colors text-sm font-medium tv-focus">
-                        <Plus className="w-4 h-4" /> Nova Coleção
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-            <p className="text-center text-sm text-quality-remux mt-4 flex items-center justify-center gap-2 font-medium bg-quality-remux/10 py-2 rounded-lg border border-quality-remux/20">
-              <CheckCircle2 className="w-4 h-4" />
-              Cacheado no Real-Debrid
-            </p>
-          </motion.div>
-
-          {/* Right Column: Info */}
-          <div className="flex-1 max-w-5xl pt-4">
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-6xl lg:text-8xl font-serif font-bold text-white mb-2 text-glow leading-tight"
-            >
-              L'Aventura
-            </motion.h1>
-
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              transition={{ delay: 0.3 }}
-              className="flex items-center gap-3 mb-6"
-            >
-              <span className="px-3 py-1 rounded border border-white/20 bg-white/5 text-xs font-bold uppercase tracking-widest text-white backdrop-blur-sm flex items-center gap-2">
-                <Bookmark className="w-3 h-3 text-yellow-500" />
-                The Criterion Collection #98
-              </span>
-              <span className="px-3 py-1 rounded border border-white/20 bg-white/5 text-xs font-bold uppercase tracking-widest text-white backdrop-blur-sm flex items-center gap-2">
-                <Award className="w-3 h-3 text-purple-400" />
-                Sight & Sound Top 250
-              </span>
-            </motion.div>
-            
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-wrap items-center gap-4 text-lg text-white/70 mb-10 font-light"
-            >
-              <span className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10"><Calendar className="w-4 h-4" /> 1960</span>
-              <span className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10"><Star className="w-4 h-4" /> Michelangelo Antonioni</span>
-              <span className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10"><Clock className="w-4 h-4" /> 2h 23m</span>
-              <span className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10"><Globe className="w-4 h-4" /> Itália</span>
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="flex flex-wrap gap-4 mb-12"
-            >
-              <QualityBadge type="REMUX" />
-              <QualityBadge type="4K" />
-              <QualityBadge type="VISION" />
-              <QualityBadge type="ATMOS" />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.5 }}
-              className="mb-16 max-w-4xl"
-            >
-              <p className={`text-2xl leading-relaxed text-gray-300 font-light ${!showFullSynopsis && 'line-clamp-3'}`}>
-                O desaparecimento de uma jovem durante uma viagem de barco pelo Mediterrâneo estimula seu amante e sua melhor amiga a iniciarem uma busca pela moça. Durante a procura, os dois se apaixonam, num processo de alienação e falta de comunicação característica do cinema de Antonioni. A paisagem estéril das ilhas eólias reflete o vazio existencial dos personagens, criando uma obra-prima do cinema moderno.
-              </p>
-              <button 
-                onClick={() => setShowFullSynopsis(!showFullSynopsis)}
-                className="mt-4 text-primary font-medium hover:text-white transition-colors tv-focus uppercase tracking-wider text-sm"
-              >
-                {showFullSynopsis ? 'Ler menos' : 'Ler sinopse completa'}
-              </button>
-            </motion.div>
-
-            {/* Tabs for Organization */}
-            <div className="flex gap-8 mb-12 border-b border-white/10">
-              {[
-                { id: "overview", label: "Visão Geral" },
-                { id: "details", label: "Críticas & Prêmios" },
-                { id: "media", label: "Galeria & Trilha" }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`pb-4 text-lg font-medium transition-all relative tv-focus outline-none ${activeTab === tab.id ? 'text-white' : 'text-white/50 hover:text-white/80'}`}
-                >
-                  {tab.label}
-                  {activeTab === tab.id && (
-                    <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab: Overview */}
-            {activeTab === "overview" && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-16">
-                
-                {/* User Rating System */}
-                <div className="flex items-center gap-8 bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-sm w-fit">
-                  <div className="text-center pr-8 border-r border-white/10">
-                    <span className="block text-4xl font-serif font-bold text-white mb-1">8.6</span>
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Comunidade</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-white/70 mb-3">Sua Avaliação</p>
-                    <div className="flex items-center gap-2">
-                      {[1,2,3,4,5].map(star => (
-                        <button key={star} className="tv-focus text-white/20 hover:text-primary hover:scale-110 transition-all focus:text-primary outline-none">
-                          <Star className="w-8 h-8 fill-current" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Director & Cinematographer Spotlight */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Director */}
-                  <div className="bg-linear-to-br from-card/80 to-transparent border border-white/5 rounded-3xl p-6 backdrop-blur-sm flex items-center gap-6 group hover:border-white/10 transition-colors">
-                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-primary/50 shrink-0">
-                      <img src="https://i.pravatar.cc/150?u=antonioni" alt="Director" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs text-primary uppercase tracking-widest font-bold mb-1">Auteur / Diretor</h4>
-                      <h3 className="text-2xl font-serif text-white mb-2">Michelangelo Antonioni</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">Mestre do modernismo italiano, redefiniu a narrativa cinematográfica.</p>
-                    </div>
-                  </div>
-
-                  {/* Cinematographer */}
-                  <div className="bg-linear-to-br from-card/80 to-transparent border border-white/5 rounded-3xl p-6 backdrop-blur-sm flex items-center gap-6 group hover:border-white/10 transition-colors">
-                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-blue-500/50 shrink-0 bg-blue-500/10 flex items-center justify-center">
-                      <Camera className="w-8 h-8 text-blue-400 grayscale group-hover:grayscale-0 transition-all duration-500" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-1">Diretor de Fotografia</h4>
-                      <h3 className="text-2xl font-serif text-white mb-2">Aldo Scavarda</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">Criou composições milimetricamente calculadas usando película 35mm P&B.</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Cast Carousel */}
-                <div>
-                  <h3 className="text-2xl font-serif text-white mb-6">Elenco Principal</h3>
-                  <div className="flex gap-6 overflow-x-auto hide-scrollbar pb-4 -mx-4 px-4 snap-x">
-                    {cast.map((actor, i) => (
-                      <div key={i} className="snap-start shrink-0 text-center w-32 group cursor-pointer tv-focus rounded-2xl p-2 hover:bg-white/5 transition-colors">
-                        <div className="w-24 h-24 mx-auto rounded-full overflow-hidden mb-4 border-2 border-white/10 group-hover:border-primary transition-colors">
-                          <img src={actor.img} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" alt={actor.name} />
-                        </div>
-                        <p className="text-sm font-medium text-white mb-1 leading-tight">{actor.name}</p>
-                        <p className="text-xs text-muted-foreground">{actor.role}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Releases Section */}
-                <div>
-                  <div className="flex items-end justify-between mb-8 border-b border-white/10 pb-4">
-                    <h3 className="text-3xl font-serif text-white">Melhores Releases</h3>
-                    <span className="text-muted-foreground text-sm font-medium uppercase tracking-wider">3 encontrados</span>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {releases.map((release, i) => (
-                      <motion.button 
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        key={i}
-                        className="w-full flex items-center justify-between p-5 rounded-2xl bg-card/40 backdrop-blur-sm border border-white/5 tv-focus group hover:bg-card/80 transition-all text-left overflow-hidden relative"
-                      >
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary scale-y-0 group-hover:scale-y-100 transition-transform origin-center" />
-                        
-                        <div className="flex items-center gap-8 pl-2">
-                          {/* Score Circle */}
-                          <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
-                            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                              <path
-                                className="text-white/10"
-                                strokeWidth="3"
-                                stroke="currentColor"
-                                fill="transparent"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              />
-                              <path
-                                className={release.score > 90 ? "text-quality-remux" : "text-[#F59E0B]"}
-                                strokeWidth="3"
-                                strokeDasharray={`${release.score}, 100`}
-                                strokeLinecap="round"
-                                stroke="currentColor"
-                                fill="transparent"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              />
-                            </svg>
-                            <span className="absolute text-sm font-bold text-white">{release.score}</span>
-                          </div>
-                          
-                          <div>
-                            <div className="flex items-center gap-4 mb-1.5">
-                              <span className="text-xl font-medium text-white">{release.group}</span>
-                              <div className="flex gap-2">
-                                <span className="text-xs font-bold px-2 py-1 rounded-md bg-white/10 text-white tracking-wider">{release.res}</span>
-                                <span className="text-xs font-bold px-2 py-1 rounded-md bg-primary/20 text-primary tracking-wider">{release.type}</span>
-                              </div>
-                            </div>
-                            <p className="text-base text-muted-foreground flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-white/20" />
-                              {release.audio}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-8 pr-2">
-                          <div className="text-right">
-                            <span className="block text-xl text-white font-mono tracking-tight">{release.size}</span>
-                            <span className="text-sm text-muted-foreground">Tamanho</span>
-                          </div>
-                          <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-primary group-hover:border-primary group-hover:text-white transition-all group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(99,102,241,0.4)]">
-                            <Play className="w-5 h-5 ml-1" />
-                          </div>
-                        </div>
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-                {/* Double Feature Recommendation */}
-                <div className="mt-16 bg-linear-to-b from-purple-900/20 to-transparent border border-purple-500/20 rounded-[3rem] p-12 backdrop-blur-md relative overflow-hidden shadow-2xl">
-                  <div className="absolute top-0 right-0 w-150 h-150 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none translate-x-1/4 -translate-y-1/4" />
-                  
-                  <div className="flex items-center gap-4 mb-12">
-                    <Layers className="w-8 h-8 text-purple-400" />
-                    <h3 className="text-3xl font-serif text-white">Sessão Dupla Sugerida</h3>
-                    <span className="ml-auto text-sm font-bold px-4 py-1.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30 uppercase tracking-[0.2em]">O Vazio Existencial</span>
-                  </div>
-
-                  <div className="flex flex-col md:flex-row gap-12 items-center">
-                    <div className="w-56 h-84 rounded-3xl overflow-hidden shrink-0 shadow-[0_0_40px_rgba(0,0,0,0.5)] border border-white/10 group tv-focus cursor-pointer">
-                      <img src={"/images/poster-1.png"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="" />
-                    </div>
-                    
-                    <div className="flex-1 flex justify-center text-purple-400/50">
-                      <div className="w-16 h-16 rounded-full bg-card border-4 border-background flex items-center justify-center shadow-xl">
-                        <Plus className="w-8 h-8 text-purple-400/50" />
-                      </div>
-                    </div>
-
-                    <div className="w-56 h-84 rounded-3xl overflow-hidden shrink-0 shadow-[0_0_40px_rgba(0,0,0,0.5)] border border-white/10 group tv-focus cursor-pointer">
-                      <img src={"/images/poster-3.png"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="" />
-                      <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <div className="absolute bottom-6 left-6 right-6 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 text-center">
-                        <span className="px-3 py-1 bg-purple-500 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-lg">Assistir a seguir</span>
-                      </div>
-                    </div>
-
-                    <div className="flex-2 pl-12 border-l border-white/10">
-                      <h4 className="text-3xl font-serif text-white mb-4">L'Aventura + Persona</h4>
-                      <p className="text-white/60 text-lg font-light leading-relaxed mb-8">
-                        Uma exploração profunda da incomunicabilidade e identidade. Comece com a paisagem estéril de Antonioni e termine com a desconstrução psicológica de Bergman. Ambas obras-primas do cinema europeu dos anos 60.
-                      </p>
-                      <button className="text-sm font-bold bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl transition-colors border border-white/10 tv-focus">
-                        Adicionar Sessão à Fila
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-              </motion.div>
-            )}
-
-            {/* Tab: Critics & Awards */}
-            {activeTab === "details" && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-16">
-                
-                {/* Awards */}
-                <div>
-                  <h3 className="text-2xl font-serif text-white mb-6 flex items-center gap-3">
-                    <Award className="w-6 h-6 text-primary" /> Premiações
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {festivals.map((fest, i) => (
-                      <div key={i} className="flex items-center gap-4 p-5 rounded-2xl bg-card/30 border border-white/5 tv-focus group">
-                        <div className="w-12 h-12 rounded-full border border-yellow-500/30 flex items-center justify-center text-yellow-500 bg-yellow-500/10 shrink-0">
-                          <Award className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-white text-lg group-hover:text-primary transition-colors">{fest.award}</h4>
-                          <p className="text-sm text-muted-foreground">{fest.name} • {fest.year}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Reviews */}
-                <div>
-                  <h3 className="text-2xl font-serif text-white mb-6 flex items-center gap-3">
-                    <MessageSquare className="w-6 h-6 text-primary" /> Críticas em Destaque
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {reviews.map((review, i) => (
-                      <div key={i} className="p-8 rounded-3xl bg-white/5 border border-white/10 tv-focus group relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-[100px] -z-10" />
-                        <div className="text-4xl text-primary/40 font-serif leading-none mb-4">"</div>
-                        <p className="text-lg text-white/90 italic font-light mb-6 leading-relaxed">
-                          {review.text}
-                        </p>
-                        <div className="flex items-center justify-between mt-auto">
-                          <div>
-                            <h4 className="font-bold text-white">{review.author}</h4>
-                            <p className="text-sm text-muted-foreground">{review.outlet}</p>
-                          </div>
-                          <div className="w-12 h-12 rounded-full bg-green-500/20 text-green-400 font-bold flex items-center justify-center border border-green-500/30">
-                            {review.score}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Technical Specs */}
-                <div>
-                  <h3 className="text-2xl font-serif text-white mb-6">Ficha Técnica</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-12 p-8 rounded-3xl bg-card/40 border border-white/5">
-                    {technicalSpecs.map((spec, i) => (
-                      <div key={i} className="border-b border-white/5 pb-4">
-                        <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1 font-bold">{spec.label}</p>
-                        <p className="text-white font-medium">{spec.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Tab: Media */}
-            {activeTab === "media" && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-16">
-                
-                {/* Photo Gallery */}
-                <div>
-                  <h3 className="text-2xl font-serif text-white mb-6 flex items-center gap-3">
-                    <ImageIcon className="w-6 h-6 text-primary" /> Stills & Galeria
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {["/images/poster-2.png", "/images/poster-3.png", "/images/poster-4.png", "/images/poster-5.png", "/images/poster-1.png"].map((img, i) => (
-                      <div key={i} className={`rounded-2xl overflow-hidden cursor-pointer tv-focus group ${i === 0 ? 'col-span-2 row-span-2' : ''}`}>
-                        <div className="aspect-video w-full h-full">
-                          <img src={img} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" alt="" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Soundtrack Player */}
-                <div className="bg-card/50 border border-white/10 rounded-3xl p-8 backdrop-blur-md">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg">
-                      <Music className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-serif text-white">Trilha Sonora Original</h3>
-                      <p className="text-muted-foreground">Composta por Giovanni Fusco</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {["Main Theme (L'Aventura)", "The Island", "Searching for Anna"].map((track, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-xl hover:bg-white/5 group tv-focus cursor-pointer transition-colors">
-                        <div className="flex items-center gap-4">
-                          <span className="text-muted-foreground font-mono w-6 text-right">{i + 1}</span>
-                          <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                            <Play className="w-4 h-4 ml-0.5" />
-                          </button>
-                          <span className="font-medium text-white group-hover:text-primary transition-colors">{track}</span>
-                        </div>
-                        <span className="text-muted-foreground font-mono text-sm">03:{14 + i * 10}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </motion.div>
-            )}
-
-          </div>
+      <main style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        
+        {/* HERO FADE (Com Leve Ken Burns Effect) */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '85vh', zIndex: 0, overflow: 'hidden' }}>
+          <motion.img 
+            initial={{ scale: 1.1, opacity: 0 }} 
+            animate={{ scale: 1.05, opacity: 0.25 }} 
+            transition={{ scale: { duration: 20, ease: "linear", repeat: Infinity, repeatType: "reverse" }, opacity: { duration: 1.5, ease: FINE_ART_EASE } }}
+            src="/images/hero-backdrop.png" 
+            style={{ width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'luminosity', filter: 'grayscale(100%) contrast(125%)' }} alt="" 
+          />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #080806, rgba(8,8,6,0.8), transparent)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #080806, rgba(8,8,6,0.5), transparent)' }} />
         </div>
 
-        {/* Similar Movies Section */}
-        <motion.section 
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="pt-16 border-t border-white/10"
-        >
-          <div className="flex items-end justify-between mb-10">
-            <h2 className="text-4xl font-serif text-white">Títulos Semelhantes</h2>
-          </div>
+        {/* CONTAINER PRINCIPAL */}
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '96px 72px 120px', position: 'relative', zIndex: 10 }}>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-            {similarMovies.map((movie, i) => (
-              <MovieCard 
-                key={movie.id}
-                id={movie.id}
-                title={movie.title}
-                year={movie.year}
-                imageUrl={movie.img}
-                qualities={movie.qualities}
-                index={i}
-              />
-            ))}
-          </div>
-        </motion.section>
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, ease: FINE_ART_EASE }} style={{ marginBottom: '64px' }}>
+            <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '16px', color: '#565450', textDecoration: 'none', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', transition: 'color 0.3s' }} onMouseEnter={e => e.currentTarget.style.color = '#EDE8DC'} onMouseLeave={e => e.currentTarget.style.color = '#565450'}>
+              <motion.div whileHover={{ x: -4 }} transition={{ type: 'spring', stiffness: 400 }}><ChevronLeft style={{ width: 16, height: 16 }} /></motion.div>
+              [ Retornar ao Acervo ]
+            </Link>
+          </motion.div>
 
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '80px', alignItems: 'flex-start', marginBottom: '120px' }}>
+            
+            {/* ── COLUNA ESQUERDA: PÔSTER E AÇÕES ── */}
+            <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1, ease: FINE_ART_EASE }} style={{ width: '320px', flexShrink: 0 }}>
+              
+              <motion.div whileHover={{ y: -5, boxShadow: '0 20px 60px rgba(0,0,0,1)' }} transition={{ duration: 0.4, ease: FINE_ART_EASE }} style={{ position: 'relative', aspectRatio: '2/3', backgroundColor: '#040402', border: '1px solid rgba(191,143,60,0.3)', padding: '8px', marginBottom: '32px', overflow: 'hidden', boxShadow: '0 0 50px rgba(0,0,0,0.8)' }} className="group">
+                <div style={{ position: 'relative', width: '100%', height: '100%', border: '1px solid rgba(86,84,80,0.3)', overflow: 'hidden' }}>
+                  <img src="/images/poster-1.png" alt="Poster" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.7s' }} className="group-hover:grayscale-0 group-hover:scale-105" />
+                  <motion.div animate={{ y: ['-10%', '110%'] }} transition={{ repeat: Infinity, duration: 4, ease: 'linear' }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '1px', backgroundColor: '#BF8F3C', boxShadow: '0 0 10px rgba(191,143,60,0.8)', opacity: 0 }} className="group-hover:opacity-100" />
+                </div>
+                <button 
+                  onClick={() => setIsTrailerOpen(true)}
+                  style={{ position: 'absolute', inset: 0, margin: 'auto', width: '80px', height: '80px', backgroundColor: 'rgba(4,4,2,0.8)', border: '1px solid #BF8F3C', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#BF8F3C', cursor: 'pointer', transition: 'all 0.4s', opacity: 0, backdropFilter: 'blur(8px)' }}
+                  className="group-hover:opacity-100 hover:bg-[#BF8F3C] hover:text-[#040402] hover:scale-110"
+                >
+                  <Play style={{ width: 32, height: 32, marginLeft: '4px' }} fill="currentColor" />
+                </button>
+              </motion.div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <motion.button 
+                  onClick={() => router.push('/player')}
+                  whileHover={{ backgroundColor: '#BF8F3C', color: '#040402', scale: 1.02, boxShadow: '0 0 20px rgba(191,143,60,0.4)' }} whileTap={{ scale: 0.98 }} 
+                  style={{ width: '100%', padding: '16px 0', backgroundColor: 'transparent', border: '1px solid #BF8F3C', color: '#BF8F3C', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', cursor: 'pointer', transition: 'all 0.3s' }}
+                >
+                  <Play style={{ width: 16, height: 16 }} /> [ INICIAR PROJEÇÃO ]
+                </motion.button>
+                
+                <div style={{ position: 'relative' }}>
+                  <motion.button 
+                    onClick={() => setIsCollectionOpen(!isCollectionOpen)}
+                    whileHover={{ backgroundColor: 'rgba(237,232,220,0.05)', borderColor: '#EDE8DC', color: '#EDE8DC', scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    style={{ width: '100%', padding: '16px 0', backgroundColor: '#040402', border: '1px solid #565450', color: '#8C8880', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', cursor: 'pointer', transition: 'all 0.3s' }}
+                  >
+                    <Bookmark style={{ width: 16, height: 16 }} /> [ CATALOGAR ]
+                  </motion.button>
+
+                  <AnimatePresence>
+                    {isCollectionOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ duration: 0.2 }}
+                        style={{ position: 'absolute', top: '100%', left: 0, width: '100%', marginTop: '8px', backgroundColor: '#040402', border: '1px solid rgba(191,143,60,0.5)', padding: '8px', zIndex: 50, boxShadow: '0 10px 40px rgba(0,0,0,0.8)' }}
+                      >
+                        <motion.button whileHover={{ x: 4, backgroundColor: 'rgba(191,143,60,0.1)' }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#EDE8DC', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', textAlign: 'left', transition: 'background-color 0.2s' }}>
+                          <Heart style={{ width: 12, height: 12, color: '#BF8F3C' }} /> FAVORITOS
+                        </motion.button>
+                        <motion.button whileHover={{ x: 4, backgroundColor: 'rgba(191,143,60,0.1)' }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#EDE8DC', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', textAlign: 'left', transition: 'background-color 0.2s' }}>
+                          <Clock style={{ width: 12, height: 12, color: '#8C8880' }} /> ASSISTIR DEPOIS
+                        </motion.button>
+                        <div style={{ height: '1px', backgroundColor: 'rgba(86,84,80,0.3)', margin: '8px 0' }} />
+                        <motion.button whileHover={{ x: 4, color: '#EDE8DC', backgroundColor: 'rgba(237,232,220,0.05)' }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: 'transparent', border: 'none', color: '#565450', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
+                          <Plus style={{ width: 12, height: 12 }} /> NOVO DIRETÓRIO
+                        </motion.button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.15em', border: '1px solid rgba(191,143,60,0.2)', backgroundColor: 'rgba(191,143,60,0.05)', padding: '12px' }}>
+                <CheckCircle2 style={{ width: 12, height: 12 }} /> CACHEADO: REAL-DEBRID
+              </motion.div>
+            </motion.div>
+
+            {/* ── COLUNA DIREITA: INFORMAÇÕES E METADADOS ── */}
+            <div style={{ flex: 1, minWidth: '300px', maxWidth: '1000px', paddingTop: '16px' }}>
+              
+              <motion.div variants={staggerContainer} initial="hidden" animate="visible">
+                <motion.div variants={fadeUpItem} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                  <motion.span whileHover={{ scale: 1.05, borderColor: '#EDE8DC', color: '#EDE8DC' }} style={{ cursor: 'crosshair', transition: 'all 0.3s', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', padding: '6px 12px', border: '1px solid #BF8F3C', color: '#BF8F3C', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase' }}>
+                    <Bookmark style={{ width: 12, height: 12 }} /> THE CRITERION COLLECTION #98
+                  </motion.span>
+                  <motion.span whileHover={{ scale: 1.05, borderColor: '#EDE8DC', color: '#EDE8DC' }} style={{ cursor: 'crosshair', transition: 'all 0.3s', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', padding: '6px 12px', border: '1px solid #565450', color: '#8C8880', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase' }}>
+                    <Award style={{ width: 12, height: 12 }} /> SIGHT & SOUND TOP 250
+                  </motion.span>
+                </motion.div>
+                
+                <motion.h1 variants={fadeUpItem} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 8vw, 8rem)', fontWeight: 400, color: '#EDE8DC', marginBottom: '32px', lineHeight: 0.9, letterSpacing: '-0.02em', margin: '0 0 32px 0' }}>
+                  L'Avventura
+                </motion.h1>
+                
+                <motion.div variants={fadeUpItem} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '24px', color: '#8C8880', marginBottom: '48px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Calendar style={{ width: 12, height: 12 }} /> 1960</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Star style={{ width: 12, height: 12, color: '#BF8F3C' }} /> MICHELANGELO ANTONIONI</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Clock style={{ width: 12, height: 12 }} /> 2H 23M</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Globe style={{ width: 12, height: 12 }} /> ITÁLIA</span>
+                </motion.div>
+
+                <motion.div variants={fadeUpItem} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '64px' }}>
+                  {[ "REMUX", "4K", "DOLBY VISION", "DOLBY ATMOS" ].map(tag => (
+                    <motion.span whileHover={{ scale: 1.1, backgroundColor: '#BF8F3C' }} key={tag} style={{ cursor: 'crosshair', transition: 'background-color 0.3s', fontFamily: "'DM Mono', monospace", fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.2em', padding: '6px 12px', backgroundColor: '#EDE8DC', color: '#040402' }}>
+                      {tag}
+                    </motion.span>
+                  ))}
+                </motion.div>
+
+                <motion.div variants={fadeUpItem} style={{ marginBottom: '80px', maxWidth: '800px' }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: '16px' }}>// REGISTRO DE ENREDO</div>
+                  <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', lineHeight: 1.6, color: '#8C8880', margin: 0, display: '-webkit-box', WebkitLineClamp: showFullSynopsis ? 'none' : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    O desaparecimento de uma jovem durante uma viagem de barco pelo Mediterrâneo estimula seu amante e sua melhor amiga a iniciarem uma busca pela moça. Durante a procura, os dois se apaixonam, num processo de alienação e falta de comunicação característica do cinema de Antonioni. A paisagem estéril das ilhas eólias reflete o vazio existencial dos personagens, criando uma obra-prima do cinema moderno.
+                  </p>
+                  <motion.button whileHover={{ color: '#EDE8DC' }} onClick={() => setShowFullSynopsis(!showFullSynopsis)} style={{ marginTop: '24px', backgroundColor: 'transparent', border: 'none', color: '#BF8F3C', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer', transition: 'color 0.3s' }}>
+                    [ {showFullSynopsis ? 'OCULTAR DADOS' : 'EXPANDIR REGISTRO'} ]
+                  </motion.button>
+                </motion.div>
+              </motion.div>
+
+              {/* ABAS ARQUIVISTAS */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '48px', marginBottom: '64px', borderBottom: '1px solid rgba(86,84,80,0.3)' }}>
+                {[ { id: "overview", label: "01 VISÃO GERAL" }, { id: "details", label: "02 AUDITORIA & METADADOS" }, { id: "media", label: "03 ARQUIVOS DE MÍDIA" } ].map(tab => (
+                  <button
+                    key={tab.id} onClick={() => setActiveTab(tab.id)}
+                    style={{ paddingBottom: '16px', backgroundColor: 'transparent', border: 'none', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', cursor: 'pointer', transition: 'color 0.3s', position: 'relative', color: activeTab === tab.id ? '#BF8F3C' : '#565450' }}
+                    onMouseEnter={e => { if (activeTab !== tab.id) e.currentTarget.style.color = '#8C8880' }}
+                    onMouseLeave={e => { if (activeTab !== tab.id) e.currentTarget.style.color = '#565450' }}
+                  >
+                    {tab.label}
+                    {activeTab === tab.id && <motion.div layoutId="activeTabMovie" transition={{ duration: 0.3 }} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', backgroundColor: '#BF8F3C', boxShadow: '0 0 8px rgba(191,143,60,0.6)' }} />}
+                  </button>
+                ))}
+              </div>
+
+              {/* TAB CONTENT: OVERVIEW */}
+              <AnimatePresence mode="wait">
+                {activeTab === "overview" && (
+                  <motion.div key="overview" variants={staggerContainer} initial="hidden" animate="visible" exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} style={{ display: 'flex', flexDirection: 'column', gap: '96px' }}>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '48px' }}>
+                      <motion.div variants={fadeUpItem} whileHover={{ y: -4 }} style={{ display: 'flex', alignItems: 'flex-start', gap: '24px' }} className="group cursor-crosshair">
+                        <div style={{ width: '80px', aspectRatio: '3/4', backgroundColor: '#040402', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', flexShrink: 0 }}>
+                          <img src="https://i.pravatar.cc/150?u=antonioni" alt="Director" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" />
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em', marginBottom: '8px', transition: 'color 0.3s' }} className="group-hover:text-[#EDE8DC]">// DIREÇÃO</div>
+                          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', color: '#EDE8DC', margin: '0 0 12px 0' }}>Michelangelo Antonioni</h3>
+                          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#8C8880', lineHeight: 1.6, margin: 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Mestre do modernismo italiano, redefiniu a narrativa cinematográfica focando no vazio e na alienação arquitetônica.</p>
+                        </div>
+                      </motion.div>
+
+                      <motion.div variants={fadeUpItem} whileHover={{ y: -4 }} style={{ display: 'flex', alignItems: 'flex-start', gap: '24px' }} className="group cursor-crosshair">
+                        <div style={{ width: '80px', aspectRatio: '3/4', backgroundColor: '#040402', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color 0.3s' }} className="group-hover:border-[#BF8F3C]">
+                          <Camera style={{ width: 24, height: 24, color: '#565450', transition: 'color 0.3s' }} className="group-hover:text-[#BF8F3C]" />
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: '8px', transition: 'color 0.3s' }} className="group-hover:text-[#BF8F3C]">// FOTOGRAFIA</div>
+                          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', color: '#EDE8DC', margin: '0 0 12px 0' }}>Aldo Scavarda</h3>
+                          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#8C8880', lineHeight: 1.6, margin: 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Criou composições milimetricamente calculadas usando película 35mm P&B, utilizando a paisagem como extensão psicológica.</p>
+                        </div>
+                      </motion.div>
+                    </div>
+
+                    <motion.div variants={fadeUpItem}>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: '32px' }}>// IDENTIFICAÇÃO DE ELENCO</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '24px' }}>
+                        {cast.map((actor, i) => (
+                          <motion.div key={i} whileHover={{ y: -4 }} transition={{ type: 'spring', stiffness: 300 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} className="group cursor-crosshair">
+                            <div style={{ width: '100%', aspectRatio: '3/4', backgroundColor: '#040402', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', overflow: 'hidden' }}>
+                              <img src={actor.img} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={actor.name} />
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#EDE8DC', lineHeight: 1, marginBottom: '8px' }} className="group-hover:text-[#BF8F3C] transition-colors">{actor.name}</div>
+                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#8C8880', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{actor.role}</div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                    <motion.div variants={fadeUpItem}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px', borderBottom: '1px solid rgba(86,84,80,0.3)', paddingBottom: '16px' }}>
+                        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', color: '#EDE8DC', margin: 0 }}>Arquivos Disponíveis</h3>
+                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em' }}>03 CÓPIAS LOCALIZADAS</span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid rgba(86,84,80,0.3)', backgroundColor: '#040402', overflowX: 'auto' }}>
+                        {releases.map((release, i) => (
+                          <motion.div key={i} whileHover={{ x: 8, backgroundColor: 'rgba(191,143,60,0.05)' }} style={{ display: 'grid', gridTemplateColumns: '60px minmax(200px, 1fr) 1fr 100px 60px', alignItems: 'center', padding: '16px', borderBottom: i !== releases.length -1 ? '1px solid rgba(86,84,80,0.3)' : 'none', cursor: 'pointer' }} className="group">
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '14px', color: '#BF8F3C', textAlign: 'center', transition: 'transform 0.3s' }} className="group-hover:scale-110">{release.score}</div>
+                            <div>
+                              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: '#EDE8DC', marginBottom: '8px', transition: 'color 0.3s' }} className="group-hover:text-[#BF8F3C]">{release.group}</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.1em', color: '#8C8880', border: '1px solid rgba(86,84,80,0.5)', padding: '2px 4px' }}>{release.res}</span>
+                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.1em', color: '#040402', backgroundColor: '#EDE8DC', padding: '2px 4px' }}>{release.type}</span>
+                              </div>
+                            </div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#8C8880', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{release.audio}</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#EDE8DC', letterSpacing: '0.1em', textAlign: 'right', paddingRight: '16px', borderRight: '1px solid rgba(86,84,80,0.3)' }}>{release.size}</div>
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                              <motion.div whileHover={{ scale: 1.2, color: '#EDE8DC' }}><Play style={{ width: 16, height: 16, color: '#565450', transition: 'color 0.3s' }} className="group-hover:text-[#BF8F3C]" /></motion.div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                    <motion.div variants={fadeUpItem} style={{ border: '1px solid rgba(191,143,60,0.3)', background: 'linear-gradient(to bottom right, #040402, #080806)', padding: '48px', position: 'relative', overflow: 'hidden' }}>
+                      <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }} style={{ position: 'absolute', top: 0, right: 0, width: '400px', height: '400px', backgroundColor: 'rgba(191,143,60,0.05)', borderRadius: '50%', filter: 'blur(100px)', pointerEvents: 'none', transform: 'translate(50%, -50%)' }} />
+                      
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', marginBottom: '48px' }}>
+                        <Layers style={{ width: 20, height: 20, color: '#BF8F3C' }} />
+                        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', color: '#EDE8DC', margin: 0 }}>Sincronização Sugerida</h3>
+                        <span style={{ marginLeft: 'auto', fontFamily: "'DM Mono', monospace", fontSize: '9px', padding: '8px 12px', border: '1px solid rgba(191,143,60,0.5)', color: '#BF8F3C', letterSpacing: '0.2em', backgroundColor: 'rgba(191,143,60,0.05)' }}>TEMA: O VAZIO EXISTENCIAL</span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '48px', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: '192px', aspectRatio: '2/3', backgroundColor: '#040402', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', flexShrink: 0 }}>
+                          <img src="/images/poster-1.png" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)' }} alt="" />
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                          <div style={{ width: '1px', height: '48px', backgroundColor: 'rgba(191,143,60,0.3)' }} />
+                          <motion.div animate={{ rotate: 180 }} transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}><Plus style={{ width: 24, height: 24, color: '#BF8F3C' }} /></motion.div>
+                          <div style={{ width: '1px', height: '48px', backgroundColor: 'rgba(191,143,60,0.3)' }} />
+                        </div>
+
+                        <motion.div whileHover={{ scale: 1.05, boxShadow: '0 0 40px rgba(191,143,60,0.4)' }} style={{ width: '192px', aspectRatio: '2/3', backgroundColor: '#040402', border: '1px solid rgba(191,143,60,0.5)', padding: '4px', flexShrink: 0, boxShadow: '0 0 30px rgba(191,143,60,0.2)', position: 'relative', cursor: 'pointer' }} className="group">
+                          <img src="/images/poster-3.png" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.7s' }} className="group-hover:grayscale-0" alt="" />
+                          <div style={{ position: 'absolute', bottom: '16px', left: 0, right: 0, display: 'flex', justifyContent: 'center', opacity: 0, transition: 'opacity 0.3s' }} className="group-hover:opacity-100">
+                             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', backgroundColor: '#BF8F3C', color: '#040402', padding: '4px 8px', letterSpacing: '0.1em', fontWeight: 'bold' }}>ALVO PRINCIPAL</span>
+                          </div>
+                        </motion.div>
+
+                        <div style={{ flex: 1, minWidth: '300px', paddingLeft: '48px', borderLeft: '1px solid rgba(86,84,80,0.3)' }}>
+                          <h4 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '4rem', color: '#EDE8DC', marginBottom: '16px', lineHeight: 1 }}>L'Aventura + Persona</h4>
+                          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#8C8880', letterSpacing: '0.05em', lineHeight: 1.6, textTransform: 'uppercase', marginBottom: '32px' }}>
+                            Uma exploração profunda da incomunicabilidade e identidade. Comece com a paisagem estéril de Antonioni e termine com a desconstrução psicológica de Bergman. Ambas obras-primas do cinema europeu.
+                          </p>
+                          <motion.button whileHover={{ backgroundColor: '#EDE8DC', color: '#040402', scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ backgroundColor: 'transparent', border: '1px solid #EDE8DC', color: '#EDE8DC', padding: '16px 24px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer', transition: 'all 0.3s' }}>
+                            [ SINCRONIZAR SESSÃO ]
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                  </motion.div>
+                )}
+
+                {/* TAB CONTENT: DETAILS (Prêmios e Críticas) */}
+                {activeTab === "details" && (
+                  <motion.div key="details" variants={staggerContainer} initial="hidden" animate="visible" exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} style={{ display: 'flex', flexDirection: 'column', gap: '96px' }}>
+                    
+                    <motion.div variants={fadeUpItem}>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: '32px' }}>// RECONHECIMENTO INSTITUCIONAL</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                        {festivals.map((fest, i) => (
+                          <motion.div key={i} whileHover={{ y: -4, borderColor: 'rgba(191,143,60,0.5)' }} style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '24px', border: '1px solid rgba(86,84,80,0.3)', backgroundColor: '#040402', cursor: 'crosshair', transition: 'border-color 0.3s' }}>
+                            <Award style={{ width: 32, height: 32, color: '#BF8F3C' }} />
+                            <div>
+                              <h4 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', color: '#EDE8DC', margin: '0 0 8px 0' }}>{fest.award}</h4>
+                              <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#8C8880', letterSpacing: '0.1em', margin: 0, textTransform: 'uppercase' }}>{fest.name} • {fest.year}</p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                    <motion.div variants={fadeUpItem}>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: '32px' }}>// ANÁLISE CRÍTICA</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '32px' }}>
+                        {reviews.map((review, i) => (
+                          <motion.div key={i} whileHover={{ y: -4, borderColor: 'rgba(191,143,60,0.3)' }} style={{ padding: '32px', border: '1px solid rgba(86,84,80,0.3)', background: 'linear-gradient(to bottom, #040402, #080806)', display: 'flex', flexDirection: 'column', cursor: 'crosshair', transition: 'border-color 0.3s' }}>
+                            <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.2rem', color: '#EDE8DC', fontStyle: 'italic', fontWeight: 300, marginBottom: '32px', lineHeight: 1.6, flex: 1 }}>
+                              "{review.text}"
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(86,84,80,0.3)', paddingTop: '24px', marginTop: 'auto' }}>
+                              <div>
+                                <h4 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: '#BF8F3C', margin: 0 }}>{review.author}</h4>
+                                <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#8C8880', letterSpacing: '0.1em', margin: 0, textTransform: 'uppercase' }}>{review.outlet}</p>
+                              </div>
+                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '16px', color: '#EDE8DC', backgroundColor: 'rgba(86,84,80,0.2)', padding: '4px 12px', border: '1px solid rgba(86,84,80,0.5)' }}>
+                                {review.score}
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                    <motion.div variants={fadeUpItem}>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: '32px' }}>// ESPECIFICAÇÕES TÉCNICAS DA OBRA</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', rowGap: '48px', columnGap: '64px', borderTop: '1px solid rgba(86,84,80,0.3)', borderBottom: '1px solid rgba(86,84,80,0.3)', padding: '48px 0' }}>
+                        {technicalSpecs.map((spec, i) => (
+                          <div key={i} className="group cursor-crosshair">
+                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#BF8F3C', letterSpacing: '0.2em', marginBottom: '8px', textTransform: 'uppercase', transition: 'color 0.3s' }} className="group-hover:text-[#EDE8DC]">{spec.label}</p>
+                            <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', color: '#EDE8DC', margin: 0 }}>{spec.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                  </motion.div>
+                )}
+
+                {/* TAB CONTENT: MEDIA */}
+                {activeTab === "media" && (
+                  <motion.div key="media" variants={staggerContainer} initial="hidden" animate="visible" exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} style={{ display: 'flex', flexDirection: 'column', gap: '96px' }}>
+                    
+                    <motion.div variants={fadeUpItem}>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: '32px' }}>// CAPTURAS ÓPTICAS</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+                        {["/images/poster-2.png", "/images/poster-3.png", "/images/poster-4.png", "/images/poster-5.png", "/images/poster-1.png"].map((img, i) => (
+                          <motion.div key={i} whileHover={{ scale: 1.02, zIndex: 10, boxShadow: '0 10px 40px rgba(0,0,0,0.8)' }} style={{ backgroundColor: '#040402', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', cursor: 'crosshair', position: 'relative' }} className={`group ${i === 0 ? 'col-span-2 row-span-2' : ''}`}>
+                            <div style={{ aspectRatio: i === 0 ? '16/9' : '3/2', width: '100%', overflow: 'hidden' }}>
+                              <img src={img} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.7s' }} className="group-hover:grayscale-0" alt="" />
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                    <motion.div variants={fadeUpItem} style={{ border: '1px solid rgba(86,84,80,0.3)', backgroundColor: '#040402', padding: '48px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '24px', marginBottom: '48px', borderBottom: '1px solid rgba(86,84,80,0.3)', paddingBottom: '32px' }}>
+                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}><Music style={{ width: 32, height: 32, color: '#BF8F3C' }} /></motion.div>
+                        <div>
+                          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', color: '#EDE8DC', margin: '0 0 8px 0' }}>Trilha Sonora Original</h3>
+                          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#8C8880', letterSpacing: '0.1em', margin: 0, textTransform: 'uppercase' }}>Composta por Giovanni Fusco</p>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {["MAIN THEME (L'AVVENTURA)", "THE ISLAND", "SEARCHING FOR ANNA"].map((track, i) => (
+                          <motion.div key={i} whileHover={{ x: 8, borderColor: 'rgba(86,84,80,0.5)' }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', border: '1px solid transparent', backgroundColor: '#080806', cursor: 'pointer', transition: 'border-color 0.3s' }} className="group">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#565450' }}>0{i + 1}</span>
+                              <Play style={{ width: 16, height: 16, color: '#565450', transition: 'color 0.3s' }} className="group-hover:text-[#BF8F3C]" />
+                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#EDE8DC', letterSpacing: '0.1em', transition: 'color 0.3s' }} className="group-hover:text-[#BF8F3C]">{track}</span>
+                            </div>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#8C8880' }}>03:{14 + i * 10}</span>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+            </div>
+          </div>
+
+          {/* ── OBRAS CORRELATAS ── */}
+          <motion.section initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-10%" }} transition={{ duration: 0.8, ease: FINE_ART_EASE }} style={{ paddingTop: '96px', borderTop: '1px solid rgba(86,84,80,0.3)' }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: '48px' }}>// OBRAS CORRELATAS IDENTIFICADAS</div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '32px' }}>
+              {similarMovies.map((movie, i) => (
+                <motion.div key={movie.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.6, ease: FINE_ART_EASE }}>
+                  <MovieCard id={movie.id} title={movie.title} year={movie.year} imageUrl={movie.img} qualities={movie.qualities} index={i} />
+                </motion.div>
+              ))}
+            </div>
+          </motion.section>
+
+        </div>
       </main>
     </div>
   );

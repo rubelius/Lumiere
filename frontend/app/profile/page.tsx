@@ -1,278 +1,564 @@
 'use client';
-import { Sidebar } from "@/components/layout/Sidebar";
-import { motion } from "framer-motion";
-import { User, Clock, Film, HardDrive, Edit3, Settings, Award, Star, Flame, Trophy, BarChart3, Activity, Bookmark, History, CalendarDays } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Clock, Film, HardDrive, Edit3, Settings, Award, Star, Flame, Trophy, BarChart3, Activity, Bookmark, History, CalendarDays, TerminalSquare, X, Camera, Globe } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { duration: 0.8, ease: FINE_ART_EASE } }
+};
+
+const modalVariants = {
+  hidden: { opacity: 0, scale: 0.98, y: 20 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.5, ease: FINE_ART_EASE } },
+  exit: { opacity: 0, scale: 0.98, y: 20, transition: { duration: 0.4, ease: FINE_ART_EASE } }
+};
 
 export default function Profile() {
+  const [userName, setUserName] = useState("Edwin David");
+  const [userBio, setUserBio] = useState("Desenvolvedor chefe e curador do acervo. Apaixonado por clássicos noir, ficção científica contemplativa e arquivos REMUX 4K sem compressão.");
+  const router = useRouter();
+  
+  const [draftName, setDraftName] = useState(userName);
+  const [draftBio, setDraftBio] = useState(userBio);
+
+  const [activeModal, setActiveModal] = useState<"edit" | "lists" | "log" | "achievement" | null>(null);
+  const [selectedAchievement, setSelectedAchievement] = useState<any>(null);
+
   const stats = [
-    { label: "Horas Assistidas", value: "342", icon: Clock },
-    { label: "Títulos na Biblioteca", value: "128", icon: Film },
-    { label: "Armazenamento", value: "4.2 TB", icon: HardDrive },
+    { label: "TEMPO DE EXIBIÇÃO", value: "342 H", icon: Clock, detail: "TOP 5% DA PLATAFORMA" },
+    { label: "ACERVO ASSISTIDO", value: "128", icon: Film, detail: "OBRAS CATALOGADAS" },
+    { label: "AVALIAÇÃO MÉDIA", value: "4.2", icon: Star, detail: "CRÍTICO EXIGENTE" },
   ];
 
   const achievements = [
-    { title: "Maratonista", desc: "Assistiu 5 filmes no mesmo dia", icon: Flame, color: "text-orange-500", bg: "bg-orange-500/10", border: "border-orange-500/20" },
-    { title: "Cinéfilo Noir", desc: "Assistiu 10 clássicos noir", icon: Star, color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/20" },
-    { title: "Audiófilo", desc: "100 horas de áudio Atmos", icon: Award, color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
-    { title: "Arquivista", desc: "Atingiu 4TB de mídia", icon: Trophy, color: "text-yellow-500", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+    { title: "MARATONISTA", desc: "5 PROJEÇÕES EM 24H", fullDesc: "Você manteve o sistema em operação contínua por mais de 12 horas reprodutivas em um único ciclo de rotação da Terra.", icon: Flame },
+    { title: "CINÉFILO NOIR", desc: "10 CLÁSSICOS NOIR", fullDesc: "Aquisição e visualização integral de 10 obras do movimento Noir. O contraste absoluto foi calibrado.", icon: Star },
+    { title: "NOUVELLE VAGUE", desc: "AUTORES FRANCESES", fullDesc: "Exploração profunda do cinema francês de vanguarda. Godard e Truffaut aprovariam sua curadoria.", icon: Camera },
+    { title: "ARQUIVISTA", desc: "100 REVIEWS ESCRITAS", fullDesc: "Seu diário de filmes atingiu a marca de 100 críticas documentadas para a posteridade.", icon: Trophy },
   ];
 
+  const handleSaveProfile = () => {
+    setUserName(draftName);
+    setUserBio(draftBio);
+    setActiveModal(null);
+  };
+
   return (
-    <div className="min-h-screen bg-background text-foreground pl-24 pb-32 selection:bg-primary/30">
-      <div className="fixed inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none z-50" />
-      <Sidebar />
+    <div style={{ minHeight: '100vh', backgroundColor: '#080806', color: '#EDE8DC', paddingBottom: 120 }}>
+      <div className="fixed inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none z-0" />
       
-      {/* Abstract Background Glow */}
-      <div className="absolute top-0 right-0 w-200 h-150 bg-primary/10 rounded-full blur-[150px] pointer-events-none -z-10" />
-
-      <main className="max-w-350 mx-auto px-16 pt-20">
+      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '120px 72px 0', position: 'relative', zIndex: 10 }}>
         
-        {/* Profile Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row items-center md:items-start gap-10 mb-24 bg-card/30 p-10 rounded-[3rem] border border-white/5 backdrop-blur-md relative overflow-hidden"
-        >
-          <div className="absolute inset-0 bg-linear-to-r from-primary/10 to-transparent pointer-events-none" />
+        <motion.div initial="hidden" animate="visible" variants={containerVariants}>
           
-          <div className="relative group">
-            <div className="w-48 h-48 rounded-[2rem] overflow-hidden border-4 border-white/10 shadow-[0_0_50px_rgba(99,102,241,0.4)] group-hover:border-primary/50 transition-colors duration-500">
-              <img src={"/images/hero-backdrop.png"} alt="Profile" className="w-full h-full object-cover filter grayscale mix-blend-luminosity group-hover:grayscale-0 group-hover:mix-blend-normal transition-all duration-700" />
+          {/* ── CABEÇALHO / DOSSIÊ DO USUÁRIO ── */}
+          <motion.div variants={itemVariants} style={{ display: 'flex', alignItems: 'flex-end', gap: 64, marginBottom: 120, paddingBottom: 64, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
+            <div style={{ position: 'relative', width: 220, aspectRatio: '3/4', border: '1px solid rgba(237,232,220,0.2)', backgroundColor: '#040402', overflow: 'hidden' }}>
+              <img src="/images/perfil.jpg" alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(1.2)' }} />
+              <motion.div animate={{ y: ['-10%', '110%'] }} transition={{ repeat: Infinity, duration: 3, ease: 'linear' }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 2, backgroundColor: 'rgba(191,143,60,0.5)', boxShadow: '0 0 15px rgba(191,143,60,0.8)' }} />
             </div>
-            <button className="absolute -bottom-4 -right-4 w-14 h-14 bg-primary rounded-full flex items-center justify-center text-white shadow-xl tv-focus hover:scale-110 transition-transform border-4 border-background">
-              <Edit3 className="w-6 h-6" />
-            </button>
-          </div>
 
-          <div className="flex-1 text-center md:text-left pt-4 md:pl-6">
-            <h1 className="text-6xl font-serif font-bold text-white mb-4 text-glow tracking-tight">Cinéfilo</h1>
-            <p className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary font-bold tracking-[0.2em] text-sm uppercase mb-8">
-              <Award className="w-4 h-4" /> Membro Premium
-            </p>
-            <p className="text-white/60 text-xl max-w-3xl leading-relaxed font-light">
-              Apaixonado por clássicos noir e ficção científica contemplativa. Colecionador de edições <span className="text-white font-medium">REMUX</span> e áudio <span className="text-white font-medium">Atmos</span>.
-            </p>
-          </div>
-          
-          <button className="hidden md:flex p-5 rounded-[2rem] bg-white/5 border border-white/10 text-white tv-focus hover:bg-white/10 hover:border-white/30 transition-all shadow-lg hover:shadow-[0_0_30px_rgba(255,255,255,0.1)]">
-            <Settings className="w-8 h-8" />
-          </button>
-        </motion.div>
-
-        {/* Stats & Dashboard (Enhanced Feature) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-24">
-          {stats.map((stat, i) => (
-            <motion.div 
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + (i * 0.1) }}
-              className="bg-card/20 border border-white/5 p-10 rounded-[3rem] backdrop-blur-xl flex items-center gap-8 group hover:border-primary/30 transition-all duration-500 hover:shadow-[0_0_40px_rgba(99,102,241,0.15)] tv-focus cursor-pointer"
-            >
-              <div className="w-20 h-20 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary shadow-inner group-hover:bg-primary group-hover:text-white transition-colors duration-500 group-hover:scale-110">
-                <stat.icon className="w-10 h-10" />
-              </div>
-              <div>
-                <p className="text-5xl font-serif font-bold text-white mb-2 tracking-tight group-hover:text-primary transition-colors">{stat.value}</p>
-                <p className="text-white/50 uppercase tracking-[0.2em] text-xs font-bold">{stat.label}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Extended Stats / Charts */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="mb-24 grid grid-cols-1 lg:grid-cols-2 gap-8"
-        >
-          <div className="bg-card/30 border border-white/5 p-8 rounded-3xl backdrop-blur-sm">
-            <h3 className="text-2xl font-serif text-white mb-6 flex items-center gap-3">
-              <BarChart3 className="w-6 h-6 text-primary" />
-              Gêneros Favoritos
-            </h3>
-            <div className="space-y-5">
-              {[
-                { label: 'Sci-Fi', percent: 85, color: 'bg-blue-500' },
-                { label: 'Noir', percent: 65, color: 'bg-purple-500' },
-                { label: 'Drama', percent: 45, color: 'bg-green-500' },
-                { label: 'Mistério', percent: 30, color: 'bg-orange-500' },
-              ].map(genre => (
-                <div key={genre.label}>
-                  <div className="flex justify-between text-sm font-medium text-white mb-2">
-                    <span>{genre.label}</span>
-                    <span className="text-muted-foreground">{genre.percent}%</span>
-                  </div>
-                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${genre.percent}%` }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                      className={`h-full ${genre.color} rounded-full`}
-                    />
-                  </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+                <div>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>[ ID DE OPERAÇÃO: 001 ]</div>
+                  <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '4.5rem', fontWeight: 400, margin: 0, lineHeight: 1, letterSpacing: '-0.02em', color: '#FFFFFF' }}>{userName}</h1>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-card/30 border border-white/5 p-8 rounded-3xl backdrop-blur-sm">
-            <h3 className="text-2xl font-serif text-white mb-6 flex items-center gap-3">
-              <Activity className="w-6 h-6 text-primary" />
-              Hábitos de Visualização
-            </h3>
-            <div className="h-full flex items-end gap-3 pb-8 pt-4">
-              {[40, 60, 30, 80, 100, 50, 70].map((h, i) => (
-                <div key={i} className="flex-1 flex flex-col justify-end items-center gap-3 group">
-                  <motion.div 
-                    initial={{ height: 0 }}
-                    whileInView={{ height: `${h}%` }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8, delay: i * 0.1 }}
-                    className="w-full bg-primary/30 rounded-t-lg group-hover:bg-primary transition-colors relative"
+                
+                <div style={{ display: 'flex', gap: 16 }}>
+                  {/* Botão de Editar Perfil (Abre o Modal) */}
+                  <motion.button 
+                    onClick={() => { setDraftName(userName); setDraftBio(userBio); setActiveModal('edit'); }}
+                    whileHover={{ backgroundColor: '#BF8F3C', color: '#040402', scale: 1.05, borderColor: '#BF8F3C' }} whileTap={{ scale: 0.95 }}
+                    style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8C8880', cursor: 'pointer', transition: 'all 0.3s' }}
                   >
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-xs font-bold text-white bg-black/80 px-2 py-1 rounded">
-                      {h}h
+                    <Edit3 style={{ width: 16, height: 16 }} />
+                  </motion.button>
+
+                  {/* Botão de Configurações (Redireciona para /settings) */}
+                  <motion.button 
+                    onClick={() => router.push('/settings')}
+                    whileHover={{ backgroundColor: '#EDE8DC', color: '#040402', scale: 1.05, borderColor: '#EDE8DC' }} whileTap={{ scale: 0.95 }}
+                    style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8C8880', cursor: 'pointer', transition: 'all 0.3s' }}
+                  >
+                    <Settings style={{ width: 16, height: 16 }} />
+                  </motion.button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', padding: '6px 12px', border: '1px solid #BF8F3C', color: '#BF8F3C', backgroundColor: 'rgba(191,143,60,0.05)' }}>ADMINISTRADOR LUMIÈRE</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', padding: '6px 12px', border: '1px solid rgba(237,232,220,0.1)', color: '#565450' }}>ACESSO MASTER</span>
+              </div>
+              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#8C8880', fontStyle: 'italic', margin: 0, maxWidth: 700, lineHeight: 1.4 }}>{userBio}</p>
+            </div>
+          </motion.div>
+
+          {/* ── TELEMETRIA GERAL ── */}
+          <motion.div variants={itemVariants} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 48, marginBottom: 120 }}>
+            {stats.map((stat) => (
+              <div key={stat.label} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid rgba(237,232,220,0.1)', paddingBottom: 16 }}>
+                  <stat.icon style={{ width: 16, height: 16, color: '#BF8F3C' }} />
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em' }}>[ {stat.label} ]</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3.5rem', color: '#EDE8DC', lineHeight: 1 }}>{stat.value}</span>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#BF8F3C', letterSpacing: '0.1em', paddingBottom: 6 }}>{stat.detail}</span>
+                </div>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* ── PAINEL DE GRÁFICOS (VISIBILIDADE APRIMORADA E FÍSICA FINA) ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px 64px', marginBottom: 120 }}>
+            
+            {/* 1. Espectro de Gêneros */}
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+                <Film style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Espectro de Gêneros</h2>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                {[ { label: 'SCI-FI', percent: 85 }, { label: 'NOIR', percent: 65 }, { label: 'DRAMA', percent: 45 }, { label: 'FANTASIA (ÉPICA)', percent: 30 } ].map(genre => (
+                  <motion.div key={genre.label} whileHover="hover" initial="rest" animate="rest" style={{ cursor: 'crosshair' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', marginBottom: 10 }}>
+                      <motion.span variants={{ rest: { color: '#EDE8DC' }, hover: { color: '#BF8F3C' } }} transition={{ duration: 0.15 }}>{genre.label}</motion.span>
+                      <motion.span variants={{ rest: { color: '#8C8880' }, hover: { color: '#EDE8DC' } }} transition={{ duration: 0.15 }}>{genre.percent}%</motion.span>
+                    </div>
+                    {/* Barra mais grossa (6px) para visibilidade real */}
+                    <div style={{ height: 6, width: '100%', backgroundColor: 'rgba(237,232,220,0.1)', position: 'relative', borderRadius: 2 }}>
+                      <motion.div 
+                        variants={{ 
+                          rest: { backgroundColor: '#A3A098', boxShadow: 'none' }, 
+                          hover: { backgroundColor: '#BF8F3C', boxShadow: '0 0 12px rgba(191,143,60,0.8)' } 
+                        }}
+                        initial={{ width: 0 }} whileInView={{ width: `${genre.percent}%` }} viewport={{ once: true }} 
+                        transition={{ width: { duration: 1.5, ease: FINE_ART_EASE }, default: { duration: 0.2 } }}
+                        style={{ position: 'absolute', top: 0, left: 0, height: '100%', borderRadius: 2 }}
+                      />
                     </div>
                   </motion.div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase">
-                    {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][i]}
-                  </span>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* 2. Dispersão Temporal */}
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+                <Clock style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Dispersão Temporal</h2>
+              </div>
+              <div style={{ position: 'relative', height: 180, borderBottom: '1px solid rgba(237,232,220,0.2)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 8 }}>
+                <div style={{ position: 'absolute', top: '50%', left: 0, width: '100%', height: 1, borderTop: '1px dashed rgba(237,232,220,0.1)', zIndex: 0 }} />
+                
+                {[ { dec: '1920', val: 15 }, { dec: '1940', val: 30 }, { dec: '1960', val: 80 }, { dec: '1980', val: 60 }, { dec: '2000', val: 90 }, { dec: '2020', val: 40 } ].map((d, i) => (
+                  <motion.div key={d.dec} whileHover="hover" initial="rest" animate="rest" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, height: '100%', flex: 1, zIndex: 1, cursor: 'crosshair' }}>
+                    <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                      <motion.div 
+                        /* Colunas largas e em Prata Metálico para destaque imediato */
+                        variants={{ 
+                          rest: { backgroundColor: '#A3A098', scaleX: 1, scaleY: 1, boxShadow: 'none' }, 
+                          hover: { backgroundColor: '#BF8F3C', scaleX: 1.2, scaleY: 1.05, boxShadow: '0 0 15px rgba(191,143,60,0.5)' } 
+                        }}
+                        initial={{ height: 0 }} whileInView={{ height: `${d.val}%` }} viewport={{ once: true }} 
+                        transition={{ height: { duration: 1.2, delay: i * 0.1, ease: FINE_ART_EASE }, default: { duration: 0.2 } }}
+                        style={{ width: 32, borderTopLeftRadius: 4, borderTopRightRadius: 4, transformOrigin: 'bottom' }}
+                      />
+                    </div>
+                    <motion.span variants={{ rest: { color: '#8C8880', y: 0 }, hover: { color: '#BF8F3C', y: -2 } }} transition={{ duration: 0.2 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em' }}>{d.dec}S</motion.span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* 3. Curva de Avaliações (Gaussiana Limpa) */}
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+                <Star style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Curva de Avaliações</h2>
+              </div>
+              <div style={{ position: 'relative', height: 180, width: '100%', borderBottom: '1px solid rgba(237,232,220,0.2)' }}>
+                <svg viewBox="0 0 1000 200" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>
+                   <motion.path 
+                     initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ duration: 2, ease: FINE_ART_EASE }}
+                     d="M 0,200 L 0,190 C 60,190 60,185 125,185 C 190,185 190,175 250,175 C 310,175 310,150 375,150 C 440,150 440,100 500,100 C 560,100 560,50 625,50 C 690,50 690,20 750,20 C 810,20 810,70 875,70 C 940,70 940,150 1000,150 L 1000,200 Z"
+                     fill="url(#gaussian-gradient)"
+                   />
+                   <defs>
+                     <linearGradient id="gaussian-gradient" x1="0" x2="0" y1="0" y2="1">
+                       <stop offset="0%" stopColor="rgba(191,143,60,0.2)" />
+                       <stop offset="100%" stopColor="rgba(191,143,60,0)" />
+                     </linearGradient>
+                   </defs>
+                   <motion.path 
+                     initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 2, ease: FINE_ART_EASE }}
+                     d="M 0,190 C 60,190 60,185 125,185 C 190,185 190,175 250,175 C 310,175 310,150 375,150 C 440,150 440,100 500,100 C 560,100 560,50 625,50 C 690,50 690,20 750,20 C 810,20 810,70 875,70 C 940,70 940,150 1000,150"
+                     fill="none" stroke="#BF8F3C" strokeWidth="4" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 8px rgba(191,143,60,0.6))' }}
+                   />
+                </svg>
+
+                {/* Eixo X com Precisão 0.5 - Sem bolinhas */}
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: 0 }}>
+                  {[ { r: '1.0', x: '0%' }, { r: '1.5', x: '12.5%' }, { r: '2.0', x: '25%' }, { r: '2.5', x: '37.5%' }, { r: '3.0', x: '50%' }, { r: '3.5', x: '62.5%' }, { r: '4.0', x: '75%' }, { r: '4.5', x: '87.5%' }, { r: '5.0', x: '100%' } ].map((pt) => (
+                    <motion.div key={pt.r} whileHover="hover" initial="rest" animate="rest" style={{ position: 'absolute', left: pt.x, bottom: -24, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'crosshair', transform: 'translateX(-50%)' }}>
+                      <motion.span 
+                        variants={{ rest: { color: '#8C8880', scale: 1 }, hover: { color: '#BF8F3C', scale: 1.3 } }}
+                        transition={{ duration: 0.2 }}
+                        style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em' }}
+                      >
+                        {pt.r}
+                      </motion.span>
+                    </motion.div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            </motion.div>
+
+            {/* 4. Autores Recorrentes */}
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+                <Camera style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Autores Recorrentes</h2>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {[ { dir: 'M. ANTONIONI', val: 18 }, { dir: 'A. TARKOVSKY', val: 14 }, { dir: 'S. KUBRICK', val: 12 }, { dir: 'I. BERGMAN', val: 10 } ].map((d, i) => (
+                  <motion.div key={i} whileHover="hover" initial="rest" animate="rest" style={{ display: 'grid', gridTemplateColumns: '120px 1fr 30px', alignItems: 'center', gap: 16, cursor: 'crosshair' }}>
+                    <motion.span variants={{ rest: { color: '#EDE8DC', x: 0 }, hover: { color: '#BF8F3C', x: 4 } }} transition={{ duration: 0.2 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em' }}>
+                      {d.dir}
+                    </motion.span>
+                    <div style={{ height: 6, width: '100%', backgroundColor: 'rgba(237,232,220,0.1)', position: 'relative', borderRadius: 2 }}>
+                      <motion.div 
+                        variants={{ 
+                          rest: { backgroundColor: '#A3A098', boxShadow: 'none' }, 
+                          hover: { backgroundColor: '#BF8F3C', boxShadow: '0 0 10px rgba(191,143,60,0.8)' } 
+                        }}
+                        initial={{ width: 0 }} whileInView={{ width: `${(d.val / 18) * 100}%` }} viewport={{ once: true }} 
+                        transition={{ width: { duration: 1.5, delay: i * 0.1, ease: FINE_ART_EASE }, default: { duration: 0.2 } }}
+                        style={{ position: 'absolute', top: 0, left: 0, height: '100%', borderRadius: 2 }}
+                      />
+                    </div>
+                    <motion.span variants={{ rest: { color: '#8C8880', scale: 1 }, hover: { color: '#BF8F3C', scale: 1.2 } }} transition={{ duration: 0.2 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', textAlign: 'right' }}>
+                      {d.val}
+                    </motion.span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* 5. Geografia Cinematográfica (Restaurado o Monolito em Degradê) */}
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+                <Globe style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Geografia Cinematográfica</h2>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: 180 }}>
+                <div style={{ display: 'flex', width: '100%', height: 32, gap: 4, marginBottom: 24 }}>
+                  {[ 
+                    /* Cores originais mantidas para formar o degradê escuro contínuo amado */
+                    { c: 'EUA', p: 40, col: '#565450' }, 
+                    { c: 'FRA', p: 25, col: '#8C8880' }, 
+                    { c: 'ITA', p: 15, col: '#302E2A' }, 
+                    { c: 'JAP', p: 10, col: 'rgba(237,232,220,0.2)' }, 
+                    { c: 'BRA', p: 10, col: 'rgba(237,232,220,0.1)' } 
+                  ].map((country, i) => (
+                    <motion.div 
+                      key={country.c} whileHover="hover" initial="hidden" whileInView="rest" viewport={{ once: true }} animate="rest"
+                      variants={{
+                        hidden: { width: "0%", opacity: 0 },
+                        rest: { width: `${country.p}%`, opacity: 1, transition: { duration: 1.2, delay: i * 0.1, ease: FINE_ART_EASE } }
+                      }}
+                      style={{ height: '100%', position: 'relative', cursor: 'crosshair', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                       <motion.div 
+                         variants={{ 
+                           hidden: { backgroundColor: country.col },
+                           rest: { backgroundColor: country.col, scaleY: 1, zIndex: 1 }, 
+                           hover: { backgroundColor: '#BF8F3C', scaleY: 1.4, zIndex: 10, boxShadow: '0 0 15px rgba(191,143,60,0.5)' } 
+                         }}
+                         transition={{ duration: 0.2 }}
+                         style={{ width: '100%', height: '100%', transformOrigin: 'center' }}
+                       />
+                    </motion.div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 8px' }}>
+                   {[ { c: 'EUA', p: 40 }, { c: 'FRA', p: 25 }, { c: 'ITA', p: 15 }, { c: 'JAP', p: 10 }, { c: 'BRA', p: 10 } ].map((country, i) => (
+                     <motion.div key={i} whileHover="hover" initial="rest" animate="rest" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'crosshair' }}>
+                       <motion.span variants={{ rest: { color: '#8C8880', y: 0 }, hover: { color: '#BF8F3C', y: -2 } }} transition={{ duration: 0.2 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em' }}>{country.c}</motion.span>
+                       <motion.span variants={{ rest: { color: '#565450' }, hover: { color: '#EDE8DC' } }} transition={{ duration: 0.2 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px' }}>{country.p}%</motion.span>
+                     </motion.div>
+                   ))}
+                </div>
+              </div>
+            </motion.div>
+
+            {/* 6. Frequência de Projeção */}
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+                <Activity style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Frequência Semanal</h2>
+              </div>
+              <div style={{ height: 180, display: 'flex', alignItems: 'flex-end', gap: 16, borderBottom: '1px solid rgba(237,232,220,0.2)', paddingBottom: 8 }}>
+                {[40, 60, 30, 80, 100, 50, 70].map((h, i) => (
+                  <motion.div key={i} whileHover="hover" initial="rest" animate="rest" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, height: '100%', cursor: 'crosshair' }}>
+                    <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative', justifyContent: 'center' }}>
+                      <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 10, height: '100%', backgroundColor: 'rgba(237,232,220,0.05)', borderRadius: 2 }} />
+                      <motion.div 
+                        /* Colunas largas (10px) e Prata Metálico para garantir leitura */
+                        variants={{ 
+                          rest: { backgroundColor: '#A3A098', scaleX: 1, boxShadow: 'none' }, 
+                          hover: { backgroundColor: '#BF8F3C', scaleX: 1.4, boxShadow: '0 0 15px rgba(191,143,60,0.6)' } 
+                        }}
+                        initial={{ height: 0 }} whileInView={{ height: `${h}%` }} viewport={{ once: true }} 
+                        transition={{ height: { duration: 1, delay: i * 0.1, ease: FINE_ART_EASE }, default: { duration: 0.2 } }}
+                        style={{ position: 'relative', width: 10, borderRadius: 2, transformOrigin: 'bottom' }}
+                      />
+                    </div>
+                    <motion.span variants={{ rest: { color: '#8C8880', y: 0 }, hover: { color: '#BF8F3C', y: -2 } }} transition={{ duration: 0.2 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.1em' }}>
+                      {['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM'][i]}
+                    </motion.span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+          </div>
+
+          {/* ── LISTAS E DIÁRIO TÉCNICO ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, marginBottom: 120 }}>
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <Bookmark style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                  <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Diretórios Organizados</h2>
+                </div>
+                <motion.button 
+                  onClick={() => setActiveModal('lists')}
+                  whileHover={{ color: '#EDE8DC' }} whileTap={{ scale: 0.95 }}
+                  style={{ background: 'transparent', border: 'none', color: '#565450', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', transition: 'color 0.3s' }}
+                >
+                  [ VER TODOS ]
+                </motion.button>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {[ { title: "FILMES ESSENCIAIS NOIR", count: "24 ARQUIVOS" }, { title: "REFERÊNCIAS DE CAMPANHA (D&D)", count: "18 ARQUIVOS" }, { title: "SESSÃO DUPLA: ANOS 70", count: "08 ARQUIVOS" } ].map((list, i) => (
+                  <motion.button 
+                    key={i} onClick={() => setActiveModal('lists')}
+                    whileHover={{ backgroundColor: 'rgba(237,232,220,0.02)', paddingLeft: 16 }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 0', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(237,232,220,0.05)', cursor: 'pointer', transition: 'all 0.3s' }}
+                  >
+                    <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#EDE8DC' }}>{list.title}</span>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.15em' }}>{list.count}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <CalendarDays style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                  <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Registro Histórico</h2>
+                </div>
+                <motion.button 
+                  onClick={() => setActiveModal('log')}
+                  whileHover={{ color: '#EDE8DC' }} whileTap={{ scale: 0.95 }}
+                  style={{ background: 'transparent', border: 'none', color: '#565450', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', transition: 'color 0.3s' }}
+                >
+                  [ ABRIR REGISTRO ]
+                </motion.button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {[ { title: "O Sétimo Selo", date: "15 OUT", rating: "5.0", hasReview: true }, { title: "A Doce Vida", date: "12 OUT", rating: "4.0", hasReview: false }, { title: "Acossado", date: "10 OUT", rating: "4.5", hasReview: true }, { title: "Os Incompreendidos", date: "05 OUT", rating: "5.0", hasReview: true } ].map((entry, i) => (
+                  <motion.button 
+                    key={i} onClick={() => setActiveModal('log')}
+                    whileHover={{ backgroundColor: 'rgba(237,232,220,0.02)', paddingLeft: 16 }}
+                    style={{ display: 'grid', gridTemplateColumns: '60px 1fr auto 40px', gap: 16, alignItems: 'center', padding: '24px 0', border: 'none', borderBottom: '1px solid rgba(237,232,220,0.05)', background: 'transparent', cursor: 'pointer', transition: 'all 0.3s', textAlign: 'left' }}
+                  >
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.1em' }}>{entry.date}</span>
+                    <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', color: '#EDE8DC' }}>{entry.title}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{entry.hasReview && <History style={{ width: 12, height: 12, color: '#8C8880' }} />}</div>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#BF8F3C', textAlign: 'right' }}>{entry.rating}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+
+          {/* ── RODAPÉ DE AUDITORIA ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80 }}>
+            
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+                <Award style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Certificações Obtidas</h2>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                {achievements.map((ach, i) => (
+                  <motion.div 
+                    key={i} onClick={() => { setSelectedAchievement(ach); setActiveModal('achievement'); }}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    style={{ position: 'relative', cursor: 'pointer', padding: 2, background: 'linear-gradient(135deg, rgba(191,143,60,0.4) 0%, rgba(191,143,60,0) 100%)' }}
+                    className="group"
+                  >
+                    <div style={{ backgroundColor: '#040402', border: '1px dashed rgba(191,143,60,0.3)', padding: 24, height: '100%', display: 'flex', flexDirection: 'column', gap: 16, transition: 'all 0.4s' }} className="group-hover:bg-[#080806] group-hover:border-[rgba(191,143,60,0.6)]">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                        <div style={{ padding: 8, border: '1px solid rgba(191,143,60,0.2)', backgroundColor: 'rgba(191,143,60,0.05)' }}>
+                          <ach.icon style={{ width: 20, height: 20, color: '#BF8F3C' }} />
+                        </div>
+                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#565450' }}>[ CLICK PARA VER ]</span>
+                      </div>
+                      <div>
+                        <h4 style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: '#EDE8DC', letterSpacing: '0.15em', marginBottom: 8 }}>{ach.title}</h4>
+                        <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#8C8880', letterSpacing: '0.1em', margin: 0 }}>{ach.desc}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+                <TerminalSquare style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', margin: 0, color: '#EDE8DC' }}>Log do Sistema</h2>
+              </div>
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 32, paddingLeft: 16, borderLeft: '1px solid rgba(237,232,220,0.1)' }}>
+                {[ { action: "SESSÃO CONCLUÍDA", target: "L'AVVENTURA", time: "ONTEM, 21:30", type: "system" }, { action: "DOWNLOAD COMPLETO", target: "SOLARIS (75.2 GB)", time: "HÁ 2 DIAS", type: "network" }, { action: "CERTIFICADO OBTIDO", target: "MARATONISTA", time: "HÁ 5 DIAS", type: "auth" } ].map((log, i) => (
+                  <motion.div key={i} whileHover={{ x: 4 }} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, cursor: 'default' }}>
+                    <div style={{ position: 'absolute', left: -20, top: 4, width: 7, height: 7, backgroundColor: '#080806', border: '1px solid #BF8F3C' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em' }}>
+                      <span style={{ color: '#BF8F3C' }}>[{log.type.toUpperCase()}]</span>
+                      <span style={{ color: '#565450' }}>{log.time}</span>
+                    </div>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#EDE8DC', lineHeight: 1 }}>
+                      <span style={{ color: '#8C8880', fontStyle: 'italic', marginRight: 8 }}>{log.action}:</span> {log.target}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
           </div>
         </motion.div>
-
-        {/* Lists & Diary (New Feature) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 mb-24">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-3xl font-serif text-white flex items-center gap-3">
-                <Bookmark className="w-8 h-8 text-primary" /> Listas Pessoais
-              </h2>
-              <button className="text-sm font-medium text-primary hover:text-white transition-colors">Ver todas</button>
-            </div>
-            
-            <div className="space-y-4">
-              {[
-                { title: "Filmes Essenciais Noir", count: 24, bg: "bg-gradient-to-br from-gray-800 to-black" },
-                { title: "Sessão Dupla: Anos 70", count: 12, bg: "bg-gradient-to-br from-purple-900 to-black" },
-                { title: "Para Assistir no Outono", count: 8, bg: "bg-gradient-to-br from-orange-900 to-black" },
-              ].map((list, i) => (
-                <div key={i} className="flex items-center gap-6 p-4 rounded-2xl bg-card/30 border border-white/5 tv-focus group cursor-pointer hover:bg-card/50 transition-colors">
-                  <div className={`w-20 h-20 rounded-xl ${list.bg} border border-white/10 flex items-center justify-center relative overflow-hidden group-hover:scale-105 transition-transform`}>
-                    <Film className="w-8 h-8 text-white/30" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-serif text-white mb-1 group-hover:text-primary transition-colors">{list.title}</h3>
-                    <p className="text-muted-foreground text-sm">{list.count} títulos</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.45 }}
-          >
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-3xl font-serif text-white flex items-center gap-3">
-                <CalendarDays className="w-8 h-8 text-primary" /> Diário de Filmes
-              </h2>
-              <button className="text-sm font-medium text-primary hover:text-white transition-colors">Abrir Diário</button>
-            </div>
-
-            <div className="space-y-4">
-              {[
-                { title: "O Sétimo Selo", date: "15 Out", rating: 5, review: true },
-                { title: "A Doce Vida", date: "12 Out", rating: 4, review: false },
-                { title: "Acossado", date: "10 Out", rating: 4, review: true },
-                { title: "Os Incompreendidos", date: "05 Out", rating: 5, review: true },
-              ].map((entry, i) => (
-                <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-white/5 hover:bg-white/5 transition-colors group cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-mono text-muted-foreground w-12">{entry.date}</span>
-                    <h4 className="font-medium text-white group-hover:text-primary transition-colors">{entry.title}</h4>
-                    {entry.review && <span className="p-1 bg-white/10 rounded"><History className="w-3 h-3 text-muted-foreground" /></span>}
-                  </div>
-                  <div className="flex text-primary/80">
-                    {[...Array(5)].map((_, j) => (
-                      <Star key={j} className={`w-4 h-4 ${j < entry.rating ? 'fill-current' : 'opacity-30'}`} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-          {/* Achievements / Badges (New Feature) */}
-          <motion.section
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <h2 className="text-3xl font-serif text-white mb-8 flex items-center gap-3">
-              <Award className="w-8 h-8 text-primary" /> Conquistas
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {achievements.map((ach, i) => (
-                <div key={i} className={`p-5 rounded-2xl border ${ach.border} ${ach.bg} flex flex-col gap-4 tv-focus hover:scale-[1.02] transition-transform cursor-pointer`}>
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-background/50 ${ach.color} shadow-inner`}>
-                    <ach.icon className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className={`text-lg font-bold mb-1 ${ach.color}`}>{ach.title}</h4>
-                    <p className="text-sm text-white/70">{ach.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.section>
-
-          {/* Recent Activity Timeline (New Feature) */}
-          <motion.section
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <h2 className="text-3xl font-serif text-white mb-8">Linha do Tempo</h2>
-            <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-linear-to-b before:from-transparent before:via-white/10 before:to-transparent">
-              {[
-                { title: "Assistiu L'Aventura", time: "Ontem, 21:30", badge: "REMUX", icon: "🎬" },
-                { title: "Adicionou à coleção", time: "Há 2 dias", badge: "Sci-Fi", icon: "❤️" },
-                { title: "Completou Maratona", time: "Há 5 dias", badge: "Conquista", icon: "🏆" },
-              ].map((item, i) => (
-                <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                  {/* Icon */}
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white/20 bg-card text-lg text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 group-hover:bg-primary group-hover:border-primary transition-colors">
-                    {item.icon}
-                  </div>
-                  {/* Card */}
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-2xl bg-card/30 border border-white/5 backdrop-blur-sm group-hover:bg-card/50 transition-colors tv-focus cursor-pointer">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-bold text-white text-lg">{item.title}</h4>
-                      <span className="text-xs font-bold px-2 py-1 rounded bg-white/5 text-primary">{item.badge}</span>
-                    </div>
-                    <time className="font-mono text-sm text-muted-foreground">{item.time}</time>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.section>
-        </div>
-
       </main>
+
+      {/* ── MODAIS INTERATIVOS (Arquitetura Blindada Anti-Bugs) ── */}
+      <AnimatePresence>
+        {activeModal && (
+          <motion.div 
+            key="modal-backdrop"
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.3 }}
+            onClick={() => setActiveModal(null)}
+            style={{ 
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, 
+              backgroundColor: 'rgba(4,4,2,0.85)', backdropFilter: 'blur(12px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+            }}
+          >
+            {/* A Caixa Principal (Física forçada direto no objeto, sem usar variants) */}
+            <motion.div 
+              initial={{ scale: 0.95, y: 20, opacity: 0 }} 
+              animate={{ scale: 1, y: 0, opacity: 1 }} 
+              exit={{ scale: 0.95, y: 20, opacity: 0 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ 
+                position: 'relative', width: '100%', maxWidth: 600, backgroundColor: '#040402', 
+                border: '1px solid #BF8F3C', padding: '48px', boxShadow: '0 0 80px rgba(191,143,60,0.3)', 
+                display: 'flex', flexDirection: 'column' 
+              }}
+            >
+              <button onClick={() => setActiveModal(null)} style={{ position: 'absolute', top: 24, right: 24, background: 'transparent', border: 'none', color: '#565450', cursor: 'pointer', padding: 8 }}>
+                <X style={{ width: 24, height: 24 }} />
+              </button>
+
+              {/* CONTEÚDO: EDITAR PERFIL */}
+              {activeModal === 'edit' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em' }}>[ ATUALIZAÇÃO DE DOSSIÊ ]</div>
+                  <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>Dados do Operador</h2>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                    <div>
+                      <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#8C8880', letterSpacing: '0.2em', display: 'block', marginBottom: 12 }}>NOME DE IDENTIFICAÇÃO</label>
+                      <input 
+                        type="text" value={draftName} onChange={(e) => setDraftName(e.target.value)}
+                        style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid #BF8F3C', padding: '16px', color: '#EDE8DC', fontFamily: "'DM Mono', monospace", fontSize: '14px', outline: 'none' }} 
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#8C8880', letterSpacing: '0.2em', display: 'block', marginBottom: 12 }}>DADOS BIOGRÁFICOS / DESCRIÇÃO TÉCNICA</label>
+                      <textarea 
+                        value={draftBio} onChange={(e) => setDraftBio(e.target.value)} rows={4}
+                        style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid #BF8F3C', padding: '16px', color: '#EDE8DC', fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', fontStyle: 'italic', outline: 'none', resize: 'none' }} 
+                      />
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginTop: 16 }}>
+                     <button onClick={() => setActiveModal(null)} style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', color: '#EDE8DC', padding: '16px 24px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', cursor: 'pointer' }}>[ CANCELAR ]</button>
+                     <button onClick={handleSaveProfile} style={{ background: '#BF8F3C', border: '1px solid #BF8F3C', color: '#040402', padding: '16px 32px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', cursor: 'pointer', fontWeight: 'bold' }}>[ GRAVAR ALTERAÇÕES ]</button>
+                  </div>
+                </div>
+              )}
+
+              {/* CONTEÚDO: CERTIFICADOS */}
+              {activeModal === 'achievement' && selectedAchievement && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center', textAlign: 'center' }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em' }}>[ AUTENTICAÇÃO DE MÉRITO CULTURAL ]</div>
+                  <div style={{ position: 'relative', width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '16px 0' }}>
+                     <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 20, ease: 'linear' }} style={{ position: 'absolute', inset: 0, border: '1px dashed rgba(191,143,60,0.5)', borderRadius: '50%' }} />
+                     <motion.div animate={{ rotate: -360 }} transition={{ repeat: Infinity, duration: 15, ease: 'linear' }} style={{ position: 'absolute', inset: 8, border: '1px solid rgba(191,143,60,0.2)', borderRadius: '50%' }} />
+                     <div style={{ width: 80, height: 80, backgroundColor: 'rgba(191,143,60,0.1)', border: '1px solid #BF8F3C', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+                       <selectedAchievement.icon style={{ width: 32, height: 32, color: '#BF8F3C' }} />
+                     </div>
+                  </div>
+                  <div>
+                    <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3.5rem', margin: '0 0 16px 0', color: '#EDE8DC', lineHeight: 1 }}>{selectedAchievement.title}</h2>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#BF8F3C', letterSpacing: '0.2em' }}>{selectedAchievement.desc}</span>
+                  </div>
+                  <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#8C8880', fontStyle: 'italic', lineHeight: 1.6, margin: 0, padding: '0 24px' }}>"{selectedAchievement.fullDesc}"</p>
+                  <button onClick={() => setActiveModal(null)} style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', color: '#EDE8DC', padding: '16px 32px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', marginTop: 16, cursor: 'pointer' }}>[ FECHAR DOCUMENTO ]</button>
+                </div>
+              )}
+
+              {/* CONTEÚDO: LISTAS E LOGS GENÉRICOS */}
+              {(activeModal === 'lists' || activeModal === 'log') && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em' }}>[ ACESSO AO BANCO DE DADOS ]</div>
+                  <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>
+                    {activeModal === 'lists' ? 'Diretórios Completos' : 'Registro Integral'}
+                  </h2>
+                  <div style={{ height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, border: '1px dashed rgba(237,232,220,0.1)', backgroundColor: 'rgba(237,232,220,0.02)' }}>
+                    <motion.div animate={{ opacity: [1, 0.5, 1] }} transition={{ repeat: Infinity, duration: 1.5 }} style={{ width: 16, height: 16, backgroundColor: '#BF8F3C' }} />
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#565450', letterSpacing: '0.1em' }}>PULLING DATA FROM MAINFRAME...</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                     <button onClick={() => setActiveModal(null)} style={{ background: '#BF8F3C', border: 'none', color: '#040402', padding: '16px 32px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', cursor: 'pointer', fontWeight: 'bold' }}>[ RETORNAR ]</button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

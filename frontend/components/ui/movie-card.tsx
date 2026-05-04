@@ -104,7 +104,7 @@ export function MovieCard({
     >
       <Link 
         href={`/movie/${id}`}
-        className="group relative block aspect-[2/3] rounded-xl overflow-hidden bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-100 transition-all duration-300 w-full h-full"
+        className="group relative block aspect-2/3 rounded-xl overflow-hidden bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-100 transition-all duration-300 w-full h-full"
         data-testid={`card-movie-${id}`}
       >
         {/* Image Container */}
@@ -130,8 +130,8 @@ export function MovieCard({
           />
           
           {/* Subtle gradient overlays */}
-          <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity duration-500" />
-          <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-to-b from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute inset-0 z-20 pointer-events-none bg-linear-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity duration-500" />
+          <div className="absolute inset-0 z-20 pointer-events-none bg-linear-to-b from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         </div>
         
         {/* Quality Badges - Top Right */}
@@ -168,7 +168,7 @@ export function MovieCard({
 
 export function MovieCardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("aspect-[2/3] rounded-xl overflow-hidden bg-neutral-200 animate-pulse", className)}>
+    <div className={cn("aspect-2/3 rounded-xl overflow-hidden bg-neutral-200 animate-pulse", className)}>
       <div className="h-full w-full bg-neutral-300" />
     </div>
   )
@@ -230,7 +230,7 @@ export function FeaturedMovieCard({
             onLoad={() => setImageLoaded(true)}
           />
           
-          <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-70 transition-opacity duration-500" />
+          <div className="absolute inset-0 z-20 pointer-events-none bg-linear-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-70 transition-opacity duration-500" />
         </div>
         
         {/* Quality Badges */}
