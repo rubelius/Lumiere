@@ -75,47 +75,55 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def prepare(self, request, pk=None):
-        """
-        Inicia preparação da sessão (Busca torrents, etc)
-        """
-        session = self.get_object()
-        
-        if session.status != 'planning':
-            return Response(
-                {'error': 'Session must be in planning status'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        session.status = 'preparing'
-        session.save()
-        
-        # STUB 2 RESOLVIDO: Dispara a task e libera o front-end
+        with transaction.atomic():
+            # select_for_update() cria um "lock" na linha. 
+            # O segundo clique fica esperando o primeiro terminar.
+            session = CinemaSession.objects.select_for_update().get(pk=pk)
+
+            if session.user != request.user:
+                return Response(
+                    {'error': 'Not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            if session.status != 'planning':
+                return Response(
+                    {'error': f'Cannot prepare session in status: {session.status}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            session.status = 'preparing'
+            session.save(update_fields=['status', 'updated_at'])
+
+        # Importante: A task é disparada FORA do with block, 
+        # para garantir que a transação do banco já foi comitada.
         prepare_session.delay(str(session.id))
-        
+
         return Response({
-            'message': 'Session preparation task added to queue.',
-            'session': self.get_serializer(session).data
+            'message': 'Session preparation started.',
+            'session': CinemaSessionListSerializer(session).data
         })
     
     @action(detail=True, methods=['post'])
     def start(self, request, pk=None):
-        """Inicia a sessão"""
-        session = self.get_object()
-        
-        if session.status != 'ready':
-            return Response(
-                {'error': 'Session must be ready to start'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        session.status = 'in_progress'
-        session.actual_start_time = timezone.now()
-        session.started_at = timezone.now()
-        session.save()
-        
+        with transaction.atomic():
+            session = CinemaSession.objects.select_for_update().get(pk=pk)
+
+            if session.user != request.user:
+                return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+            if session.status != 'ready':
+                return Response(
+                    {'error': f'Cannot start session in status: {session.status}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            session.status = 'in_progress'
+            session.actual_start_time = timezone.now()
+            session.started_at = timezone.now()
+            session.save(update_fields=['status', 'actual_start_time', 'started_at', 'updated_at'])
+
         return Response({
             'message': 'Session started',
-            'session': self.get_serializer(session).data
+            'session': CinemaSessionDetailSerializer(session, context={'request': request}).data
         })
     
     @action(detail=True, methods=['post'])

@@ -7,6 +7,7 @@ from apps.ml.embedding import (MovieEmbeddingGenerator,
 from apps.ml.models import MovieSimilarity, UserTasteProfile
 from apps.movies.models import Movie
 from celery import shared_task
+from django.db import transaction  # <-- ADICIONADO: Import para transação atômica
 from django.db.models import Q
 from pgvector.django import CosineDistance, L2Distance
 
@@ -129,11 +130,10 @@ def compute_movie_similarities(self, movie_id: str, top_n: int = 50):
             distance=CosineDistance('embedding', movie.embedding)
         ).order_by('distance')[:top_n]
         
-        # Delete existing similarities
-        MovieSimilarity.objects.filter(movie=movie).delete()
+        # --- INÍCIO DA CORREÇÃO DE TRANSAÇÃO (ISSUE 2) ---
         
-        # Create new similarities
-        similarities_created = 0
+        # Cria os objetos em memória sem acessar o banco a cada loop
+        similarities_to_create = []
         for similar_movie in similar_movies:
             # Convert distance to similarity score (0-1, higher is more similar)
             similarity_score = 1.0 - similar_movie.distance
@@ -145,21 +145,30 @@ def compute_movie_similarities(self, movie_id: str, top_n: int = 50):
             elif set(movie.genres or []) & set(similar_movie.genres or []):
                 similarity_type = 'same_genre'
             
-            MovieSimilarity.objects.create(
+            similarities_to_create.append(MovieSimilarity(
                 movie=movie,
                 similar_movie=similar_movie,
                 overall_similarity=similarity_score,
                 content_similarity=similarity_score,
                 similarity_type=similarity_type,
                 model_version='all-MiniLM-L6-v2'
-            )
-            similarities_created += 1
+            ))
         
-        logger.info(f"Computed {similarities_created} similarities for {movie.title}")
+        # Transação atômica e bulk_create: ou tudo é salvo ou tudo é revertido
+        with transaction.atomic():
+            MovieSimilarity.objects.filter(movie=movie).delete()
+            MovieSimilarity.objects.bulk_create(
+                similarities_to_create,
+                ignore_conflicts=True
+            )
+            
+        # --- FIM DA CORREÇÃO ---
+        
+        logger.info(f"Computed {len(similarities_to_create)} similarities for {movie.title}")
         
         return {
             'movie_id': str(movie_id),
-            'similarities_created': similarities_created
+            'similarities_created': len(similarities_to_create)
         }
     
     except Movie.DoesNotExist:

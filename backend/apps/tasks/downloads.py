@@ -1,6 +1,8 @@
 import logging
 from celery import shared_task
 from django.utils import timezone
+from django.core.cache import cache
+from django.db import transaction
 from asgiref.sync import async_to_sync
 
 from apps.integrations.realdebrid import RealDebridClient
@@ -46,11 +48,11 @@ def add_to_realdebrid(self, release_id, user_id):
         release.realdebrid_id = torrent_id
         release.realdebrid_status = 'downloading'
         release.realdebrid_added_at = timezone.now()
-        release.save()
+        release.save(update_fields=['in_realdebrid', 'realdebrid_id', 'realdebrid_status', 'realdebrid_added_at'])
         
         logger.info(f"Added {release.title} to Real-Debrid: {torrent_id}")
         
-        # Start monitoring task
+        # Start monitoring task (without explicit lock yet, lock will be handled by the periodic check)
         monitor_realdebrid_download.apply_async(
             args=[release_id, user_id],
             countdown=30  # Check after 30 seconds
@@ -67,154 +69,148 @@ def add_to_realdebrid(self, release_id, user_id):
         raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
 
 
+@shared_task
+def check_realdebrid_status():
+    """
+    Periodic task: only spawns a monitor if one is not already running for that release.
+    Uses Redis cache as a distributed lock to prevent exponential task accumulation.
+    """
+    active_releases = TorrentRelease.objects.filter(
+        in_realdebrid=True,
+        realdebrid_status__in=['downloading', 'queued', 'waiting_files_selection']
+    ).select_related()
+
+    spawned = 0
+    for release in active_releases:
+        lock_key = f'rd_monitor_lock_{release.id}'
+
+        # Only spawn if no monitor is already running for this release
+        # Lock TTL = 26 minutes (slightly over max monitor lifetime of 50 * 30s = 25min)
+        acquired = cache.add(lock_key, '1', timeout=60 * 26)
+        if not acquired:
+            continue  # monitor already running
+
+        session_movie = SessionMovie.objects.filter(
+            selected_release=release
+        ).select_related('session__user').first()
+
+        if not session_movie:
+            continue
+
+        monitor_realdebrid_download.apply_async(
+            args=[
+                str(release.id),
+                str(session_movie.session.user.id),
+                str(session_movie.session.id)
+            ],
+            # Pass the lock key so the task can release it on terminal states
+            kwargs={'lock_key': lock_key}
+        )
+        spawned += 1
+
+    return {'spawned': spawned}
+
+
 @shared_task(bind=True, max_retries=50)
-def monitor_realdebrid_download(self, release_id, user_id, session_id=None):
-    """
-    Monitora progresso de download no Real-Debrid
-    """
+def monitor_realdebrid_download(self, release_id, user_id, session_id=None, lock_key=None):
     from django.contrib.auth import get_user_model
     User = get_user_model()
-    
+
+    def release_lock():
+        if lock_key:
+            cache.delete(lock_key)
+
     try:
         release = TorrentRelease.objects.get(id=release_id)
         user = User.objects.get(id=user_id)
-        
+
         if not release.realdebrid_id:
-            logger.error(f"Release {release_id} has no Real-Debrid ID")
+            release_lock()
             return {'error': 'No Real-Debrid torrent ID'}
-        
-        # Get status from Real-Debrid securely
+
         async def check_async():
-            client = RealDebridClient(user.realdebrid_api_key)  # type: ignore
+            client = RealDebridClient(user.realdebrid_api_key)
             try:
                 return await client.get_torrent_info(release.realdebrid_id)
             finally:
                 await client.close()
-                
+
         info = async_to_sync(check_async)()
-        
-        status = info.get('status')
+        status_val = info.get('status')
         progress = info.get('progress', 0)
-        
-        # Update release
-        release.realdebrid_status = status
+
+        release.realdebrid_status = status_val
         release.realdebrid_progress = progress
-        release.save()
-        
-        # Send WebSocket update if session provided
+        release.save(update_fields=['realdebrid_status', 'realdebrid_progress'])
+
         if session_id:
             send_download_progress(
                 session_id=session_id,
-                movie_id=str(release.movie_id),  # type: ignore
+                movie_id=str(release.movie_id),
                 progress=progress
             )
-        
-        logger.info(f"Download progress for {release.title}: {progress}% ({status})")
-        
-        # Check status
-        if status == 'downloaded':
+
+        if status_val == 'downloaded':
+            # Terminal state — release lock after completion handling
             async def get_links_async():
-                client = RealDebridClient(user.realdebrid_api_key)  # type: ignore
+                client = RealDebridClient(user.realdebrid_api_key)
                 try:
                     return await client.get_download_links(release.realdebrid_id)
                 finally:
                     await client.close()
-                    
+
             links = async_to_sync(get_links_async)()
-            
             release.realdebrid_links = links
             release.realdebrid_completed_at = timezone.now()
-            release.save()
-            
-            # Update session movie if applicable
+            release.save(update_fields=['realdebrid_links', 'realdebrid_completed_at'])
+
             if session_id:
-                try:
-                    session_movie = SessionMovie.objects.get(
+                with transaction.atomic():
+                    session_movie = SessionMovie.objects.select_for_update().get(
                         session_id=session_id,
                         selected_release=release
                     )
                     session_movie.download_status = 'ready'
                     session_movie.download_progress = 100
-                    session_movie.save()
-                    
-                    # Check if all movies ready
+                    session_movie.save(update_fields=['download_status', 'download_progress'])
+
                     session = session_movie.session
-                    all_ready = all([
-                        sm.download_status == 'ready'
-                        for sm in session.session_movies.all()  # type: ignore
-                    ])
-                    
+                    all_ready = not session.session_movies.exclude(
+                        download_status='ready'
+                    ).exists()
+
                     if all_ready:
                         session.all_downloads_ready = True
                         session.download_progress = 100
                         session.status = 'ready'
-                        session.save()
-                        
-                        send_session_update(
-                            session_id=session_id,
-                            data={'status': 'ready', 'all_downloads_ready': True}
-                        )
-                except SessionMovie.DoesNotExist:
-                    pass
-            
-            logger.info(f"Download completed for {release.title}")
+                        session.save(update_fields=[
+                            'all_downloads_ready', 'download_progress', 'status'
+                        ])
+
+                if all_ready:
+                    send_session_update(
+                        session_id=session_id,
+                        data={'status': 'ready', 'all_downloads_ready': True}
+                    )
+
+            release_lock()
             return {'status': 'completed', 'links': links}
-        
-        elif status == 'error':
-            logger.error(f"Download failed for {release.title}")
+
+        elif status_val == 'error':
+            release_lock()
             return {'status': 'error'}
-        
-        elif status in ['downloading', 'queued', 'waiting_files_selection']:
-            # Continue monitoring - retry in 30 seconds
+
+        else:
             raise self.retry(countdown=30)
-        
-        else:
-            logger.warning(f"Unknown status for {release.title}: {status}")
-            raise self.retry(countdown=60)
-    
-    except TorrentRelease.DoesNotExist:
-        logger.error(f"Release {release_id} not found")
-        return {'error': 'Release not found'}
-    
-    except Exception as e:
-        logger.error(f"Error monitoring download: {e}")
-        
+
+    except (TorrentRelease.DoesNotExist, Exception) as e:
         if self.request.retries >= self.max_retries:
-            logger.error(f"Max retries reached for {release_id}")
-            release = TorrentRelease.objects.get(id=release_id)
-            release.realdebrid_status = 'error'
-            release.save()
+            release_lock()
+            try:
+                TorrentRelease.objects.filter(id=release_id).update(
+                    realdebrid_status='error'
+                )
+            except Exception:
+                pass
             return {'status': 'error', 'message': 'Max retries reached'}
-        
         raise self.retry(exc=e, countdown=30)
-
-
-@shared_task
-def check_realdebrid_status():
-    """
-    Periodic task: verifica status de todos os downloads ativos
-    Roda a cada 5 minutos via beat schedule
-    """
-    active_releases = TorrentRelease.objects.filter(
-        in_realdebrid=True,
-        realdebrid_status__in=['downloading', 'queued', 'waiting_files_selection']
-    )
-    
-    logger.info(f"Checking status of {active_releases.count()} active downloads")
-    
-    for release in active_releases:
-        # BUG 3 RESOLVIDO AQUI: Query reverse correlation feita de forma correta e explícita
-        session_movie = SessionMovie.objects.filter(selected_release=release).first()
-        
-        if session_movie:
-            user = session_movie.session.user
-            session_id = str(session_movie.session.id)
-        else:
-            # Skip se o release estiver "órfão"
-            continue
-        
-        monitor_realdebrid_download.apply_async(
-            args=[str(release.id), str(user.id), session_id]
-        ) # type: ignore
-    
-    return {'checked': active_releases.count()}

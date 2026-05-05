@@ -5,6 +5,7 @@ from apps.ml.models import MovieSimilarity, Recommendation, UserTasteProfile
 from apps.movies.models import Movie
 from celery import shared_task
 from django.db.models import Q, Count  # <-- BUG 4: Count importado corretamente
+from django.db import transaction        # <-- ADICIONADO: Import para a transação segura
 from pgvector.django import CosineDistance
 
 logger = logging.getLogger(__name__)
@@ -72,27 +73,36 @@ def generate_recommendations(self, user_id: str, count: int = 50):
         # Sort by score and take top N
         final_recs = sorted(unique_recs.values(), key=lambda x: x['score'], reverse=True)[:count]
         
-        # Save to database
-        # Delete old recommendations
-        Recommendation.objects.filter(user=user).delete()
+        # --- INÍCIO DA CORREÇÃO DA TRANSAÇÃO ATÔMICA ---
         
-        # Create new ones
-        for rec_data in final_recs:
-            Recommendation.objects.create(
+        # 1. Constrói as recomendações na memória primeiro
+        recs_to_create = [
+            Recommendation(
                 user=user,
                 movie_id=rec_data['movie_id'],
                 score=rec_data['score'],
                 confidence=rec_data.get('confidence', 0.5),
-                reason=rec_data['type'], # Ajustado para bater com o modelo mínimo criado no Passo 1
-                # Campos removidos aqui pois construímos um modelo minimalista de Recommendation antes.
-                # Se desejar adicionar explanation e reasoning, adicione ao modelo Recommendation depois!
+                reason=rec_data['type']
             )
+            for rec_data in final_recs
+        ]
         
-        logger.info(f"Generated {len(final_recs)} recommendations for {user.username}") # type: ignore
+        # 2. Executa o apagamento e a criação em uma transação única e segura
+        with transaction.atomic():
+            Recommendation.objects.filter(user=user).delete()
+            Recommendation.objects.bulk_create(
+                recs_to_create,
+                ignore_conflicts=True,
+                batch_size=100
+            )
+            
+        # --- FIM DA CORREÇÃO ---
+        
+        logger.info(f"Generated {len(recs_to_create)} recommendations for {user.username}") # type: ignore
         
         return {
             'user_id': str(user_id),
-            'recommendations_generated': len(final_recs),
+            'recommendations_generated': len(recs_to_create),
             'breakdown': {
                 'content_based': len(content_recs),
                 'collaborative': len(collab_recs),

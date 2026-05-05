@@ -84,6 +84,39 @@ class CinemaSessionDetailSerializer(serializers.ModelSerializer):
         ]
     
     def create(self, validated_data):
+        movie_ids = validated_data.pop('movie_ids', [])
+        validated_data['user'] = self.context['request'].user
+
+        # Usando transação atômica: ou tudo salva, ou nada salva.
+        with transaction.atomic():
+            session = CinemaSession.objects.create(**validated_data)
+
+            if movie_ids:
+                # Valida se todos os IDs de filmes realmente existem no banco
+                existing_count = Movie.objects.filter(id__in=movie_ids).count()
+                if existing_count != len(movie_ids):
+                    raise serializers.ValidationError(
+                        {'movie_ids': 'One or more movie IDs do not exist.'}
+                    )
+
+                SessionMovie.objects.bulk_create([
+                    SessionMovie(session=session, movie_id=movie_id, order=order)
+                    for order, movie_id in enumerate(movie_ids)
+                ])
+
+                total_duration = Movie.objects.filter(id__in=movie_ids).aggregate(
+                    total=Sum('length_minutes')
+                )['total'] or 0
+
+                session.estimated_duration_minutes = total_duration
+                session.all_movies_selected = True
+                session.save(update_fields=[
+                    'estimated_duration_minutes', 
+                    'all_movies_selected', 
+                    'updated_at'
+                ])
+
+        return session
         """Cria sessão com filmes - N+1 #3 CORRIGIDA"""
         movie_ids = validated_data.pop('movie_ids', [])
         validated_data['user'] = self.context['request'].user
