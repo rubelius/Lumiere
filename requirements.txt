@@ -36,3 +36,8 @@ python-Levenshtein==0.25.0
 python-dotenv==1.0.1
 pillow==10.2.0
 python-dateutil==2.8.2
+
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.23.0
+django-redis==5.4.0
+django-prometheus==2.3.1
