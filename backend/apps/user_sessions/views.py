@@ -38,10 +38,15 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
             'theme'
         )
     
-    def get_serializer_class(self):  # type: ignore
-        if self.action in ['retrieve', 'create', 'update', 'partial_update']:
-            return CinemaSessionDetailSerializer
-        return CinemaSessionListSerializer
+    def get_serializer_class(self):
+        return CinemaSessionSerializer
+
+    # 2. ADICIONE esta função para avisar o serializer se estamos na tela de Detalhes ou Lista
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # Define detail=True se a ação for ver apenas um item (retrieve)
+        context['detail'] = self.action == 'retrieve'
+        return context
     
     @action(detail=False, methods=['get'])
     def upcoming(self, request):

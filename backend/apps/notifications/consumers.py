@@ -83,11 +83,8 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error processing WebSocket message: {e}")
     
     async def notification_message(self, event):
-        """Send notification to WebSocket"""
-        await self.send(text_data=json.dumps({
-            'type': 'notification',
-            'notification': event['notification']
-        }))
+        # Assumindo que event já tem a chave 'notification' formatada
+        await self._send('notification_new', event.get('notification', {}))
     
     @database_sync_to_async
     def get_unread_count(self):
@@ -114,3 +111,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         """Marca todas as notificações do usuário como lidas"""
         from .models import Notification
         Notification.objects.filter(user=self.user, read=False).update(read=True)
+
+    async def _send(self, msg_type: str, payload: dict):
+        await self.send(text_data=json.dumps({
+            'type': msg_type,
+            'payload': payload,
+        }))

@@ -7,6 +7,11 @@ from .utils import calculate_quality_score, parse_quality_from_title
 class MovieListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listagens de filmes"""
     current_ranking = serializers.SerializerMethodField()
+
+    tmdb_rating = serializers.FloatField(allow_null=True, read_only=True)
+    imdb_rating = serializers.FloatField(allow_null=True, read_only=True)
+    letterboxd_rating = serializers.FloatField(allow_null=True, read_only=True)
+    average_user_rating = serializers.FloatField(allow_null=True, read_only=True)
     
     class Meta:
         model = Movie
@@ -28,6 +33,11 @@ class MovieDetailSerializer(serializers.ModelSerializer):
     current_ranking = serializers.SerializerMethodField()
     best_releases = serializers.SerializerMethodField()
     similar_movies = serializers.SerializerMethodField()
+
+    tmdb_rating = serializers.FloatField(allow_null=True, read_only=True)
+    imdb_rating = serializers.FloatField(allow_null=True, read_only=True)
+    letterboxd_rating = serializers.FloatField(allow_null=True, read_only=True)
+    average_user_rating = serializers.FloatField(allow_null=True, read_only=True)
     
     class Meta:
         model = Movie

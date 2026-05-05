@@ -70,18 +70,20 @@ class SessionConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error processing SessionConsumer message: {e}")
     
     async def session_update(self, event):
-        """Envia atualização de sessão para WebSocket"""
-        await self.send(text_data=json.dumps({
-            'type': 'session_update',
-            'data': event['data']
-        }))
+        """Chamado pelo send_session_update() das tasks."""
+        raw = event.get('data', {})
+        await self._send('session_updated', {
+            'status': raw.get('status', ''),
+            'download_progress': raw.get('download_progress', 0),
+            'preparation_progress': raw.get('preparation_progress', 0),
+        })
     
     async def download_progress(self, event):
-        """Envia progresso de download"""
-        await self.send(text_data=json.dumps({
-            'type': 'download_progress',
-            'data': event['data']
-        }))
+        raw = event.get('data', {})
+        await self._send('download_progress', {
+            'movie_id': str(raw.get('movie_id', '')),
+            'progress': int(raw.get('progress', 0)),
+        })
     
     @database_sync_to_async
     def verify_and_get_session(self):
@@ -100,3 +102,10 @@ class SessionConsumer(AsyncWebsocketConsumer):
             return serializer.data
         except CinemaSession.DoesNotExist:
             return None
+
+    async def _send(self, msg_type: str, payload: dict):
+        """Ponto único de saída para garantir o formato do envelope."""
+        await self.send(text_data=json.dumps({
+            'type': msg_type,
+            'payload': payload,
+        }))

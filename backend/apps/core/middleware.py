@@ -5,7 +5,46 @@ from django.utils.deprecation import MiddlewareMixin
 
 from .rate_limit import RateLimiter
 
+from urllib.parse import parse_qs
+from channels.db import database_sync_to_async
+from django.contrib.auth.models import AnonymousUser
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
 logger = logging.getLogger('apps.requests')
+
+class JWTAuthMiddleware:
+    """
+    Channels middleware that authenticates via JWT token in query string.
+    Usage: ws://host/ws/path/?token=<access_token>
+    """
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        # Transforma o scope em dict para podermos alterá-lo
+        scope = dict(scope)
+        query_string = scope.get('query_string', b'').decode()
+        params = parse_qs(query_string)
+        token_list = params.get('token', [])
+
+        if token_list:
+            scope['user'] = await self._get_user(token_list[0])
+        else:
+            scope['user'] = AnonymousUser()
+
+        return await self.inner(scope, receive, send)
+
+    @database_sync_to_async
+    def _get_user(self, raw_token: str):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        try:
+            validated = AccessToken(raw_token)
+            return User.objects.get(id=validated['user_id'])
+        except (InvalidToken, TokenError, User.DoesNotExist):
+            return AnonymousUser()
 
 class RateLimitHeadersMiddleware(MiddlewareMixin):
     """Adiciona headers de rate limit nas respostas"""

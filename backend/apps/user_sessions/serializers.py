@@ -30,40 +30,41 @@ class SessionMovieSerializer(serializers.ModelSerializer):
         ]
 
 
-class CinemaSessionListSerializer(serializers.ModelSerializer):
-    """Serializer simplificado para listagem de sessões"""
+class CinemaSessionSerializer(serializers.ModelSerializer):
     movie_count = serializers.SerializerMethodField()
-    theme_name = serializers.SerializerMethodField()
+    theme = SessionThemeSerializer(read_only=True)
     first_movie_poster = serializers.SerializerMethodField()
-    
+    session_movies = serializers.SerializerMethodField()  # Será nulo na lista, populado no detalhe
+
     class Meta:
         model = CinemaSession
         fields = [
             'id', 'name', 'description', 'emoji', 'scheduled_date',
-            'status', 'theme_type', 'theme_name', 'movie_count',
-            'preparation_progress', 'download_progress',
-            'estimated_duration_minutes', 'created_at',
-            'first_movie_poster', 'all_downloads_ready'
+            'status', 'theme_type', 'theme', 'movie_count',
+            'first_movie_poster', 'preparation_progress', 'download_progress',
+            'estimated_duration_minutes', 'all_downloads_ready',
+            'all_movies_selected', 'playlist_created',
+            'session_movies', 'created_at', 'updated_at',
         ]
-    
+
     def get_movie_count(self, obj):
-        # OTIMIZAÇÃO: Usa o cache do prefetch_related ao invés de rodar COUNT() no banco
         return len(obj.session_movies.all())
-    
-    def get_theme_name(self, obj):
-        return obj.theme.name if obj.theme else None
-    
+
     def get_first_movie_poster(self, obj):
-        """Retorna poster do primeiro filme para preview - N+1 #2 CORRIGIDA"""
-        # Acessa os dados já cacheados da query principal
-        session_movies = obj.session_movies.all()
-        if session_movies:
-            first = session_movies[0]
-            return first.movie.poster_url if first.movie else None
+        movies = obj.session_movies.all()
+        if movies:
+            return movies[0].movie.poster_url if movies[0].movie else None
         return None
 
-
-class CinemaSessionDetailSerializer(serializers.ModelSerializer):
+    def get_session_movies(self, obj):
+        # Só popula a lista de filmes se for a tela de detalhes (retrieve)
+        if self.context.get('detail', False):
+            return SessionMovieSerializer(
+                obj.session_movies.all(),
+                many=True,
+                context=self.context
+            ).data
+        return None  # Retorna null na listagem para economizar banda
     """Serializer completo para detalhes de sessão"""
     session_movies = SessionMovieSerializer(many=True, read_only=True)
     theme = SessionThemeSerializer(read_only=True)
