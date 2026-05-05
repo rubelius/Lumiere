@@ -4,10 +4,9 @@ Algoritmo de qualidade de torrents - CRÍTICO
 Baseado nas especificações exatas do projeto Lumière
 """
 import re
-from typing import Dict
+from typing import Dict, Any
 
-
-def parse_quality_from_title(title: str) -> Dict:
+def parse_quality_from_title(title: str) -> Dict[str, Any]:
     """
     Extrai TODAS as informações de qualidade do título do release
     
@@ -15,7 +14,7 @@ def parse_quality_from_title(title: str) -> Dict:
         Dict com todos os campos de qualidade extraídos
     """
     title_upper = title.upper()
-    result = {}
+    result: Dict[str, Any] = {}
     
     # RESOLUTION (CRITICAL)
     if any(x in title_upper for x in ['2160P', 'UHD', '4K']):
@@ -88,7 +87,6 @@ def parse_quality_from_title(title: str) -> Dict:
         result['audio_channels'] = ''
     
     # RELEASE GROUP (for trust scoring)
-
     group_match = re.search(r'-([A-Za-z0-9]+)(?:\[.*\])?$', title)
     if group_match:
         result['release_group'] = group_match.group(1)
@@ -109,13 +107,13 @@ def parse_quality_from_title(title: str) -> Dict:
     return result
 
 
-def calculate_quality_score(release_data: Dict) -> Dict[str, int]:
+def calculate_quality_score(release_data: Dict[str, Any]) -> Dict[str, int]:
     """
     Calcula score de qualidade (0-100)
     
     Breakdown:
     - Video (30 pts): Remux=30, 4K=20, 1080p=15, 720p=8
-    - Audio (40 pts): Atmos/DTS:X=25, TrueHD/DTS-HD MA=20, 7.1=+5, 5.1=+3
+    - Audio (40 pts): Atmos/DTS:X=30, TrueHD/DTS-HD MA=25, DTS=15, DD+=10. Canais: 7.1=+10, 5.1=+6
     - HDR (15 pts): DV=15, HDR10+=12, HDR10=10
     - Release (10 pts): Trusted group=10, P2P=5, Scene=3
     - Seeds (5 pts): 100+=5, 50+=4, 20+=3, 5+=2
@@ -144,21 +142,25 @@ def calculate_quality_score(release_data: Dict) -> Dict[str, int]:
     elif release_data.get('resolution') == '720p':
         scores['video_score'] = 8
     
-    # AUDIO (40) - MOST IMPORTANT
+    # AUDIO (40) - MOST IMPORTANT (ISSUE 4 CORRIGIDA)
     if release_data.get('has_atmos') or release_data.get('has_dtsx'):
-        scores['audio_score'] = 25
+        scores['audio_score'] = 30
     elif release_data.get('has_truehd') or release_data.get('has_dts_hd_ma'):
-        scores['audio_score'] = 20
-    elif 'DTS' in release_data.get('audio_codec', ''):
-        scores['audio_score'] = 12
-    elif 'DD+' in release_data.get('audio_codec', ''):
+        scores['audio_score'] = 25
+    elif 'DTS' in str(release_data.get('audio_codec', '')):
+        scores['audio_score'] = 15
+    elif 'DD+' in str(release_data.get('audio_codec', '')):
         scores['audio_score'] = 10
+    elif 'AAC' in str(release_data.get('audio_codec', '')):
+        scores['audio_score'] = 5
     
-    # Audio channels bonus
+    # Audio channels bonus (Max 10)
     if release_data.get('audio_channels') == '7.1':
-        scores['audio_score'] += 5
+        scores['audio_score'] += 10
     elif release_data.get('audio_channels') == '5.1':
-        scores['audio_score'] += 3
+        scores['audio_score'] += 6
+    elif release_data.get('audio_channels') == '2.0':
+        scores['audio_score'] += 2
     
     # Cap audio at 40
     scores['audio_score'] = min(scores['audio_score'], 40)

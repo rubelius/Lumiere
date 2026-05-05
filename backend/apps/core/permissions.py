@@ -6,7 +6,7 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
     Permissão customizada para permitir apenas donos editarem
     """
     
-    def has_object_permission(self, request, view, obj):
+    def has_object_permission(self, request, view, obj) -> bool:  # type: ignore
         # Read permissions para qualquer request
         if request.method in permissions.SAFE_METHODS:
             return True
@@ -20,7 +20,7 @@ class IsOwner(permissions.BasePermission):
     Permissão para permitir acesso apenas ao dono
     """
     
-    def has_object_permission(self, request, view, obj):
+    def has_object_permission(self, request, view, obj) -> bool:  # type: ignore
         return obj.user == request.user
 
 
@@ -29,5 +29,10 @@ class IsPremiumUser(permissions.BasePermission):
     Permissão para recursos premium
     """
     
-    def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.is_premium
+    def has_permission(self, request, view) -> bool:  # type: ignore
+        # SECURITY #3: Proteção contra AttributeError usando getattr com fallback seguro
+        return bool(
+            request.user and 
+            request.user.is_authenticated and 
+            getattr(request.user, 'is_premium', False)
+        )

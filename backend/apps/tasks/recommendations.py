@@ -1,11 +1,10 @@
 import logging
-
 import numpy as np
 from apps.integrations.models import LetterboxdDiary
 from apps.ml.models import MovieSimilarity, Recommendation, UserTasteProfile
 from apps.movies.models import Movie
 from celery import shared_task
-from django.db.models import Q
+from django.db.models import Q, Count  # <-- BUG 4: Count importado corretamente
 from pgvector.django import CosineDistance
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,7 @@ def generate_recommendations(self, user_id: str, count: int = 50):
         
         # Check if user has taste profile
         try:
-            profile = user.taste_profile
+            profile = user.taste_profile # type: ignore
         except UserTasteProfile.DoesNotExist:
             logger.warning(f"User {user_id} has no taste profile")
             return {'error': 'No taste profile. Sync Letterboxd first.'}
@@ -84,13 +83,12 @@ def generate_recommendations(self, user_id: str, count: int = 50):
                 movie_id=rec_data['movie_id'],
                 score=rec_data['score'],
                 confidence=rec_data.get('confidence', 0.5),
-                recommendation_type=rec_data['type'],
-                explanation=rec_data['explanation'],
-                reasoning=rec_data.get('reasoning', {}),
-                model_version='v1.0'
+                reason=rec_data['type'], # Ajustado para bater com o modelo mínimo criado no Passo 1
+                # Campos removidos aqui pois construímos um modelo minimalista de Recommendation antes.
+                # Se desejar adicionar explanation e reasoning, adicione ao modelo Recommendation depois!
             )
         
-        logger.info(f"Generated {len(final_recs)} recommendations for {user.username}")
+        logger.info(f"Generated {len(final_recs)} recommendations for {user.username}") # type: ignore
         
         return {
             'user_id': str(user_id),
@@ -124,7 +122,7 @@ def generate_content_based_recs(user, profile, watched_ids, count):
     ).order_by('distance')[:count * 2]  # Get 2x for filtering
     
     for movie in similar_movies:
-        similarity = 1.0 - movie.distance
+        similarity = 1.0 - movie.distance # type: ignore
         
         # Boost by ranking (TSPDT films get bonus)
         score = similarity
@@ -151,7 +149,6 @@ def generate_content_based_recs(user, profile, watched_ids, count):
 def generate_collaborative_recs(user, watched_ids, count):
     """
     Recomendações colaborativas
-    
     Encontra usuários com gostos similares e recomenda o que eles gostaram
     """
     recommendations = []
@@ -187,12 +184,26 @@ def generate_collaborative_recs(user, watched_ids, count):
     ).exclude(
         movie_id__in=watched_ids
     ).values('movie_id').annotate(
-        count=models.Count('id')
+        count=Count('id')  # <-- BUG 4: Corrigido uso do Count
     ).order_by('-count')[:count]
     
-    for item in similar_users_favorites:
+    # Convert queryset to list to process
+    favorites_list = list(similar_users_favorites)
+    
+    if not favorites_list:
+        return []
+        
+    # STUB 5: Normalização Dinâmica
+    # Acha qual foi o maior número de usuários em comum neste ciclo
+    max_count = favorites_list[0]['count']
+    
+    for item in favorites_list:
         movie = Movie.objects.get(id=item['movie_id'])
-        score = min(item['count'] / 5.0, 1.0)  # Normalize by max 5 users
+        
+        # Agora o score garante que a recomendação possa brigar de 0.6 a 1.0 com o Content-Based
+        # ao invés de ficar travada em 0.2 se a sua base de dados for pequena.
+        normalized_score = 0.6 + (0.4 * (item['count'] / max_count))
+        score = min(normalized_score, 1.0) 
         
         recommendations.append({
             'movie_id': str(movie.id),
@@ -212,7 +223,10 @@ def generate_director_recs(user, profile, watched_ids, count):
     """Recomendações de diretores favoritos"""
     recommendations = []
     
-    # Get favorite directors from profile
+    # Get favorite directors from profile safely
+    if not profile.favorite_directors:
+        return []
+        
     favorite_directors = list(profile.favorite_directors.keys())[:5]
     
     if not favorite_directors:
@@ -234,12 +248,13 @@ def generate_director_recs(user, profile, watched_ids, count):
         if movie.ranking_2026:
             ranking_score = 1.0 - (movie.ranking_2026 / 1000.0)
         
+        # STUB 5: Normalização de Pesos Resolvida
         score = (director_score * 0.7) + (ranking_score * 0.3)
         
         recommendations.append({
             'movie_id': str(movie.id),
-            'score': score,
-            'confidence': director_score,
+            'score': min(score, 1.0),
+            'confidence': min(director_score, 1.0),
             'type': 'director_follow_up',
             'explanation': f"From {movie.director}, one of your favorite directors",
             'reasoning': {
@@ -268,12 +283,13 @@ def generate_hidden_gems(watched_ids, count):
         rating_score = (movie.tmdb_rating - 7.0) / 3.0  # Normalize from 7-10
         obscurity_score = 1.0 - (movie.ranking_2026 / 2000.0) if movie.ranking_2026 else 0.5
         
+        # STUB 5: Normalização
         score = (rating_score * 0.6) + (obscurity_score * 0.4)
         
         recommendations.append({
             'movie_id': str(movie.id),
-            'score': score,
-            'confidence': rating_score,
+            'score': min(score, 1.0),
+            'confidence': min(rating_score, 1.0),
             'type': 'hidden_gem',
             'explanation': f"Hidden gem: {movie.tmdb_rating}/10 rating but not widely known",
             'reasoning': {

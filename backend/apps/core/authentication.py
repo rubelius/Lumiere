@@ -3,6 +3,7 @@
 import secrets
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone  # SECURITY #2: Import adicionado
 from rest_framework import authentication, exceptions
 
 User = get_user_model()
@@ -24,7 +25,7 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
         try:
             # Validar API key
             # Implementar modelo APIKey conforme necessário
-            from apps.core.models import APIKey
+            from apps.core.models import APIKey  # type: ignore
             
             key_obj = APIKey.objects.select_related('user').get(
                 key=api_key,
@@ -37,6 +38,5 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
             
             return (key_obj.user, key_obj)
         
-        except APIKey.DoesNotExist:
+        except APIKey.DoesNotExist:  # type: ignore
             raise exceptions.AuthenticationFailed('Invalid API key')
-

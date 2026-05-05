@@ -37,12 +37,13 @@ class MovieDetailSerializer(serializers.ModelSerializer):
         return obj.ranking_2026 or obj.ranking_2025
     
     def get_best_releases(self, obj):
-        """Retorna os 5 melhores releases disponíveis"""
+        """Retorna os 5 melhores releases disponíveis usando cache do prefetch"""
+        # Se os torrents já vieram na query principal do viewset, isso não bate no banco!
         releases = obj.torrent_releases.all()[:5]
         return TorrentReleaseSerializer(releases, many=True).data
     
     def get_similar_movies(self, obj):
-        """Retorna filmes similares (se existirem)"""
+        """Retorna filmes similares (se existirem) - N+1 Mitigado pelo detail view"""
         from apps.ml.models import MovieSimilarity
         similarities = MovieSimilarity.objects.filter(
             movie=obj
@@ -50,8 +51,9 @@ class MovieDetailSerializer(serializers.ModelSerializer):
         
         return [{
             'movie': MovieListSerializer(sim.similar_movie).data,
-            'similarity': float(sim.overall_similarity),
-            'type': sim.similarity_type
+            # Garantindo conversão limpa se o dado vier nulo ou None
+            'similarity': float(sim.overall_similarity) if sim.overall_similarity is not None else 0.0,
+            'type': str(sim.similarity_type)
         } for sim in similarities]
 
 
@@ -89,7 +91,7 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
 
 
 class TorrentReleaseCreateSerializer(serializers.Serializer):
-    """Serializer para criar múltiplos releases de uma vez"""
+    """Serializer para criar múltiplos releases de uma vez - OTIMIZADO PARA BULK"""
     movie_id = serializers.UUIDField()
     releases = serializers.ListField(
         child=serializers.DictField(),
@@ -97,15 +99,33 @@ class TorrentReleaseCreateSerializer(serializers.Serializer):
     )
     
     def create(self, validated_data):
-        """Cria múltiplos releases e retorna lista"""
+        """Cria múltiplos releases usando 1 query via bulk_create - CORREÇÃO N+1 #4"""
         movie_id = validated_data['movie_id']
         releases_data = validated_data['releases']
         
-        created_releases = []
-        for release_data in releases_data:
-            release_data['movie_id'] = movie_id
-            serializer = TorrentReleaseSerializer(data=release_data)
-            serializer.is_valid(raise_exception=True)
-            created_releases.append(serializer.save())
+        instances_to_create = []
         
-        return created_releases
+        for release_data in releases_data:
+            # Roda as regras de negócio em memória, sem bater no banco
+            quality_data = parse_quality_from_title(release_data['title'])
+            release_data.update(quality_data)
+            
+            scores = calculate_quality_score(release_data)
+            release_data.update(scores)
+            
+            # Adiciona o ID do filme e cria a instância na memória (sem salvar)
+            release_data['movie_id'] = movie_id
+            
+            # Precisamos remover campos que não pertencem ao model (como info_hash duplicado se houver)
+            valid_fields = {k: v for k, v in release_data.items() if hasattr(TorrentRelease, k)}
+            instances_to_create.append(TorrentRelease(**valid_fields))
+        
+        # Salva tudo de uma vez ignorando conflitos de duplicatas (ex: info_hash repetido)
+        # O batch_size evita estourar o limite de bytes do PostgreSQL em inserts muito grandes
+        created_instances = TorrentRelease.objects.bulk_create(
+            instances_to_create,
+            ignore_conflicts=True, 
+            batch_size=500
+        )
+        
+        return TorrentReleaseSerializer(created_instances, many=True).data

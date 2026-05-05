@@ -1,53 +1,34 @@
-from apps.core.permissions import IsOwner, IsPremiumUser
-from django.shortcuts import render
+from datetime import timedelta
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-# Create your views here.
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.permissions import IsOwner
+from apps.tasks.sessions import prepare_session  # type: ignore
+
 from .models import CinemaSession, SessionMovie, SessionTheme
 from .serializers import (CinemaSessionDetailSerializer,
                           CinemaSessionListSerializer, SessionThemeSerializer)
 
-
-class CinemaSessionViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, IsOwner]
-    
-    def get_permissions(self):
-        """Define permissões por action"""
-        if self.action == 'list':
-            permission_classes = [IsAuthenticated]
-        elif self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [IsAuthenticated, IsOwner]
-        else:
-            permission_classes = [IsAuthenticated]
-        
-        return [permission() for permission in permission_classes]
-
 class CinemaSessionViewSet(viewsets.ModelViewSet):
     """
     ViewSet para sessões de cinema
-    
-    Endpoints:
-    - GET /api/sessions/ - Lista sessões do usuário
-    - POST /api/sessions/ - Cria nova sessão
-    - GET /api/sessions/{id}/ - Detalhes da sessão
-    - PATCH /api/sessions/{id}/ - Atualiza sessão
-    - DELETE /api/sessions/{id}/ - Deleta sessão
-    - GET /api/sessions/upcoming/ - Próximas sessões
-    - POST /api/sessions/{id}/prepare/ - Inicia preparação
-    - POST /api/sessions/{id}/start/ - Inicia sessão
-    - POST /api/sessions/{id}/complete/ - Completa sessão
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwner]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'theme_type']
     ordering = ['-scheduled_date']
     
-    def get_queryset(self):
+    def get_permissions(self):
+        """Define permissões por action"""
+        if self.action in ['list', 'upcoming', 'past']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsOwner()]
+        
+    def get_queryset(self):  # type: ignore
         """Retorna apenas sessões do usuário"""
         return CinemaSession.objects.filter(
             user=self.request.user
@@ -57,7 +38,7 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
             'theme'
         )
     
-    def get_serializer_class(self):
+    def get_serializer_class(self):  # type: ignore
         if self.action in ['retrieve', 'create', 'update', 'partial_update']:
             return CinemaSessionDetailSerializer
         return CinemaSessionListSerializer
@@ -66,7 +47,7 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
     def upcoming(self, request):
         """Sessões futuras (próximos 30 dias)"""
         now = timezone.now()
-        thirty_days = now + timezone.timedelta(days=30)
+        thirty_days = now + timedelta(days=30)
         
         sessions = self.get_queryset().filter(
             scheduled_date__gte=now,
@@ -95,10 +76,7 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def prepare(self, request, pk=None):
         """
-        Inicia preparação da sessão
-        - Busca torrents para cada filme
-        - Verifica disponibilidade instantânea
-        - Inicia downloads se auto_download=True
+        Inicia preparação da sessão (Busca torrents, etc)
         """
         session = self.get_object()
         
@@ -108,21 +86,20 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # TODO: Trigger Celery task
-        # from apps.tasks.sessions import prepare_session
-        # prepare_session.delay(str(session.id))
-        
         session.status = 'preparing'
         session.save()
         
+        # STUB 2 RESOLVIDO: Dispara a task e libera o front-end
+        prepare_session.delay(str(session.id))
+        
         return Response({
-            'message': 'Session preparation started',
+            'message': 'Session preparation task added to queue.',
             'session': self.get_serializer(session).data
         })
     
     @action(detail=True, methods=['post'])
     def start(self, request, pk=None):
-        """Inicia a sessão (marca como in_progress)"""
+        """Inicia a sessão"""
         session = self.get_object()
         
         if session.status != 'ready':
@@ -164,11 +141,7 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def add_movie(self, request, pk=None):
-        """
-        Adiciona filme à sessão
-        
-        Body: {"movie_id": "uuid"}
-        """
+        """Adiciona filme à sessão"""
         session = self.get_object()
         movie_id = request.data.get('movie_id')
         
@@ -178,11 +151,9 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get next order number
         last_order = session.session_movies.order_by('-order').first()
         next_order = (last_order.order + 1) if last_order else 0
         
-        # Create session movie
         session_movie = SessionMovie.objects.create(
             session=session,
             movie_id=movie_id,
@@ -198,7 +169,6 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
                 'order': session_movie.order
             }
         })
-
 
 class SessionThemeViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet para temas pré-definidos"""

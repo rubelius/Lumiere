@@ -12,8 +12,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'lumiere.settings')
 # 2. Get the ASGI application ONCE
 django_asgi_app = get_asgi_application()
 
-from apps.notifications import \
-    routing as notification_routing  # Adicionando a rota de notificações
+from apps.notifications import routing as notification_routing
 # Import all WebSocket routes
 from apps.user_sessions import routing as session_routing
 # 3. Import Channels and routing AFTER Django is initialized

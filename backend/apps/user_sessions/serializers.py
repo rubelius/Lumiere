@@ -1,6 +1,8 @@
-from apps.movies.serializers import (MovieListSerializer,
-                                     TorrentReleaseSerializer)
 from rest_framework import serializers
+from django.db.models import Sum
+
+from apps.movies.serializers import MovieListSerializer, TorrentReleaseSerializer
+from apps.movies.models import Movie
 
 from .models import CinemaSession, SessionMovie, SessionTheme
 
@@ -45,15 +47,20 @@ class CinemaSessionListSerializer(serializers.ModelSerializer):
         ]
     
     def get_movie_count(self, obj):
-        return obj.session_movies.count()
+        # OTIMIZAÇÃO: Usa o cache do prefetch_related ao invés de rodar COUNT() no banco
+        return len(obj.session_movies.all())
     
     def get_theme_name(self, obj):
         return obj.theme.name if obj.theme else None
     
     def get_first_movie_poster(self, obj):
-        """Retorna poster do primeiro filme para preview"""
-        first = obj.session_movies.first()
-        return first.movie.poster_url if first else None
+        """Retorna poster do primeiro filme para preview - N+1 #2 CORRIGIDA"""
+        # Acessa os dados já cacheados da query principal
+        session_movies = obj.session_movies.all()
+        if session_movies:
+            first = session_movies[0]
+            return first.movie.poster_url if first.movie else None
+        return None
 
 
 class CinemaSessionDetailSerializer(serializers.ModelSerializer):
@@ -77,26 +84,27 @@ class CinemaSessionDetailSerializer(serializers.ModelSerializer):
         ]
     
     def create(self, validated_data):
-        """Cria sessão com filmes"""
+        """Cria sessão com filmes - N+1 #3 CORRIGIDA"""
         movie_ids = validated_data.pop('movie_ids', [])
         validated_data['user'] = self.context['request'].user
         
         # Create session
         session = CinemaSession.objects.create(**validated_data)
         
-        # Add movies
-        for order, movie_id in enumerate(movie_ids):
-            SessionMovie.objects.create(
-                session=session,
-                movie_id=movie_id,
-                order=order
-            )
+        total_duration = 0
+        if movie_ids:
+            # 1. OTIMIZAÇÃO: Cria todos os SessionMovies em 1 única query
+            session_movies_to_create = [
+                SessionMovie(session=session, movie_id=movie_id, order=order)
+                for order, movie_id in enumerate(movie_ids)
+            ]
+            SessionMovie.objects.bulk_create(session_movies_to_create)
+            
+            # 2. OTIMIZAÇÃO: Soma as durações em 1 única query no banco em vez de laço
+            total_duration = Movie.objects.filter(id__in=movie_ids).aggregate(
+                total=Sum('length_minutes')
+            )['total'] or 0
         
-        # Calculate estimated duration
-        total_duration = sum([
-            sm.movie.length_minutes or 0 
-            for sm in session.session_movies.all()
-        ])
         session.estimated_duration_minutes = total_duration
         session.all_movies_selected = len(movie_ids) > 0
         session.save()
@@ -104,7 +112,7 @@ class CinemaSessionDetailSerializer(serializers.ModelSerializer):
         return session
     
     def update(self, instance, validated_data):
-        """Atualiza sessão"""
+        """Atualiza sessão - OTIMIZADO"""
         movie_ids = validated_data.pop('movie_ids', None)
         
         # Update session fields
@@ -117,12 +125,21 @@ class CinemaSessionDetailSerializer(serializers.ModelSerializer):
             # Remove existing
             instance.session_movies.all().delete()
             
-            # Add new
-            for order, movie_id in enumerate(movie_ids):
-                SessionMovie.objects.create(
-                    session=instance,
-                    movie_id=movie_id,
-                    order=order
-                )
+            if movie_ids:
+                # Add new using bulk_create
+                session_movies_to_create = [
+                    SessionMovie(session=instance, movie_id=movie_id, order=order)
+                    for order, movie_id in enumerate(movie_ids)
+                ]
+                SessionMovie.objects.bulk_create(session_movies_to_create)
+                
+                # Recalcula duração
+                total_duration = Movie.objects.filter(id__in=movie_ids).aggregate(
+                    total=Sum('length_minutes')
+                )['total'] or 0
+                
+                instance.estimated_duration_minutes = total_duration
+                instance.all_movies_selected = len(movie_ids) > 0
+                instance.save()
         
         return instance

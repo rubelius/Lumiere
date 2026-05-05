@@ -1,10 +1,10 @@
 from django.contrib.auth import get_user_model
-from django.shortcuts import render
-# Create your views here.
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+
+from apps.tasks.integrations import sync_letterboxd  # type: ignore
 
 from .serializers import (UserRegistrationSerializer, UserSerializer,
                           UserTasteProfileSerializer)
@@ -22,16 +22,16 @@ class UserViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return [IsAuthenticated()]
     
-    def get_serializer_class(self):
+    def get_serializer_class(self):  # type: ignore
         if self.action == 'create':
             return UserRegistrationSerializer
         return UserSerializer
     
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore
         """Usuário só pode ver/editar próprio perfil"""
-        if self.request.user.is_staff:
+        if self.request.user.is_staff:  # type: ignore
             return super().get_queryset()
-        return User.objects.filter(id=self.request.user.id)
+        return User.objects.filter(id=self.request.user.id) # type: ignore
     
     @action(detail=False, methods=['get'])
     def me(self, request):
@@ -43,7 +43,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def taste_profile(self, request):
         """Retorna perfil de gosto do usuário"""
         try:
-            profile = request.user.taste_profile
+            profile = request.user.taste_profile  # type: ignore
             serializer = UserTasteProfileSerializer(profile)
             return Response(serializer.data)
         except:
@@ -56,8 +56,6 @@ class UserViewSet(viewsets.ModelViewSet):
     def connect_letterboxd(self, request):
         """
         Conecta conta Letterboxd
-        
-        Body: {"username": "letterboxd_username"}
         """
         username = request.data.get('username')
         
@@ -72,11 +70,10 @@ class UserViewSet(viewsets.ModelViewSet):
         user.letterboxd_connected = True
         user.save()
         
-        # TODO: Trigger sync task
-        # from apps.tasks.integrations import sync_letterboxd
-        # sync_letterboxd.delay(str(user.id))
+        # STUB 1 RESOLVIDO: Dispara a task no Celery
+        sync_letterboxd.delay(str(user.id))
         
         return Response({
-            'message': 'Letterboxd connected. Sync started.',
+            'message': 'Letterboxd connected. Sync started in background.',
             'username': username
         })

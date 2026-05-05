@@ -1,27 +1,19 @@
-import asyncio
 import logging
+from celery import shared_task
+from django.utils import timezone
+from asgiref.sync import async_to_sync
 
 from apps.integrations.realdebrid import RealDebridClient
 from apps.movies.models import TorrentRelease
-from apps.sessions.models import CinemaSession, SessionMovie
-from apps.sessions.utils import send_download_progress, send_session_update
-from celery import shared_task
-from django.utils import timezone
+from apps.user_sessions.models import CinemaSession, SessionMovie
+from apps.user_sessions.utils import send_download_progress, send_session_update
 
 logger = logging.getLogger(__name__)
 
-
 @shared_task(bind=True, max_retries=5)
-def add_to_realdebrid(self, release_id: str, user_id: str):
+def add_to_realdebrid(self, release_id, user_id):
     """
     Adiciona torrent ao Real-Debrid e seleciona arquivos
-    
-    Args:
-        release_id: UUID do TorrentRelease
-        user_id: UUID do usuário
-    
-    Returns:
-        Dict com torrent_id do RD
     """
     from django.contrib.auth import get_user_model
     User = get_user_model()
@@ -30,32 +22,24 @@ def add_to_realdebrid(self, release_id: str, user_id: str):
         release = TorrentRelease.objects.get(id=release_id)
         user = User.objects.get(id=user_id)
         
-        if not user.realdebrid_api_key:
+        if not user.realdebrid_api_key:  # type: ignore
             return {'error': 'Real-Debrid not configured'}
         
-        # Add to Real-Debrid
+        # Wrapped async logic
         async def add_async():
-            client = RealDebridClient(user.realdebrid_api_key)
+            client = RealDebridClient(user.realdebrid_api_key)  # type: ignore
             try:
-                # Add magnet
                 torrent_id = await client.add_magnet(release.magnet_link)
-                
-                # Get torrent info to select largest file
                 info = await client.get_torrent_info(torrent_id)
-                
                 if info.get('files'):
-                    # Select largest file (usually the movie)
                     largest_file = max(info['files'], key=lambda f: f.get('bytes', 0))
                     await client.select_files(torrent_id, [largest_file['id']])
-                
                 return torrent_id
             finally:
                 await client.close()
         
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        torrent_id = loop.run_until_complete(add_async())
-        loop.close()
+        # Usando a forma segura de chamar async no Celery
+        torrent_id = async_to_sync(add_async)()
         
         # Update release
         release.in_realdebrid = True
@@ -70,7 +54,7 @@ def add_to_realdebrid(self, release_id: str, user_id: str):
         monitor_realdebrid_download.apply_async(
             args=[release_id, user_id],
             countdown=30  # Check after 30 seconds
-        )
+        ) # type: ignore
         
         return {
             'release_id': str(release_id),
@@ -84,16 +68,9 @@ def add_to_realdebrid(self, release_id: str, user_id: str):
 
 
 @shared_task(bind=True, max_retries=50)
-def monitor_realdebrid_download(self, release_id: str, user_id: str, session_id: str = None):
+def monitor_realdebrid_download(self, release_id, user_id, session_id=None):
     """
     Monitora progresso de download no Real-Debrid
-    
-    Args:
-        release_id: UUID do TorrentRelease
-        user_id: UUID do usuário
-        session_id: UUID da sessão (opcional, para WebSocket updates)
-    
-    Continua executando até download completar ou falhar
     """
     from django.contrib.auth import get_user_model
     User = get_user_model()
@@ -106,19 +83,15 @@ def monitor_realdebrid_download(self, release_id: str, user_id: str, session_id:
             logger.error(f"Release {release_id} has no Real-Debrid ID")
             return {'error': 'No Real-Debrid torrent ID'}
         
-        # Get status from Real-Debrid
+        # Get status from Real-Debrid securely
         async def check_async():
-            client = RealDebridClient(user.realdebrid_api_key)
+            client = RealDebridClient(user.realdebrid_api_key)  # type: ignore
             try:
-                info = await client.get_torrent_info(release.realdebrid_id)
-                return info
+                return await client.get_torrent_info(release.realdebrid_id)
             finally:
                 await client.close()
-        
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        info = loop.run_until_complete(check_async())
-        loop.close()
+                
+        info = async_to_sync(check_async)()
         
         status = info.get('status')
         progress = info.get('progress', 0)
@@ -132,7 +105,7 @@ def monitor_realdebrid_download(self, release_id: str, user_id: str, session_id:
         if session_id:
             send_download_progress(
                 session_id=session_id,
-                movie_id=str(release.movie_id),
+                movie_id=str(release.movie_id),  # type: ignore
                 progress=progress
             )
         
@@ -140,19 +113,14 @@ def monitor_realdebrid_download(self, release_id: str, user_id: str, session_id:
         
         # Check status
         if status == 'downloaded':
-            # Get download links
             async def get_links_async():
-                client = RealDebridClient(user.realdebrid_api_key)
+                client = RealDebridClient(user.realdebrid_api_key)  # type: ignore
                 try:
-                    links = await client.get_download_links(release.realdebrid_id)
-                    return links
+                    return await client.get_download_links(release.realdebrid_id)
                 finally:
                     await client.close()
-            
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            links = loop.run_until_complete(get_links_async())
-            loop.close()
+                    
+            links = async_to_sync(get_links_async)()
             
             release.realdebrid_links = links
             release.realdebrid_completed_at = timezone.now()
@@ -173,7 +141,7 @@ def monitor_realdebrid_download(self, release_id: str, user_id: str, session_id:
                     session = session_movie.session
                     all_ready = all([
                         sm.download_status == 'ready'
-                        for sm in session.session_movies.all()
+                        for sm in session.session_movies.all()  # type: ignore
                     ])
                     
                     if all_ready:
@@ -211,7 +179,6 @@ def monitor_realdebrid_download(self, release_id: str, user_id: str, session_id:
     except Exception as e:
         logger.error(f"Error monitoring download: {e}")
         
-        # Stop retrying after 50 attempts (25 minutes with 30s intervals)
         if self.request.retries >= self.max_retries:
             logger.error(f"Max retries reached for {release_id}")
             release = TorrentRelease.objects.get(id=release_id)
@@ -226,7 +193,6 @@ def monitor_realdebrid_download(self, release_id: str, user_id: str, session_id:
 def check_realdebrid_status():
     """
     Periodic task: verifica status de todos os downloads ativos
-    
     Roda a cada 5 minutos via beat schedule
     """
     active_releases = TorrentRelease.objects.filter(
@@ -237,18 +203,18 @@ def check_realdebrid_status():
     logger.info(f"Checking status of {active_releases.count()} active downloads")
     
     for release in active_releases:
-        # Get user from related session or movie
-        session_movie = release.session_movies.first()
+        # BUG 3 RESOLVIDO AQUI: Query reverse correlation feita de forma correta e explícita
+        session_movie = SessionMovie.objects.filter(selected_release=release).first()
+        
         if session_movie:
             user = session_movie.session.user
             session_id = str(session_movie.session.id)
         else:
-            # Skip if no associated user
+            # Skip se o release estiver "órfão"
             continue
         
-        # Trigger monitoring task
         monitor_realdebrid_download.apply_async(
             args=[str(release.id), str(user.id), session_id]
-        )
+        ) # type: ignore
     
     return {'checked': active_releases.count()}

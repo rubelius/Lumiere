@@ -175,18 +175,30 @@ def _process_diary_entry(user, entry):
     
     matched = False
     if not diary_entry.matched and entry['film_year']:
-        matches = list(Movie.objects.filter(
-            year=entry['film_year'],
-            title__icontains=entry['film_name'][:20] 
-        ))
-        
         best_match = None
         best_score = 0
-        for movie in matches:
-            score = fuzz.ratio(entry['film_name'].lower(), movie.title.lower())
-            if score > best_score:
-                best_score = score
-                best_match = movie
+        
+        # 1. Caminho Rápido: Busca Exata (O(1))
+        exact_match = Movie.objects.filter(
+            year=entry['film_year'],
+            title__iexact=entry['film_name']
+        ).first()
+        
+        if exact_match:
+            best_match = exact_match
+            best_score = 100
+        else:
+            # 2. Fallback Seguro: Busca parcial rigorosa limitando a no máximo 5 retornos
+            matches = list(Movie.objects.filter(
+                year=entry['film_year'],
+                title__icontains=entry['film_name']
+            )[:5])
+            
+            for movie in matches:
+                score = fuzz.ratio(entry['film_name'].lower(), movie.title.lower())
+                if score > best_score:
+                    best_score = score
+                    best_match = movie
         
         if best_score > 85 and best_match:
             diary_entry.movie = best_match
