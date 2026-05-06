@@ -1,57 +1,39 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient } from '@tanstack/react-query';
+import { APIError } from '@/services/http/errors';
 
-async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+// Função fábrica: garante que o Next.js crie um cache limpo por usuário no Servidor
+export function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        // Dados ficam frescos por 30s. Reduz requisições desnecessárias.
+        staleTime: 30 * 1000,
+        gcTime: 5 * 60 * 1000,
+        // Só tenta de novo se o erro NÃO for de autenticação (ex: erro de rede)
+        retry: (failureCount, error) => {
+          if (error instanceof APIError && error.isAuth()) return false;
+          return failureCount < 2;
+        },
+        // Impede refetchs irritantes só por trocar de aba no navegador
+        refetchOnWindowFocus: false,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  });
+}
+
+// Variável para guardar o cache apenas do lado do Cliente (Navegador)
+let browserQueryClient: QueryClient | undefined;
+
+export function getQueryClient() {
+  if (typeof window === 'undefined') {
+    // Se estiver rodando no Servidor (Next.js SSR), sempre retorna um novo
+    return makeQueryClient();
+  } else {
+    // Se estiver rodando no Navegador, cria uma vez e reaproveita
+    if (!browserQueryClient) browserQueryClient = makeQueryClient();
+    return browserQueryClient;
   }
 }
-
-export async function apiRequest(
-  method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
-
-  await throwIfResNotOk(res);
-  return res;
-}
-
-type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
-    });
-
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
-
-    await throwIfResNotOk(res);
-    return await res.json();
-  };
-
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
-    },
-    mutations: {
-      retry: false,
-    },
-  },
-});
