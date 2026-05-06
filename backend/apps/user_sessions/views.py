@@ -1,17 +1,17 @@
 from datetime import timedelta
+from django.db import transaction
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
+from rest_framework.exceptions import ValidationError
 from apps.core.permissions import IsOwner
 from apps.tasks.sessions import prepare_session  # type: ignore
 
 from .models import CinemaSession, SessionMovie, SessionTheme
-from .serializers import (CinemaSessionDetailSerializer,
-                          CinemaSessionListSerializer, SessionThemeSerializer)
+from .serializers import (CinemaSessionSerializer, SessionThemeSerializer)
 
 class CinemaSessionViewSet(viewsets.ModelViewSet):
     """
@@ -91,10 +91,7 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
             if session.status != 'planning':
-                return Response(
-                    {'error': f'Cannot prepare session in status: {session.status}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                raise ValidationError({'status': f'Cannot prepare session in status: {session.status}'})
 
             session.status = 'preparing'
             session.save(update_fields=['status', 'updated_at'])
@@ -105,7 +102,7 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
 
         return Response({
             'message': 'Session preparation started.',
-            'session': CinemaSessionListSerializer(session).data
+            'session': CinemaSessionSerializer(session).data
         })
     
     @action(detail=True, methods=['post'])
@@ -116,10 +113,7 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
             if session.user != request.user:
                 return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
             if session.status != 'ready':
-                return Response(
-                    {'error': f'Cannot start session in status: {session.status}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                raise ValidationError({'status': f'Cannot start session in status: {session.status}'})
 
             session.status = 'in_progress'
             session.actual_start_time = timezone.now()
@@ -128,7 +122,7 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
 
         return Response({
             'message': 'Session started',
-            'session': CinemaSessionDetailSerializer(session, context={'request': request}).data
+            'session': CinemaSessionSerializer(session, context={'request': request, 'detail': True}).data
         })
     
     @action(detail=True, methods=['post'])

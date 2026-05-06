@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db.models import Sum
-
+from django.db import transaction
 from apps.movies.serializers import MovieListSerializer, TorrentReleaseSerializer
 from apps.movies.models import Movie
 

@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.tasks.integrations import sync_letterboxd  # type: ignore
+from apps.tasks.integrations import sync_letterboxd_diary  # type: ignore
 
 from .serializers import (UserRegistrationSerializer, UserSerializer,
                           UserTasteProfileSerializer)
@@ -71,7 +71,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save()
         
         # STUB 1 RESOLVIDO: Dispara a task no Celery
-        sync_letterboxd.delay(str(user.id))
+        sync_letterboxd_diary.delay(str(user.id))
         
         return Response({
             'message': 'Letterboxd connected. Sync started in background.',

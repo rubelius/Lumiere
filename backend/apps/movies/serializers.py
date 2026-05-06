@@ -19,8 +19,8 @@ class MovieListSerializer(serializers.ModelSerializer):
             'id', 'title', 'original_title', 'year', 'director',
             'country', 'length_minutes', 'genres', 'primary_genre',
             'poster_url', 'backdrop_url', 'current_ranking',
-            'tmdb_rating', 'imdb_rating', 'in_plex', 'available_instantly',
-            'current_quality_score'
+            'tmdb_rating', 'imdb_rating', 'letterboxd_rating', 'average_user_rating',
+            'in_plex', 'available_instantly', 'current_quality_score'
         ]
     
     def get_current_ranking(self, obj):

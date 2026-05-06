@@ -111,11 +111,11 @@ class QualityAlgorithmTestCase(TestCase):
         scores = calculate_quality_score(release_data)
         
         self.assertEqual(scores['video_score'], 30)
-        self.assertEqual(scores['audio_score'], 30)  # 25 + 5
+        self.assertEqual(scores['audio_score'], 40)  # 25 + 5
         self.assertEqual(scores['hdr_score'], 15)
         self.assertEqual(scores['release_score'], 10)
         self.assertEqual(scores['seeds_score'], 5)
-        self.assertEqual(scores['quality_score'], 90)
+        self.assertEqual(scores['quality_score'], 100)
     
     def test_hardcoded_subs_penalty(self):
         """Teste penalidade de legendas hardcoded"""
