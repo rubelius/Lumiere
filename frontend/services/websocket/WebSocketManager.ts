@@ -1,6 +1,6 @@
 // src/services/websocket/WebSocketManager.ts
 
-import { useAuthStore } from '@/features/auth/store/authStore';
+import { http } from '@/services/http/client';
 
 interface ManagerOptions {
   path: string; // Ex: '/ws/sessions/123/'
@@ -15,6 +15,7 @@ export class WebSocketManager {
   private maxReconnectAttempts = 10;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private isIntentionallyClosed = false;
+  private isConnecting = false; // Trava para evitar conexões duplicadas
   
   private path: string;
   private onMessage: (event: MessageEvent) => void;
@@ -48,35 +49,61 @@ export class WebSocketManager {
     }
   }
 
-  private createConnection() {
-    // Puxa o token de forma silenciosa e reativa
-    const token = useAuthStore.getState().accessToken;
-    if (!token) {
-      console.warn('[WS] Sem token JWT — ignorando conexão.');
-      return;
-    }
+  private async createConnection() {
+    // Evita tentar conectar se já estiver no processo
+    if (this.isConnecting) return;
+    this.isConnecting = true;
 
-    const host = process.env.NEXT_PUBLIC_WS_HOST ?? 'localhost:8000';
-    const protocol = process.env.NODE_ENV === 'production' ? 'wss' : 'ws';
-    // É exatamente assim que configuramos o backend para receber o token!
-    const url = `${protocol}://${host}${this.path}?token=${token}`;
+    try {
+      // 1. Busca o ticket de uso único da nossa API protegida
+      const response = await http.post<{ ticket: string }>('/api/auth/ws-ticket/');
+      const ticket = response.ticket;
 
-    this.ws = new WebSocket(url);
+      // Se o componente desmontou ou o usuário deslogou enquanto esperávamos a API:
+      if (this.isIntentionallyClosed) {
+        this.isConnecting = false;
+        return;
+      }
 
-    this.ws.onopen = () => {
-      this.reconnectAttempts = 0;
-      this.onOpen?.();
-    };
+      // 2. Monta a URL usando o TICKET, e não o JWT
+      const host = process.env.NEXT_PUBLIC_WS_HOST ?? 'localhost:8000';
+      const protocol = process.env.NODE_ENV === 'production' ? 'wss' : 'ws';
+      const url = `${protocol}://${host}${this.path}?ticket=${ticket}`;
 
-    this.ws.onmessage = this.onMessage;
+      this.ws = new WebSocket(url);
 
-    this.ws.onclose = (event) => {
-      this.onClose?.();
-      // Se não fomos nós que fechamos, ele tenta reconectar sozinho
-      if (!this.isIntentionallyClosed && event.code !== 1000) {
+      this.ws.onopen = () => {
+        this.isConnecting = false;
+        this.reconnectAttempts = 0;
+        this.onOpen?.();
+      };
+
+      this.ws.onmessage = this.onMessage;
+
+      this.ws.onclose = (event) => {
+        this.isConnecting = false;
+        this.onClose?.();
+        
+        // Se não fomos nós que fechamos (ex: queda de rede), tenta reconectar
+        if (!this.isIntentionallyClosed && event.code !== 1000) {
+          this.scheduleReconnect();
+        }
+      };
+
+      this.ws.onerror = () => {
+        // O `onclose` também será chamado pelo navegador, então apenas liberamos a trava
+        this.isConnecting = false;
+      };
+
+    } catch (error) {
+      console.error('[WS] Erro ao obter ticket de conexão:', error);
+      this.isConnecting = false;
+      
+      // Se a API falhar, tratamos como uma queda de conexão normal e tentamos de novo
+      if (!this.isIntentionallyClosed) {
         this.scheduleReconnect();
       }
-    };
+    }
   }
 
   private scheduleReconnect() {
@@ -85,13 +112,16 @@ export class WebSocketManager {
       return;
     }
 
-    // Tenta reconectar em 1s, depois 2s, 4s, 8s... até no máximo 30s
-    const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 30_000);
+    // CÁLCULO COM JITTER: Evita o "Thundering Herd" (Ataque DDoS não intencional)
+    const baseDelay = Math.min(1000 * 2 ** this.reconnectAttempts, 30_000);
+    const jitter = Math.random() * 1000; // Desvio aleatório de 0 a 1 segundo
+    const finalDelay = baseDelay + jitter;
+    
     this.reconnectAttempts++;
 
     this.reconnectTimer = setTimeout(() => {
       this.createConnection();
-    }, delay);
+    }, finalDelay);
   }
 
   private clearReconnectTimer() {

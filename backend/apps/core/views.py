@@ -1,12 +1,13 @@
 # apps/core/views.py
 
+import secrets
 import redis
 from celery import current_app
 from django.core.cache import cache
 from django.db import connection
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 
@@ -99,3 +100,18 @@ def liveness_check(request):
     """
     return Response({'status': 'alive'})
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def issue_ws_ticket(request):
+    """
+    Gera um ticket de uso único de 30 segundos para conexão WebSocket.
+    Protege o sistema contra vazamento de tokens em logs ou URLs.
+    """
+    # Gera um código aleatório seguro de 32 bytes
+    ticket = secrets.token_urlsafe(32)
+    
+    # Salva no cache com a chave ws_ticket:<ticket> apontando para o ID do usuário
+    cache.set(f'ws_ticket:{ticket}', str(request.user.id), timeout=30)
+    
+    return Response({'ticket': ticket})

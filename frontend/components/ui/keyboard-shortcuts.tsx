@@ -41,7 +41,7 @@ export function KeyboardShortcuts() {
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.9, y: 20 }}
-            className="bg-card/80 border border-white/10 rounded-[2rem] p-8 max-w-lg w-full shadow-2xl relative"
+            className="bg-card/80 border border-white/10 rounded-4xl p-8 max-w-lg w-full shadow-2xl relative"
             onClick={e => e.stopPropagation()}
           >
             <button onClick={() => setIsOpen(false)} className="absolute top-8 right-8 text-muted-foreground hover:text-white transition-colors">

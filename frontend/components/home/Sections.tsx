@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion'
+import { useEffect } from 'react'
 
 const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]
 
@@ -551,146 +552,90 @@ export function SessionRow({ session, isHovered, isDimmed, onHover }: any) {
    to anchor a section. Creates "silence" and scale contrast.
    ───────────────────────────────────────────────────────────── */
 
-export function LibraryCount({ count }: { count: number }) {
-  const [isHovered, setIsHovered] = useState(false)
 
+function AnimatedCounter({ to, duration = 2.5 }: { to: number, duration?: number }) {
+  const count = useMotionValue(0)
+  const rounded = useTransform(count, (latest) => Math.round(latest).toLocaleString('pt-BR'))
+
+  useEffect(() => {
+    const controls = animate(count, to, { 
+      duration, 
+      ease: [0.22, 1, 0.36, 1] 
+    })
+    return controls.stop
+  }, [count, to, duration])
+
+  return <motion.span>{rounded}</motion.span>
+}
+
+export function LibraryCount({ count = 0 }: { count: number }) {
+  const estimatedHours = Math.round(count * 1.8); 
+  // Valor estético que em breve virá do Django (ex: data.countries_count)
+  const countries = count > 0 ? 92 : 0; 
+  
   return (
-    <section
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        padding: '120px 72px', // Aumentei o padding para dar ar de "grand finale"
-        borderTop: '1px solid rgba(237,232,220,0.05)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 48,
-        overflow: 'hidden',
-        position: 'relative',
-        background: '#080806',
-        cursor: 'pointer' // Convida o usuário a clicar em qualquer lugar da área
+    <section 
+      style={{ 
+        padding: '120px 72px', 
+        background: '#040402',
+        borderTop: '1px solid rgba(237,232,220,0.05)' 
       }}
     >
-      {/* ── O NÚMERO FANTASMA (O Monólito) ── */}
-      <motion.div
-        aria-hidden="true"
-        initial={{ opacity: 0, x: 50 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true, margin: "-10%" }}
-        animate={{
-          color: isHovered ? 'rgba(191,143,60,0.06)' : 'rgba(237,232,220,0.02)',
-          scale: isHovered ? 1.05 : 1,
-          x: isHovered ? -20 : 0
-        }}
-        transition={{ duration: 1.5, ease: FINE_ART_EASE }}
-        style={{
-          position: 'absolute',
-          right: 72,
-          top: '50%',
-          marginTop: '-4%', // Leve ajuste óptico para centralizar a fonte serifa
-          transform: 'translateY(-50%)',
-          fontFamily: "'Cormorant Garamond', serif",
-          fontSize: 'clamp(12rem, 25vw, 28rem)', // Ainda maior e mais dramático
-          fontWeight: 700,
-          lineHeight: 0.8,
-          letterSpacing: '-0.05em',
-          userSelect: 'none',
-          pointerEvents: 'none',
-          zIndex: 0
-        }}
-      >
-        {count}
-      </motion.div>
-
-      {/* ── CONTEÚDO EDITORIAL ── */}
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 80, alignItems: 'start' }}>
         
-        {/* Label Dourada com Máscara */}
-        <div style={{ overflow: 'hidden' }}>
-          <motion.div 
-            initial={{ y: '100%' }}
-            whileInView={{ y: '0%' }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, ease: FINE_ART_EASE }}
-            style={{ 
-              fontFamily: "'DM Mono', monospace", fontSize: '10px', 
-              letterSpacing: '0.2em', textTransform: 'uppercase', color: '#BF8F3C' 
-            }}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+            <div style={{ width: 40, height: 1, background: '#BF8F3C' }} />
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#BF8F3C' }}>
+              Relatório do Sistema
+            </span>
+          </div>
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1 }}
+            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(2rem, 3.5vw, 3rem)', fontWeight: 400, color: '#EDE8DC', margin: 0, lineHeight: 1.1, letterSpacing: '-0.01em' }}
           >
-            [ ACESSO AO COFRE ]
-          </motion.div>
+            O Diário do<br />Arquivista.
+          </motion.h2>
+          <motion.p
+             initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 1, delay: 0.2 }}
+             style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', color: '#8C8880', fontStyle: 'italic', marginTop: 24, maxWidth: 300 }}
+          >
+            Métricas em tempo real da preservação do patrimônio cinematográfico mundial.
+          </motion.p>
         </div>
 
-        {/* Título Principal */}
-        <div style={{ overflow: 'hidden', paddingBottom: 8 }}>
-          <motion.div
-            initial={{ y: '100%' }}
-            whileInView={{ y: '0%' }}
-            viewport={{ once: true }}
-            transition={{ duration: 1, delay: 0.1, ease: FINE_ART_EASE }}
-            style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 'clamp(2.5rem, 4vw, 3.5rem)',
-              fontWeight: 400,
-              color: isHovered ? '#FFFFFF' : '#EDE8DC',
-              lineHeight: 1.1,
-              letterSpacing: '-0.02em',
-              transition: 'color 0.8s ease'
-            }}
-          >
-            {count} títulos curados.<br />
-            <span style={{ fontStyle: 'italic', color: '#8C8880' }}>Cinema de primeira ordem.</span>
-          </motion.div>
-        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 40 }}>
+          
+          <div style={{ borderLeft: '1px solid rgba(191,143,60,0.3)', paddingLeft: 32 }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
+              Obras Indexadas
+            </div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(3rem, 5vw, 4.5rem)', color: '#EDE8DC', lineHeight: 1, letterSpacing: '-0.02em' }}>
+              <AnimatedCounter to={count} />
+            </div>
+          </div>
 
-        {/* Link / CTA de Arquivo */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 1, delay: 0.2, ease: FINE_ART_EASE }}
-        >
-          <Link
-            href="/library"
-            data-tv-focusable
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 16,
-              marginTop: 16,
-              fontFamily: "'DM Mono', monospace",
-              fontSize: '11px',
-              letterSpacing: '0.2em',
-              textTransform: 'uppercase',
-              color: isHovered ? '#BF8F3C' : '#565450',
-              textDecoration: 'none',
-              transition: 'color 0.4s ease',
-            }}
-          >
-            <motion.div 
-              animate={{ 
-                width: isHovered ? 40 : 20, 
-                backgroundColor: isHovered ? '#BF8F3C' : '#565450' 
-              }}
-              transition={{ duration: 0.6, ease: FINE_ART_EASE }}
-              style={{ height: 1 }} 
-            />
-            Explorar o arquivo completo
-            <motion.svg 
-              animate={{ x: isHovered ? 8 : 0 }}
-              transition={{ duration: 0.6, ease: FINE_ART_EASE }}
-              viewBox="0 0 16 16" fill="none" style={{ width: 14, height: 14 }}
-            >
-              <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-            </motion.svg>
-          </Link>
-        </motion.div>
+          <div style={{ borderLeft: '1px solid rgba(237,232,220,0.1)', paddingLeft: 32 }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
+              Horas de Projeção
+            </div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(3rem, 5vw, 4.5rem)', color: '#8C8880', lineHeight: 1, letterSpacing: '-0.02em' }}>
+              <AnimatedCounter to={estimatedHours} duration={3.5} />
+            </div>
+          </div>
+
+          {/* O RETORNO DOS PAÍSES! */}
+          <div style={{ borderLeft: '1px solid rgba(237,232,220,0.1)', paddingLeft: 32 }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
+              Países Representados
+            </div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(3rem, 5vw, 4.5rem)', color: '#8C8880', lineHeight: 1, letterSpacing: '-0.02em' }}>
+              <AnimatedCounter to={countries} duration={4} />
+            </div>
+          </div>
+
+        </div>
       </div>
-
-      {/* ── VÍNCULO DE CLIQUE (Faz a seção inteira ser clicável) ── */}
-      <Link href="/library" style={{ position: 'absolute', inset: 0, zIndex: 10 }} aria-label="Explorar o arquivo completo" />
     </section>
   )
 }
-
-

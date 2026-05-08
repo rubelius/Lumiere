@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence, useAnimationFrame, useMotionValue, useTransform, useSpring } from 'framer-motion'
+import { useMovies } from '@/features/movies/hooks/useMovies';
 /* ─────────────────────────────────────────────────────────────
    MARQUEE — Horizontal scrolling film titles.
    Like a cinema marquee sign or end credits crawl.
@@ -19,9 +20,16 @@ const MARQUEE_ITEMS = [
 ]
 
 
-
 export function CinemaMarquee() {
-  const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS]
+  // Chamamos os filmes reais!
+  const { data } = useMovies({ page: 2 }); // Pega a página 2 para ser diferente do Hero
+  
+  // Extrai os títulos. Se ainda estiver carregando, usamos um fallback elegante
+  const realTitles = data?.results?.map((m: any) => m.title).slice(0, 15) || [
+    'Carregando Arquivos...', 'Indexando Obras', 'Preservação Digital'
+  ];
+  
+  const items = [...realTitles, ...realTitles]; // Duplica para o efeito infinito
 
   const baseX = useMotionValue(0)
   const x = useTransform(baseX, (v) => `${v}%`)
@@ -29,15 +37,11 @@ export function CinemaMarquee() {
   const isHovered = useRef(false)
 
   useAnimationFrame((t, delta) => {
-    // MELHORIA 3: Pausa suave no hover
     if (isHovered.current) return
-    
-    // Deixei o letreiro significativamente mais lento (0.8 em vez de 4)
     let moveBy = directionFactor.current * (delta / 1000) * 0.8 
     if (baseX.get() <= -50) baseX.set(0)
     baseX.set(baseX.get() + moveBy)
   })
-
 
   return (
     <div
@@ -52,64 +56,19 @@ export function CinemaMarquee() {
         position: 'relative',
       }}
     >
-      {/* Left fade */}
-      <div style={{
-        position: 'absolute', left: 0, top: 0, bottom: 0,
-        width: 80, zIndex: 2,
-        background: 'linear-gradient(to right, #080806, transparent)',
-        pointerEvents: 'none',
-      }} />
-      {/* Right fade */}
-      <div style={{
-        position: 'absolute', right: 0, top: 0, bottom: 0,
-        width: 80, zIndex: 2,
-        background: 'linear-gradient(to left, #080806, transparent)',
-        pointerEvents: 'none',
-      }} />
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 80, zIndex: 2, background: 'linear-gradient(to right, #080806, transparent)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, zIndex: 2, background: 'linear-gradient(to left, #080806, transparent)', pointerEvents: 'none' }} />
 
       <motion.div
         className="marquee-track"
-        style={{ 
-          x: x, // <-- AQUI! Isso liga o cálculo matemático ao elemento visual
-          display: 'flex', 
-          gap: 0, 
-          whiteSpace: 'nowrap', 
-          width: 'max-content' 
-        }}
+        style={{ x: x, display: 'flex', gap: 0, whiteSpace: 'nowrap', width: 'max-content' }}
       >
         {items.map((film, i) => (
-          <span
-            key={i}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 24,
-              padding: '0 24px',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: '10px',
-                fontWeight: 400,
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                color: i % 7 === 0 ? '#BF8F3C' : '#302E2A',
-              }}
-            >
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 24, padding: '0 24px' }}>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 400, letterSpacing: '0.16em', textTransform: 'uppercase', color: i % 7 === 0 ? '#BF8F3C' : '#302E2A' }}>
               {film}
             </span>
-            {/* Separator — diamond */}
-            <span
-              style={{
-                display: 'inline-block',
-                width: 3,
-                height: 3,
-                background: '#1C1B18',
-                transform: 'rotate(45deg)',
-                flexShrink: 0,
-              }}
-            />
+            <span style={{ display: 'inline-block', width: 3, height: 3, background: '#1C1B18', transform: 'rotate(45deg)', flexShrink: 0 }} />
           </span>
         ))}
       </motion.div>
@@ -185,162 +144,82 @@ function QualityDots({ qualities }: { qualities: string[] }) {
 const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]
 
 function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, router }: any) {
+  
+  // Tratamento da Imagem de Fundo (Blur se for fallback)
+  const isFallbackBg = !film.backgroundSrc || film.backgroundSrc === film.posterSrc;
+  const finalBg = film.backgroundSrc || film.posterSrc;
+
   return (
     <div
       onClick={() => {
         if (!isExpanded) {
           onClick(film.id);
-          // A MÁGICA DA NAVEGAÇÃO ATRASADA:
-          // Espera a animação de expansão terminar (800ms) antes de ir pra página do filme
-          setTimeout(() => {
-            router.push(`/movie/${film.id}`);
-          }, 800); 
+          setTimeout(() => { router.push(`/movie/${film.id}`); }, 800); 
         }
       }}
       onMouseEnter={() => !isExpanded && onHover(film.id)}
       onMouseLeave={() => !isExpanded && onHover(null)}
-      style={{
-        display: 'block', position: 'relative', 
-        zIndex: isHovered || isExpanded ? 10 : 1,
-        cursor: isExpanded ? 'default' : 'crosshair'
-      }}
+      style={{ display: 'block', position: 'relative', zIndex: isHovered || isExpanded ? 10 : 1, cursor: isExpanded ? 'default' : 'crosshair' }}
     >
       <motion.div
-        layout
-        initial={false}
-        animate={{
-          height: isExpanded ? '100vh' : isHovered ? 300 : 70, 
-          opacity: isDimmed ? 0.15 : 1, 
-          backgroundColor: isHovered ? 'rgba(237,232,220,0.01)' : 'rgba(237,232,220,0)',
-        }}
+        layout initial={false}
+        animate={{ height: isExpanded ? '100vh' : isHovered ? 300 : 70, opacity: isDimmed ? 0.15 : 1, backgroundColor: isHovered ? 'rgba(237,232,220,0.01)' : 'rgba(237,232,220,0)' }}
         transition={{ duration: 0.85, ease: FINE_ART_EASE }}
-        style={{
-          borderBottom: '1px solid rgba(237,232,220,0.03)',
-          overflow: 'hidden',
-          position: 'relative' 
-        }}
+        style={{ borderBottom: '1px solid rgba(237,232,220,0.03)', overflow: 'hidden', position: 'relative' }}
       >
 
-        {/* ── 0. IMAGEM DE FUNDO (O retorno da animação charmosa) ── */}
+        {/* ── 0. IMAGEM DE FUNDO COM DESFOQUE DE FALLBACK ── */}
         <motion.div
-          // ATENÇÃO: Removi a prop 'layout' daqui! É isso que tira o "engasgo".
           initial={false}
-          animate={{ 
-            opacity: isExpanded ? 1 : isHovered ? 0.10 : 0, 
-            // Voltamos para a expansão original da largura que você gostou!
-            width: isExpanded ? '100%' : isHovered ? '50%' : '0%',
-          }}
+          animate={{ opacity: isExpanded ? 1 : isHovered ? 0.35 : 0, width: isExpanded ? '100%' : isHovered ? '60%' : '0%' }}
           transition={{ duration: 0.85, ease: FINE_ART_EASE }}
-          style={{
-            position: 'absolute', top: 0, bottom: 0, right: 0,
-            overflow: 'hidden', zIndex: -1,
-            filter: 'grayscale(100%)', 
-            // Avisa a placa de vídeo para focar nisso
-            willChange: 'width, opacity' 
-          }}
+          style={{ position: 'absolute', top: 0, bottom: 0, right: 0, overflow: 'hidden', zIndex: -1, filter: 'grayscale(100%)', willChange: 'width, opacity' }}
         >
-          {/* O gradiente escuro que protege a leitura do texto */}
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #080806 0%, transparent 100%)', zIndex: 1 }} />
-          
-          {/* A lógica purista do fundo vazio se não houver imagem */}
-          {film.backgroundSrc ? (
-            <img 
-              src={film.backgroundSrc} 
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              alt=""
-            />
-          ) : null}
+          <img 
+            src={finalBg} 
+            style={{ 
+              width: '100%', height: '100%', objectFit: 'cover', 
+              filter: isFallbackBg ? 'blur(20px) grayscale(60%) contrast(1.2)' : 'none', 
+              transform: isFallbackBg ? 'scale(1.1)' : 'none' 
+            }} 
+            alt="" 
+          />
         </motion.div>
 
-        {/* ── 1. NÚMERO DO ÍNDICE ── */}
-        <motion.div
-          animate={{ color: isHovered ? '#BF8F3C' : '#565450' }}
-          transition={{ duration: 0.8 }}
-          style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}
-        >
+        <motion.div animate={{ color: isHovered ? '#BF8F3C' : '#565450' }} transition={{ duration: 0.8 }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
           {film.number}
         </motion.div>
 
-        {/* ── 2. O PÔSTER (Revelação Óptica por Desfoque) ── */}
         <AnimatePresence>
-          {isHovered && !isExpanded && ( // Esconde o mini-poster se expandir
-            <motion.div
-              initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }}
-              animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
-              exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }}
-              transition={{ duration: 0.85, ease: FINE_ART_EASE }}
-              style={{
-                position: 'absolute', left: 90, top: 35, width: 110, height: 160, 
-              }}
-            >
-              <img 
-                src={film.posterSrc} 
-                style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(25%) contrast(1.1)' }} 
-                alt=""
-              />
+          {isHovered && !isExpanded && (
+            <motion.div initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }} animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }} exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }} transition={{ duration: 0.85, ease: FINE_ART_EASE }} style={{ position: 'absolute', left: 90, top: 35, width: 110, height: 160 }}>
+              <img src={film.posterSrc} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(25%) contrast(1.1)' }} alt="" />
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── 3. TÍTULO (Escala Vetorial) ── */}
+        {/* Título sem corte tipográfico */}
         <motion.h3
-          animate={{
-            scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1, // Cresce ainda mais no clique
-            color: isExpanded ? '#FFFFFF' : isHovered ? '#EDE8DC' : '#8C8880',
-            y: isExpanded ? '30vh' : isHovered ? 12 : 0, // Desce para o meio da tela no clique
-            x: isExpanded ? '10vw' : 0
-          }}
+          animate={{ scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1, color: isExpanded ? '#FFFFFF' : isHovered ? '#EDE8DC' : '#8C8880', y: isExpanded ? '30vh' : isHovered ? 12 : 0, x: isExpanded ? '10vw' : 0 }}
           transition={{ duration: 0.85, ease: FINE_ART_EASE }}
-          style={{
-            position: 'absolute', left: 240, top: 22, 
-            fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', fontWeight: 400,
-            margin: 0, lineHeight: 1, letterSpacing: '-0.01em',
-            transformOrigin: 'left top',
-            willChange: 'transform, color',
-            zIndex: 10
-          }}
+          style={{ position: 'absolute', left: 240, top: 22, fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', fontWeight: 400, margin: 0, lineHeight: 1, letterSpacing: '-0.01em', transformOrigin: 'left top', willChange: 'transform, color', zIndex: 10 }}
         >
           {film.title}
         </motion.h3>
 
-        {/* ── 4. A SINOPSE EDITORIAL ── */}
         <AnimatePresence>
-          {isHovered && !isExpanded && ( // Esconde a sinopse se expandir
+          {isHovered && !isExpanded && (
             <div style={{ position: 'absolute', left: 240, top: 100, display: 'flex', gap: 24, maxWidth: 1120 }}>
-              
-              {/* A Linha Dourada */}
-              <motion.div
-                initial={{ scaleY: 0 }}
-                animate={{ scaleY: 1 }}
-                exit={{ scaleY: 0 }}
-                transition={{ duration: 0.9, delay: 0.1, ease: FINE_ART_EASE }}
-                style={{ width: 1, backgroundColor: 'rgba(191,143,60,0.3)', transformOrigin: 'top' }}
-              />
-
+              <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} exit={{ scaleY: 0 }} transition={{ duration: 0.9, delay: 0.1, ease: FINE_ART_EASE }} style={{ width: 1, backgroundColor: 'rgba(191,143,60,0.3)', transformOrigin: 'top' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden', paddingBottom: 10 }}>
                 <div style={{ overflow: 'hidden' }}>
-                  <motion.div
-                    initial={{ y: '100%', filter: 'blur(4px)' }}
-                    animate={{ y: '0%', filter: 'blur(0px)' }}
-                    exit={{ y: '100%', filter: 'blur(4px)' }}
-                    transition={{ duration: 0.8, delay: 0.15, ease: FINE_ART_EASE }}
-                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#7A5A20', textTransform: 'uppercase' }}
-                  >
-                    {film.director} // {film.year} // {film.genre}
+                  <motion.div initial={{ y: '100%', filter: 'blur(4px)' }} animate={{ y: '0%', filter: 'blur(0px)' }} exit={{ y: '100%', filter: 'blur(4px)' }} transition={{ duration: 0.8, delay: 0.15, ease: FINE_ART_EASE }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#7A5A20', textTransform: 'uppercase' }}>
+                    {film.director} // {film.year} // {film.runtime} // {film.genre}
                   </motion.div>
                 </div>
-
                 <div style={{ overflow: 'hidden' }}>
-                  <motion.p
-                    initial={{ y: '100%', filter: 'blur(8px)', opacity: 0 }}
-                    animate={{ y: '0%', filter: 'blur(0px)', opacity: 1 }}
-                    exit={{ y: '50%', filter: 'blur(4px)', opacity: 0 }}
-                    transition={{ duration: 0.9, delay: 0.2, ease: FINE_ART_EASE }}
-                    style={{ 
-                      fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', lineHeight: 1.6, 
-                      color: 'rgba(237,232,220,0.55)', fontStyle: 'italic', margin: 0 
-                    }}
-                  >
+                  <motion.p initial={{ y: '100%', filter: 'blur(8px)', opacity: 0 }} animate={{ y: '0%', filter: 'blur(0px)', opacity: 1 }} exit={{ y: '50%', filter: 'blur(4px)', opacity: 0 }} transition={{ duration: 0.9, delay: 0.2, ease: FINE_ART_EASE }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', lineHeight: 1.6, color: 'rgba(237,232,220,0.55)', fontStyle: 'italic', margin: 0 }}>
                     {film.synopsis}
                   </motion.p>
                 </div>
@@ -349,19 +228,12 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
           )}
         </AnimatePresence>
 
-        {/* ── 5. DADOS DA TABELA DE REPOUSO ── */}
         <AnimatePresence>
           {!isHovered && !isExpanded && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-              style={{ position: 'absolute', right: 40, top: 28, display: 'flex', gap: 40, color: '#565450', fontFamily: "'DM Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} style={{ position: 'absolute', right: 40, top: 28, display: 'flex', gap: 40, color: '#565450', fontFamily: "'DM Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               <span>{film.director}</span>
               <span>{film.year}</span>
-              <span style={{ width: 80, textAlign: 'right' }}>{film.runtime}</span>
+              <span style={{ width: 140, textAlign: 'right' }}>{film.runtime}</span>
             </motion.div>
           )}
         </AnimatePresence>

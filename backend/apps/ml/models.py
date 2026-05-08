@@ -70,13 +70,10 @@ class MovieSimilarity(models.Model):
 
 
 class Recommendation(models.Model):
-    """
-    O Claude apontou: 'Recommendation model doesn't exist' (FAILURE 4)
-    Adicionando o modelo mínimo necessário.
-    """
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='recommendations')
     movie = models.ForeignKey('movies.Movie', on_delete=models.CASCADE)
-    
+    confidence = models.FloatField(default=0.5)
     score = models.FloatField(default=0.0)
     reason = models.CharField(max_length=255, null=True, blank=True)
     

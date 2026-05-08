@@ -3,13 +3,10 @@ from django.db.models import Sum
 from django.db import transaction
 from apps.movies.serializers import MovieListSerializer, TorrentReleaseSerializer
 from apps.movies.models import Movie
-
 from .models import CinemaSession, SessionMovie, SessionTheme
-
 
 class SessionThemeSerializer(serializers.ModelSerializer):
     """Serializer para temas de sessão"""
-    
     class Meta:
         model = SessionTheme
         fields = '__all__'
@@ -31,10 +28,17 @@ class SessionMovieSerializer(serializers.ModelSerializer):
 
 
 class CinemaSessionSerializer(serializers.ModelSerializer):
+    """Serializer unificado e otimizado contra queries N+1"""
     movie_count = serializers.SerializerMethodField()
     theme = SessionThemeSerializer(read_only=True)
     first_movie_poster = serializers.SerializerMethodField()
-    session_movies = serializers.SerializerMethodField()  # Será nulo na lista, populado no detalhe
+    session_movies = serializers.SerializerMethodField()
+    
+    movie_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        write_only=True,
+        required=False
+    )
 
     class Meta:
         model = CinemaSession
@@ -44,10 +48,17 @@ class CinemaSessionSerializer(serializers.ModelSerializer):
             'first_movie_poster', 'preparation_progress', 'download_progress',
             'estimated_duration_minutes', 'all_downloads_ready',
             'all_movies_selected', 'playlist_created',
-            'session_movies', 'created_at', 'updated_at',
+            'session_movies', 'movie_ids', 'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'user', 'status', 'all_movies_selected',
+            'all_torrents_found', 'all_downloads_ready',
+            'preparation_progress', 'download_progress',
+            'created_at', 'updated_at'
         ]
 
     def get_movie_count(self, obj):
+        # OTIMIZAÇÃO: Usa o tamanho da lista que já tá na memória em vez de .count() no banco
         return len(obj.session_movies.all())
 
     def get_first_movie_poster(self, obj):
@@ -57,48 +68,27 @@ class CinemaSessionSerializer(serializers.ModelSerializer):
         return None
 
     def get_session_movies(self, obj):
-        # Só popula a lista de filmes se for a tela de detalhes (retrieve)
+        # OTIMIZAÇÃO CLAUDE: Só popula a lista de filmes se for a tela de detalhes (retrieve)
         if self.context.get('detail', False):
             return SessionMovieSerializer(
                 obj.session_movies.all(),
                 many=True,
                 context=self.context
             ).data
-        return None  # Retorna null na listagem para economizar banda
-    """Serializer completo para detalhes de sessão"""
-    session_movies = SessionMovieSerializer(many=True, read_only=True)
-    theme = SessionThemeSerializer(read_only=True)
-    movie_ids = serializers.ListField(
-        child=serializers.UUIDField(),
-        write_only=True,
-        required=False
-    )
-    
-    class Meta:
-        model = CinemaSession
-        fields = '__all__'
-        read_only_fields = [
-            'user', 'status', 'all_movies_selected',
-            'all_torrents_found', 'all_downloads_ready',
-            'preparation_progress', 'download_progress',
-            'created_at', 'updated_at'
-        ]
-    
+        return None
+
     def create(self, validated_data):
         movie_ids = validated_data.pop('movie_ids', [])
         validated_data['user'] = self.context['request'].user
 
-        # Usando transação atômica: ou tudo salva, ou nada salva.
+        # Usando transação atômica: ou tudo salva perfeito, ou o banco recusa
         with transaction.atomic():
             session = CinemaSession.objects.create(**validated_data)
 
             if movie_ids:
-                # Valida se todos os IDs de filmes realmente existem no banco
                 existing_count = Movie.objects.filter(id__in=movie_ids).count()
                 if existing_count != len(movie_ids):
-                    raise serializers.ValidationError(
-                        {'movie_ids': 'One or more movie IDs do not exist.'}
-                    )
+                    raise serializers.ValidationError({'movie_ids': 'IDs inválidos.'})
 
                 SessionMovie.objects.bulk_create([
                     SessionMovie(session=session, movie_id=movie_id, order=order)
@@ -118,62 +108,34 @@ class CinemaSessionSerializer(serializers.ModelSerializer):
                 ])
 
         return session
-        """Cria sessão com filmes - N+1 #3 CORRIGIDA"""
-        movie_ids = validated_data.pop('movie_ids', [])
-        validated_data['user'] = self.context['request'].user
-        
-        # Create session
-        session = CinemaSession.objects.create(**validated_data)
-        
-        total_duration = 0
-        if movie_ids:
-            # 1. OTIMIZAÇÃO: Cria todos os SessionMovies em 1 única query
-            session_movies_to_create = [
-                SessionMovie(session=session, movie_id=movie_id, order=order)
-                for order, movie_id in enumerate(movie_ids)
-            ]
-            SessionMovie.objects.bulk_create(session_movies_to_create)
-            
-            # 2. OTIMIZAÇÃO: Soma as durações em 1 única query no banco em vez de laço
-            total_duration = Movie.objects.filter(id__in=movie_ids).aggregate(
-                total=Sum('length_minutes')
-            )['total'] or 0
-        
-        session.estimated_duration_minutes = total_duration
-        session.all_movies_selected = len(movie_ids) > 0
-        session.save()
-        
-        return session
-    
+
     def update(self, instance, validated_data):
-        """Atualiza sessão - OTIMIZADO"""
         movie_ids = validated_data.pop('movie_ids', None)
         
-        # Update session fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        
-        # Update movies if provided
-        if movie_ids is not None:
-            # Remove existing
-            instance.session_movies.all().delete()
+        with transaction.atomic():
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
             
-            if movie_ids:
-                # Add new using bulk_create
-                session_movies_to_create = [
-                    SessionMovie(session=instance, movie_id=movie_id, order=order)
-                    for order, movie_id in enumerate(movie_ids)
-                ]
-                SessionMovie.objects.bulk_create(session_movies_to_create)
+            if movie_ids is not None:
+                instance.session_movies.all().delete()
                 
-                # Recalcula duração
-                total_duration = Movie.objects.filter(id__in=movie_ids).aggregate(
-                    total=Sum('length_minutes')
-                )['total'] or 0
-                
-                instance.estimated_duration_minutes = total_duration
-                instance.all_movies_selected = len(movie_ids) > 0
-                instance.save()
+                if movie_ids:
+                    SessionMovie.objects.bulk_create([
+                        SessionMovie(session=instance, movie_id=movie_id, order=order)
+                        for order, movie_id in enumerate(movie_ids)
+                    ])
+                    
+                    total_duration = Movie.objects.filter(id__in=movie_ids).aggregate(
+                        total=Sum('length_minutes')
+                    )['total'] or 0
+                    
+                    instance.estimated_duration_minutes = total_duration
+                    instance.all_movies_selected = len(movie_ids) > 0
+                else:
+                    instance.estimated_duration_minutes = 0
+                    instance.all_movies_selected = False
+                    
+                instance.save(update_fields=['estimated_duration_minutes', 'all_movies_selected'])
         
         return instance

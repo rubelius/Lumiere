@@ -1,14 +1,14 @@
 'use client';
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, Check } from "lucide-react";
+import { Search, Filter, Check, ArrowUp, Loader2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 // Import do nosso Hook Mágico
 import { useMovies } from '@/features/movies/hooks/useMovies';
 
 const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
-// 1. Interface atualizada: O ID agora aceita string (pois o Django usa UUID)
+// 1. Interface
 interface Movie {
   id: string | number;
   number: string;
@@ -33,7 +33,10 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
       }}
       onMouseEnter={() => !isExpanded && onHover(film.id)}
       onMouseLeave={() => !isExpanded && onHover(null)}
-      style={{ display: 'block', position: 'relative', zIndex: isHovered || isExpanded ? 10 : 1, cursor: isExpanded ? 'default' : 'crosshair' }}
+      style={{ 
+        display: 'block', position: 'relative', zIndex: isHovered || isExpanded ? 10 : 1, cursor: isExpanded ? 'default' : 'crosshair',
+        contentVisibility: 'auto', containIntrinsicSize: '70px'
+      }}
     >
       <motion.div
         layout initial={false}
@@ -52,7 +55,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
           style={{ position: 'absolute', top: 0, bottom: 0, right: 0, overflow: 'hidden', zIndex: -1, filter: 'grayscale(100%)', transformOrigin: 'right' }}
         >
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #080806 0%, transparent 100%)', zIndex: 1 }} />
-          <img src={film.img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+          <img src={film.img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
         </motion.div>
 
         <motion.div animate={{ color: isHovered ? '#BF8F3C' : '#302E2A' }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
@@ -131,7 +134,10 @@ function FilmGridCard({ film, router, setExpandedId }: { film: Movie, router: an
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 1, ease: FINE_ART_EASE }}
-      style={{ cursor: 'crosshair', display: 'flex', flexDirection: 'column', position: 'relative' }}
+      style={{ 
+        cursor: 'crosshair', display: 'flex', flexDirection: 'column', position: 'relative',
+        contentVisibility: 'auto', containIntrinsicSize: '400px'
+      }}
     >
       <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: isHovered ? '#BF8F3C' : '#302E2A', letterSpacing: '0.2em', marginBottom: 12, transition: 'color 0.4s ease' }}>
         [{film.number}]
@@ -143,6 +149,7 @@ function FilmGridCard({ film, router, setExpandedId }: { film: Movie, router: an
           animate={{ scale: isHovered ? 1.05 : 1, filter: isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)' }}
           transition={{ duration: 0.8, ease: FINE_ART_EASE }}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          loading="lazy"
         />
 
         <motion.div
@@ -183,53 +190,160 @@ function FilmGridCard({ film, router, setExpandedId }: { film: Movie, router: an
 }
 
 export default function Library() {
+  const router = useRouter();
+
+  // ── ESTADOS DE FILTRO E BUSCA ──
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [activeCategory, setActiveCategory] = useState("O Acervo");
+  const [selectedQualities, setSelectedQualities] = useState<string[]>([]);
+  const [selectedMovements, setSelectedMovements] = useState<string[]>([]);
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
+  // ── ESTADOS DE PAGINAÇÃO INFINITA ──
+  const [page, setPage] = useState(1);
+  const [allMovies, setAllMovies] = useState<Movie[]>([]);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // ── ESTADOS DE INTERAÇÃO VISUAL ──
   const [hoveredId, setHoveredId] = useState<string | number | null>(null);
   const [expandedId, setExpandedId] = useState<string | number | null>(null);
 
-  const [selectedQualities, setSelectedQualities] = useState<string[]>([]);
-  const [selectedMovements, setSelectedMovements] = useState<string[]>([]);
+  // 1. Debounce da Busca
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); 
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // 2. Buscamos os dados
+  const { data, isLoading, error, isFetching } = useMovies({ 
+    page, 
+    search: debouncedSearch,
+    category: activeCategory,
+  });
+
+  // 3. Acumulador de Filmes
+  useEffect(() => {
+    if (data?.results) {
+      const formattedData: Movie[] = data.results.map((movie: any, index: number) => {
+        const hours = Math.floor((movie.length_minutes || 0) / 60);
+        const mins = (movie.length_minutes || 0) % 60;
+        
+        return {
+          id: movie.id,
+          number: String((page - 1) * 20 + index + 1).padStart(3, '0'), 
+          title: movie.title,
+          year: String(movie.year || "----"),
+          img: movie.poster_url || "/images/poster-1.png",
+          director: movie.director || "Diretor Desconhecido",
+          qualities: movie.in_plex ? ["PLEX", "DISPONÍVEL"] : ["OFFLINE"],
+          runtime: movie.length_minutes ? `${hours}h ${mins}m` : "--h --m",
+          synopsis: movie.overview || "Fita magnética preservada nos arquivos da fundação. Registros adicionais aguardando decodificação do servidor principal.",
+        };
+      });
+
+      if (page === 1) {
+        setAllMovies(formattedData);
+      } else {
+        setAllMovies(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newUniqueMovies = formattedData.filter(m => !existingIds.has(m.id));
+          return [...prev, ...newUniqueMovies];
+        });
+      }
+    }
+  }, [data, page]);
+
+  // 4. Gatilho da Página Infinita
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && data?.next) {
+        setPage(prev => prev + 1);
+      }
+    }, { rootMargin: '300px' }); 
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) observer.observe(currentRef);
+    
+    return () => {
+      if (currentRef) observer.unobserve(currentRef);
+    };
+  }, [data?.next]); 
+
+  // 5. RADAR INFALÍVEL DE SCROLL (Para o Botão de Voltar ao Topo)
+  useEffect(() => {
+    const checkScroll = () => {
+      const topAnchor = document.getElementById('topo-da-biblioteca');
+      if (topAnchor) {
+        setShowScrollTop(topAnchor.getBoundingClientRect().top < -800);
+      }
+    };
+
+    window.addEventListener('scroll', checkScroll, true);
+    window.addEventListener('wheel', checkScroll, true);
+    window.addEventListener('touchmove', checkScroll, true);
+
+    return () => {
+      window.removeEventListener('scroll', checkScroll, true);
+      window.removeEventListener('wheel', checkScroll, true);
+      window.removeEventListener('touchmove', checkScroll, true);
+    };
+  }, []);
+
+  // O motor de rolagem
+  const scrollToTop = () => {
+    document.getElementById('topo-da-biblioteca')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const toggleQuality = (quality: string) => {
     setSelectedQualities(prev => prev.includes(quality) ? prev.filter(q => q !== quality) : [...prev, quality]);
+    setPage(1);
   };
   const toggleMovement = (movement: string) => {
     setSelectedMovements(prev => prev.includes(movement) ? prev.filter(m => m !== movement) : [...prev, movement]);
+    setPage(1);
   };
-
-  const router = useRouter();
-
-  // 1. Buscamos os dados reais do banco usando nosso Hook
-  const { data, isLoading, error } = useMovies();
-
-  // 2. Mapeamento: Transformamos os dados crus do Django no formato visual luxuoso da interface
-  const libraryMovies: Movie[] = data?.results.map((movie, index) => {
-    // Calcula o runtime (ex: "2h 45m")
-    const hours = Math.floor((movie.length_minutes || 0) / 60);
-    const mins = (movie.length_minutes || 0) % 60;
-    
-    return {
-      id: movie.id,
-      number: String(index + 1).padStart(3, '0'), // Gera 001, 002, etc
-      title: movie.title,
-      year: String(movie.year || "----"),
-      img: movie.poster_url || "/images/poster-1.png", // Imagem real ou placeholder
-      director: movie.director || "Diretor Desconhecido",
-      qualities: movie.in_plex ? ["PLEX", "DISPONÍVEL"] : ["OFFLINE"],
-      runtime: movie.length_minutes ? `${hours}h ${mins}m` : "--h --m",
-      synopsis: "Fita magnética preservada nos arquivos da fundação. Registros adicionais aguardando decodificação do servidor principal.",
-    }
-  }) || [];
 
   const categories = ["O Acervo", "Longas", "Séries", "Mostras", "Preservados"];
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#080806', color: '#EDE8DC', paddingBottom: 80 }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#080806', color: '#EDE8DC', paddingBottom: 80, position: 'relative' }}>
+      
+      {/* ── A ÂNCORA INVISÍVEL DO TOPO ── */}
+      <div id="topo-da-biblioteca" style={{ position: 'absolute', top: 0 }} />
+
       <div className="fixed inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none z-50" />
       
+      {/* ── BOTÃO DE RETORNO AO TOPO CORRIGIDO ── */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            key="scroll-top-btn"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            onClick={scrollToTop} 
+            whileHover={{ scale: 1.1, backgroundColor: '#BF8F3C', color: '#040402' }}
+            whileTap={{ scale: 0.9 }}
+            style={{ 
+              position: 'fixed', bottom: 40, right: 40, zIndex: 9999, 
+              width: 56, height: 56, borderRadius: '50%', backgroundColor: 'rgba(4,4,2,0.8)', 
+              border: '1px solid rgba(191,143,60,0.5)', color: '#BF8F3C', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              cursor: 'pointer', backdropFilter: 'blur(8px)', transition: 'all 0.3s'
+            }}
+          >
+            <ArrowUp />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       <main style={{ maxWidth: 1600, margin: '0 auto', padding: '80px 72px 0' }}>
         
         {/* ── CABEÇALHO DO ARQUIVO ── */}
@@ -257,7 +371,7 @@ export default function Library() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 1 }}
             style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#565450', textTransform: 'uppercase' }}
           >
-            {isLoading ? "CONECTANDO..." : `${data?.count || 0} OBRAS PRESERVADAS // STATUS: ONLINE`}
+            {isLoading && page === 1 ? "CONECTANDO..." : `${data?.count || 0} OBRAS PRESERVADAS // STATUS: ONLINE`}
           </motion.div>
         </div>
 
@@ -273,7 +387,7 @@ export default function Library() {
               return (
                 <button 
                   key={cat}
-                  onClick={() => setActiveCategory(cat)}
+                  onClick={() => { setActiveCategory(cat); setPage(1); }} 
                   style={{ 
                     background: 'transparent', border: 'none', cursor: 'pointer',
                     fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
@@ -311,6 +425,8 @@ export default function Library() {
               <Search style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: '#565450' }} />
               <input 
                 type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="CONSULTAR ACERVO..." 
                 style={{ 
                   width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(237,232,220,0.1)',
@@ -388,8 +504,8 @@ export default function Library() {
           )}
         </AnimatePresence>
 
-        {/* ── TRATAMENTO DE ESTADOS ── */}
-        {isLoading && (
+        {/* ── TRATAMENTO DE ESTADOS GERAIS ── */}
+        {isLoading && page === 1 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '80px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#BF8F3C', letterSpacing: '0.2em', textAlign: 'center' }}>
             ACESSANDO DIRETÓRIO...
           </motion.div>
@@ -402,17 +518,17 @@ export default function Library() {
         )}
 
         {/* ── GRADE / LISTA DE OBRAS ── */}
-        {!isLoading && !error && (
-          <motion.div layout transition={{ duration: 0.8, ease: FINE_ART_EASE }}>
+        {allMovies.length > 0 && (
+          <motion.div transition={{ duration: 0.8, ease: FINE_ART_EASE }}>
             {viewMode === 'grid' ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '80px 48px' }}>
-                {libraryMovies.map((movie) => (
+                {allMovies.map((movie) => (
                   <FilmGridCard key={movie.id} film={movie} router={router} setExpandedId={setExpandedId} />
                 ))}
               </div>
             ) : (
               <div style={{ position: 'relative' }}>
-                {libraryMovies.map((movie) => (
+                {allMovies.map((movie) => (
                   <FilmRow 
                     key={movie.id} 
                     film={movie} 
@@ -428,6 +544,16 @@ export default function Library() {
             )}
           </motion.div>
         )}
+
+        {/* ── SENTINELA DE CARREGAMENTO INFINITO ── */}
+        <div ref={loadMoreRef} style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '40px' }}>
+          {isFetching && page > 1 && (
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
+              <Loader2 style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+            </motion.div>
+          )}
+        </div>
+
       </main>
     </div>
   );

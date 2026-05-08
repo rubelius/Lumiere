@@ -10,6 +10,7 @@ export interface PaginatedResponse<T> {
 
 // O formato exato que o seu MovieListSerializer cospe
 export interface MovieListItem {
+  overview: string;
   id: string;
   title: string;
   original_title: string;
@@ -20,7 +21,7 @@ export interface MovieListItem {
   genres: string[];
   primary_genre: string;
   poster_url: string | null;
-  backdrop_url: string | null;
+  background_url: string | null;
   current_ranking: number | null;
   tmdb_rating: number | null;
   imdb_rating: number | null;

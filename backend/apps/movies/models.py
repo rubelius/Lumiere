@@ -8,80 +8,128 @@ from pgvector.django import VectorField
 
 class Movie(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    # Basic Info
+    
+    # --------------------------------------------------------
+    # 1. BASIC INFO
+    # --------------------------------------------------------
     title = models.CharField(max_length=500)
     original_title = models.CharField(max_length=500, blank=True)
-    year = models.IntegerField()
-    director = models.CharField(max_length=500)
-    co_directors = ArrayField(models.CharField(max_length=200), blank=True, default=list)
-    country = models.CharField(max_length=200, blank=True)
-    countries = ArrayField(models.CharField(max_length=100), default=list)
+    year = models.IntegerField(null=True, blank=True)
     length_minutes = models.IntegerField(null=True, blank=True)
+    country = models.CharField(max_length=200, blank=True)
+    countries = ArrayField(models.CharField(max_length=100), default=list, blank=True)
+    spoken_languages = ArrayField(models.CharField(max_length=50), default=list, blank=True)
     color = models.CharField(max_length=10, blank=True)  # Col, BW, Mixed
-    # Classification
-    genres = ArrayField(models.CharField(max_length=100), default=list)
+    
+    # --------------------------------------------------------
+    # 2. CLASSIFICATION & THEMES
+    # --------------------------------------------------------
+    genres = ArrayField(models.CharField(max_length=100), default=list, blank=True)
     primary_genre = models.CharField(max_length=100, blank=True)
     themes = ArrayField(models.CharField(max_length=100), blank=True, default=list)
     moods = ArrayField(models.CharField(max_length=100), blank=True, default=list)
     keywords = ArrayField(models.CharField(max_length=100), blank=True, default=list)
-    # TSPDT Rankings
-    ranking_2026 = models.IntegerField(null=True, blank=True)
-    ranking_2025 = models.IntegerField(null=True, blank=True)
-    tspdt_id = models.CharField(max_length=20, null=True, blank=True)
-    # External IDs
+    mpaa_rating = models.CharField(max_length=20, blank=True, help_text="R, PG-13, etc")
+    
+    # --------------------------------------------------------
+    # 3. CAST, CREW & PRODUCTION
+    # --------------------------------------------------------
+    director = models.CharField(max_length=500, blank=True)
+    co_directors = ArrayField(models.CharField(max_length=200), blank=True, default=list)
+    cast = models.JSONField(default=list, blank=True, help_text="Atores e personagens")
+    crew = models.JSONField(default=list, blank=True, help_text="Equipe técnica principal")
+    production_companies = ArrayField(models.CharField(max_length=200), default=list, blank=True)
+    
+    # --------------------------------------------------------
+    # 4. RANKINGS & HISTORY (TSPDT)
+    # --------------------------------------------------------
+    tspdt_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
+    ranking_current = models.IntegerField(null=True, blank=True, help_text="Ranking mais recente (ex: 2026)")
+    tspdt_history = models.JSONField(default=dict, blank=True, help_text="Histórico completo de rankings ex: {'2008': 100, '2025': 45}")
+    
+    # --------------------------------------------------------
+    # 5. EXTERNAL IDs
+    # --------------------------------------------------------
     imdb_id = models.CharField(max_length=20, unique=True, null=True, blank=True)
     tmdb_id = models.IntegerField(unique=True, null=True, blank=True)
     letterboxd_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
-    # Enhanced Metadata
-    tmdb_data = models.JSONField(default=dict, blank=True)
+    
+    # --------------------------------------------------------
+    # 6. ENHANCED METADATA (Visuals & Context)
+    # --------------------------------------------------------
     overview = models.TextField(blank=True)
     tagline = models.CharField(max_length=500, blank=True)
-    poster_url = models.URLField(blank=True)
-    backdrop_url = models.URLField(blank=True)
-    # Cast & Crew
-    cast = models.JSONField(default=list, blank=True)
-    crew = models.JSONField(default=list, blank=True)
-    # Ratings
-    tmdb_rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
+    poster_url = models.URLField(blank=True, max_length=500)
+    background_url = models.URLField(blank=True, max_length=500)
+    trailer_url = models.URLField(blank=True, max_length=500)
+    collection_name = models.CharField(max_length=200, blank=True, null=True, help_text="Ex: The Lord of the Rings Collection")
+    
+    # Financials
+    budget = models.BigIntegerField(null=True, blank=True)
+    revenue = models.BigIntegerField(null=True, blank=True)
+    
+    # --------------------------------------------------------
+    # 7. RATINGS
+    # --------------------------------------------------------
+    tmdb_rating = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     tmdb_vote_count = models.IntegerField(null=True, blank=True)
     imdb_rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
+    imdb_vote_count = models.IntegerField(null=True, blank=True)
     letterboxd_rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
-    # ML Embedding
+    
+    # --------------------------------------------------------
+    # 8. ML EMBEDDINGS (AI Search)
+    # --------------------------------------------------------
     embedding = VectorField(dimensions=768, null=True, blank=True)
     embedding_model = models.CharField(max_length=100, blank=True)
-    # Availability
+    
+    # --------------------------------------------------------
+    # 9. AVAILABILITY & STATS (Plex/Real-Debrid)
+    # --------------------------------------------------------
     in_plex = models.BooleanField(default=False)
     in_realdebrid = models.BooleanField(default=False)
     available_instantly = models.BooleanField(default=False)
     best_quality_available = models.CharField(max_length=100, blank=True)
     current_quality_score = models.IntegerField(null=True, blank=True)
     upgradeable = models.BooleanField(default=False)
-    # Stats
     view_count = models.IntegerField(default=0)
     search_count = models.IntegerField(default=0)
-    average_user_rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
-    # Timestamps
+    
+    # --------------------------------------------------------
+    # 10. TIMESTAMPS
+    # --------------------------------------------------------
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_checked = models.DateTimeField(null=True, blank=True)
     metadata_updated_at = models.DateTimeField(null=True, blank=True)
+
+    # ── METADADOS PREMIUM ──
+    logo_url = models.URLField(max_length=500, blank=True, null=True)
+    cinematographer = models.CharField(max_length=255, blank=True, null=True)
+    composer = models.CharField(max_length=255, blank=True, null=True)
+    writer = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Usamos JSONField para guardar listas (arrays) de forma segura em qualquer banco
+    alternative_titles = models.JSONField(default=list, blank=True, null=True)
+    streaming_providers = models.JSONField(default=list, blank=True, null=True)
+
     class Meta:
         indexes = [
-            # Composite indexes for common queries
-            models.Index(fields=['ranking_2026', 'year']),
+            models.Index(fields=['ranking_current', 'year']),
             models.Index(fields=['year', 'director']),
             models.Index(fields=['primary_genre', 'year']),
-            
-            # GIN indexes for array fields
             GinIndex(fields=['genres']),
             GinIndex(fields=['keywords']),
-            
-            # Text search
             GinIndex(
                 name='movie_search_idx',
                 fields=['title'],
                 opclasses=['gin_trgm_ops']
-            ),]
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.year})"
+
 
 
 class TorrentRelease(models.Model):

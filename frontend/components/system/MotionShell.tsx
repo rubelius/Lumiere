@@ -19,7 +19,7 @@ const getVariants = (dir: string) => {
 
 // ── Nav strip ──────────────────────────────────────────────────────────────────
 const NAV = [
-  { href: '/',          code: '01', label: 'Index',    abbr: 'IDX' },
+  { href: '/',          code: '01', label: 'Home',    abbr: 'HOM' },
   { href: '/library',   code: '02', label: 'Archive',  abbr: 'ARC' },
   { href: '/session',   code: '03', label: 'Screen',   abbr: 'SCR' },
   { href: '/party',     code: '04', label: 'Party',    abbr: 'PTY' },
@@ -40,16 +40,16 @@ function NavStrip({ pathname }: { pathname: string }) {
         position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 100,
         overflow: 'hidden', flexShrink: 0, display: 'flex',
         flexDirection: 'column', background: 'rgba(6,6,4,0.97)',
-        backdropFilter: 'blur(20px)',
+        backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(237,232,220,0.02)'
       }}
       aria-label="Navigation"
     >
       {/* Gold accent line */}
       <motion.div
-        animate={{ opacity: [0.2, 0.38, 0.2] }}
-        transition={{ duration: 5, repeat: Infinity }}
+        animate={{ opacity: [0.2, 0.38, 0.2], top: ['0%', '10%', '0%'] }}
+        transition={{ opacity: { duration: 5, repeat: Infinity }, top: { duration: 15, repeat: Infinity, ease: 'easeInOut' } }}
         style={{
-          position: 'absolute', right: 0, top: 0, bottom: 0, width: 1,
+          position: 'absolute', right: 0, bottom: 0, width: 1, height: '200%',
           background: 'linear-gradient(to bottom, transparent 0%, #BF8F3C33 20%, #BF8F3C55 50%, #BF8F3C33 80%, transparent 100%)',
           pointerEvents: 'none',
         }}
@@ -57,10 +57,10 @@ function NavStrip({ pathname }: { pathname: string }) {
 
       {/* Brand */}
       <div style={{ height: 54, display: 'flex', alignItems: 'center', paddingLeft: 14, gap: 12, flexShrink: 0, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
-        <svg viewBox="0 0 20 20" fill="none" style={{ width: 15, height: 15, flexShrink: 0 }}>
+        <motion.svg animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 3, repeat: Infinity }} viewBox="0 0 20 20" fill="none" style={{ width: 15, height: 15, flexShrink: 0 }}>
           <rect x="3" y="2" width="2.2" height="16" fill="#BF8F3C" />
           <rect x="3" y="15.8" width="9.5" height="2.2" fill="#BF8F3C" />
-        </svg>
+        </motion.svg>
         <AnimatePresence>
           {open && (
             <motion.span
@@ -76,7 +76,7 @@ function NavStrip({ pathname }: { pathname: string }) {
 
       {/* Perforations */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 0', borderBottom: '1px solid rgba(237,232,220,0.04)', flexShrink: 0 }}>
-        {[0,1,2,3].map(i => <div key={i} style={{ width: 8, height: 6, border: '1px solid rgba(237,232,220,0.07)', borderRadius: 1 }} />)}
+        {[0,1,2,3].map(i => <motion.div whileHover={{ backgroundColor: '#BF8F3C', scale: 1.2 }} key={i} style={{ width: 8, height: 6, border: '1px solid rgba(237,232,220,0.07)', borderRadius: 1, transition: 'background-color 0.3s' }} />)}
       </div>
 
       {/* Links */}
@@ -98,8 +98,9 @@ function NavStrip({ pathname }: { pathname: string }) {
               {active && (
                 <motion.div
                   layoutId="nav-bar"
-                  style={{ position: 'absolute', left: 0, top: 4, bottom: 4, width: 2, background: '#BF8F3C', borderRadius: 1 }}
-                  transition={{ type: 'spring', stiffness: 360, damping: 28 }}
+                  animate={{ opacity: [1, 0.5, 1] }}
+                  transition={{ opacity: { duration: 2, repeat: Infinity }, type: 'spring', stiffness: 360, damping: 28 }}
+                  style={{ position: 'absolute', left: 0, top: 4, bottom: 4, width: 2, background: '#BF8F3C', borderRadius: 1, boxShadow: '0 0 8px rgba(191,143,60,0.5)' }}
                 />
               )}
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8.5px', letterSpacing: '0.08em', color: active ? '#BF8F3C' : '#1C1B18', width: 15, textAlign: 'right', flexShrink: 0, zIndex: 1, transition: 'color 0.22s' }}>
@@ -125,17 +126,17 @@ function NavStrip({ pathname }: { pathname: string }) {
 
       {/* Bottom perfs */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 0', borderTop: '1px solid rgba(237,232,220,0.04)', flexShrink: 0 }}>
-        {[0,1,2,3].map(i => <div key={i} style={{ width: 8, height: 6, border: '1px solid rgba(237,232,220,0.07)', borderRadius: 1 }} />)}
+        {[0,1,2,3].map(i => <motion.div whileHover={{ backgroundColor: '#BF8F3C', scale: 1.2 }} key={i} style={{ width: 8, height: 6, border: '1px solid rgba(237,232,220,0.07)', borderRadius: 1, transition: 'background-color 0.3s' }} />)}
       </div>
 
       {/* Footer dot */}
       <div style={{ height: 42, borderTop: '1px solid rgba(237,232,220,0.05)', display: 'flex', alignItems: 'center', paddingLeft: 14, gap: 10, flexShrink: 0 }}>
         <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 3, repeat: Infinity }}
-          style={{ width: 5, height: 5, borderRadius: '50%', background: '#BF8F3C', flexShrink: 0 }} />
+          style={{ width: 5, height: 5, borderRadius: '50%', background: '#BF8F3C', flexShrink: 0, boxShadow: '0 0 10px rgba(191,143,60,0.6)' }} />
         <AnimatePresence>
           {open && (
             <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#2A2826', whiteSpace: 'nowrap' }}>
+              style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#565450', whiteSpace: 'nowrap' }}>
               Personal Cinema · v1
             </motion.span>
           )}
@@ -145,13 +146,16 @@ function NavStrip({ pathname }: { pathname: string }) {
   )
 }
 
-// ── Ambient grain canvas ────────────────────────────────────────────────────
+// ── Ambient grain canvas (Protegido contra SSR) ──────────────────────────────
 function GrainCanvas() {
   const ref = useRef<HTMLCanvasElement>(null)
   const frame = useRef(0)
   const t = useRef(0)
 
   useEffect(() => {
+    // Proteção rigorosa contra Server-Side Rendering (Next.js Hydration)
+    if (typeof window === 'undefined') return;
+
     const c = ref.current; if (!c) return
     const ctx = c.getContext('2d'); if (!ctx) return
     const resize = () => { c.width = window.innerWidth; c.height = window.innerHeight }
@@ -197,6 +201,8 @@ export function MotionShell({ children }: { children: ReactNode }) {
   const v = getVariants(dir)
   const ease = [0.16, 1, 0.30, 1] as const
 
+  const isLoginPage = pathname === '/login';
+
   return (
     <div style={{ background: '#080806', color: '#EDE8DC', minHeight: '100dvh', display: 'flex' }}>
       {/* Layer 0: breathing warm bloom */}
@@ -214,14 +220,19 @@ export function MotionShell({ children }: { children: ReactNode }) {
         position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
         backgroundImage: 'repeating-linear-gradient(0deg, rgba(4,4,2,0.04) 0px, rgba(4,4,2,0.04) 1px, transparent 1px, transparent 4px)',
       }} />
+      
       {/* Layer 2: grain */}
       <GrainCanvas />
-      {/* Layer 3: nav */}
-      <div style={{ position: 'relative', zIndex: 10, flexShrink: 0 }}>
-        <NavStrip pathname={pathname} />
-      </div>
-      {/* Layer 4: page content */}
-      <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 5, marginLeft: 52 }}>
+      
+      {/* Layer 3: nav (ESCONDIDA NA TELA DE LOGIN) */}
+      {!isLoginPage && (
+        <div style={{ position: 'relative', zIndex: 10, flexShrink: 0 }}>
+          <NavStrip pathname={pathname} />
+        </div>
+      )}
+      
+      {/* Layer 4: page content (Sem margem esquerda no Login) */}
+      <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 5, marginLeft: isLoginPage ? 0 : 52 }}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={pathname}

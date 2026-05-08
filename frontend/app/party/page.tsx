@@ -139,7 +139,7 @@ export default function Party() {
               style={{ position: 'relative', width: '100%', maxWidth: '1200px', aspectRatio: '16/9', backgroundColor: '#040402', border: '1px solid #BF8F3C', boxShadow: '0 0 100px rgba(0,0,0,1)', zIndex: 1, overflow: 'hidden' }}
             >
               <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-                <img src="/images/hero-backdrop.png" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', opacity: 0.6 }} alt="Video Poster" />
+                <img src="/images/hero-background.png" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', opacity: 0.6 }} alt="Video Poster" />
               </div>
               
               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 10, background: 'linear-gradient(to bottom, rgba(4,4,2,0.9), rgba(0,0,0,0))', opacity: 0, transition: 'opacity 0.3s' }} className="group-hover/player:opacity-100">

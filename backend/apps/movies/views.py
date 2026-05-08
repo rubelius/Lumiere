@@ -18,9 +18,12 @@ from apps.ml.models import MovieSimilarity
 
 from .filters import MovieFilter
 from .models import Movie, TorrentRelease
+
+# IMPORTAÇÃO CORRIGIDA: Agora trazemos o MovieSerializer principal também
 from .serializers import (
     MovieDetailSerializer, 
     MovieListSerializer,
+    MovieSerializer,
     TorrentReleaseSerializer
 )
 
@@ -47,22 +50,28 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = MovieFilter
     search_fields = ['title', 'original_title', 'director', 'overview']
-    ordering_fields = ['year', 'ranking_2026', 'tmdb_rating', 'created_at']
-    ordering = ['ranking_2026']
     
-    def get_serializer_class(self):  # type: ignore
+    # CORRIGIDO: Removido ranking_2026 e substituído pelo ranking_current
+    ordering_fields = ['year', 'ranking_current', 'tmdb_rating', 'created_at']
+    ordering = ['ranking_current']
+    
+    def get_serializer_class(self): 
+        # ROTEAMENTO SEGURO DE SERIALIZERS
+        if self.action == 'list':
+            return MovieListSerializer
         if self.action == 'retrieve':
             return MovieDetailSerializer
-        return MovieListSerializer
+        return MovieSerializer
     
     def get_queryset(self):
         """Optimize queries with select_related and prefetch_related"""
         queryset = super().get_queryset()
         
         if self.action == 'list':
+            # CORRIGIDO: Passando apenas os campos que o MovieListSerializer precisa, com ranking_current
             queryset = queryset.only(
-                'id', 'title', 'year', 'director',
-                'poster_url', 'ranking_2026', 'in_plex', 'available_instantly'
+                'id', 'title', 'original_title', 'year', 'director',
+                'poster_url', 'ranking_current', 'tmdb_rating'
             )
         elif self.action == 'retrieve':
             queryset = queryset.prefetch_related('torrent_releases')
@@ -76,7 +85,6 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     
     def retrieve(self, request, *args, **kwargs):
         """Retrieve com cache manual"""
-        # Resolvido o aviso de tipagem garantindo que é string
         movie_id = str(kwargs.get('pk'))
         
         cached_data = CacheManager.get_movie(movie_id)
@@ -92,7 +100,8 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def top_rated(self, request):
-        movies = self.queryset.filter(ranking_2026__isnull=False).order_by('ranking_2026')[:100]
+        # CORRIGIDO: Usa ranking_current para listar os top avaliados
+        movies = self.queryset.filter(ranking_current__isnull=False).order_by('ranking_current')[:100]
         serializer = self.get_serializer(movies, many=True)
         return Response(serializer.data)
     
@@ -110,7 +119,6 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False)
     def with_releases(self, request):
         """Movies com releases - optimize N+1"""
-        # Rota restaurada conforme código original!
         movies = Movie.objects.prefetch_related('torrent_releases')[:20]
         serializer = self.get_serializer(movies, many=True)
         return Response(serializer.data)
@@ -219,7 +227,7 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     async def add_to_realdebrid(self, request, pk=None):
-        """Adiciona release ao Real-Debrid de forma assíncrona segura"""
+        """Adiciona release ao Real-Debrid de forma assíncrona segura e IDEMPOTENTE"""
         release = await sync_to_async(self.get_object)()
         user = request.user
         
@@ -228,6 +236,14 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
                 {'error': 'Real-Debrid not configured'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+            
+        # --- TRAVA DE IDEMPOTÊNCIA (Prevenção de duplicidade) ---
+        if release.in_realdebrid and release.realdebrid_id and release.realdebrid_status not in ('error', 'dead'):
+            return Response({
+                'message': 'Release is already active in Real-Debrid.',
+                'torrent_id': release.realdebrid_id,
+                'status': release.realdebrid_status
+            })
         
         client = RealDebridClient(user.realdebrid_api_key)
         try:

@@ -14,10 +14,31 @@ export const movieKeys = {
 } as const;
 
 // Hook para a página de Arquivo/Library
-export function useMovies() {
+export function useMovies(params: { page?: number; search?: string; category?: string } = { page: 1 }) {
   return useQuery({
-    queryKey: movieKeys.lists(),
-    queryFn: () => moviesApi.list(),
+    // A MÁGICA: Adicionamos o params.category aqui para o React Query separar os caches de cada aba!
+    queryKey: ['movies', params.page, params.search, params.category],
+    queryFn: async () => {
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.search) queryParams.append('search', params.search);
+      
+      // Se no futuro implementarmos o filtro de categoria no Django, o frontend já está pronto:
+      // if (params.category && params.category !== 'O Acervo') {
+      //   queryParams.append('category', params.category);
+      // }
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/movies/?${queryParams.toString()}`;
+      
+      // A CHAVE DE ACESSO: credentials: 'include' envia o cookie JWT para o Django!
+      const res = await fetch(url, {
+        credentials: 'include'
+      });
+      
+      if (!res.ok) throw new Error('Falha ao buscar filmes');
+      return res.json(); // Retorna o { count, next, previous, results } do Django
+    },
+    staleTime: 60000, // Mantém os filmes na memória RAM por 1 minuto
   });
 }
 

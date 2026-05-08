@@ -106,7 +106,7 @@ class Migration(migrations.Migration):
                 ("overview", models.TextField(blank=True)),
                 ("tagline", models.CharField(blank=True, max_length=500)),
                 ("poster_url", models.URLField(blank=True)),
-                ("backdrop_url", models.URLField(blank=True)),
+                ("background_url", models.URLField(blank=True)),
                 ("cast", models.JSONField(blank=True, default=list)),
                 ("crew", models.JSONField(blank=True, default=list)),
                 (

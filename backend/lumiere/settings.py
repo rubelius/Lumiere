@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'apps.ml',             # Machine Learning e embeddings
     'apps.notifications',  # Sistema de notificações
     'apps.core',           # Core utilities
+    'apps.ingestion',      # Data ingestion
 ]
 
 MIDDLEWARE = [
@@ -178,7 +179,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'lumiere.authentication.CookieJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',

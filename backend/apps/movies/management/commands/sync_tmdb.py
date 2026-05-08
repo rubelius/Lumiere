@@ -80,7 +80,7 @@ class Command(BaseCommand):
                     movie.overview = result.get('overview', '')
                     movie.tmdb_rating = result.get('vote_average')
                     movie.poster_url = f"https://image.tmdb.org/t/p/w500{result['poster_path']}" if result.get('poster_path') else ''
-                    movie.backdrop_url = f"https://image.tmdb.org/t/p/original{result['backdrop_path']}" if result.get('backdrop_path') else ''
+                    movie.background_url = f"https://image.tmdb.org/t/p/original{result['background_path']}" if result.get('background_path') else ''
                     
                     # Genres
                     if details.get('genres'):

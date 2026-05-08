@@ -1,5 +1,4 @@
 import { APIError, APIErrorPayload } from './errors';
-import { useAuthStore } from '@/features/auth/store/authStore';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -18,7 +17,7 @@ async function parseError(response: Response): Promise<never> {
     });
   }
 
-  let body: { error: APIErrorPayload };
+  let body: any;
   try {
     body = await response.json();
   } catch {
@@ -29,7 +28,8 @@ async function parseError(response: Response): Promise<never> {
   }
 
   // Joga o erro no formato exato que o seu backend Django cospe
-  throw new APIError(body.error);
+  // O fallback (|| body) garante que erros nativos do Django DRF como {"detail": "..."} sejam lidos
+  throw new APIError(body.error || body);
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -44,20 +44,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   const headers = new Headers(fetchOptions.headers);
-  
-  const token = useAuthStore.getState().accessToken;
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  
   headers.set('Content-Type', 'application/json');
 
   const response = await fetch(url.toString(), {
     ...fetchOptions,
     headers,
+    credentials: 'include', // <-- A MÁGICA ACONTECE AQUI. O navegador envia o Cookie HttpOnly automaticamente.
   });
 
   // TODO: Lógica de refresh token silencioso no caso de status 401
+  // Será implementada posteriormente usando a rota /api/auth/refresh do Next.js
 
   if (!response.ok) return parseError(response);
   
