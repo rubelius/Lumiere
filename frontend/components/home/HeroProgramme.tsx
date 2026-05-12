@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import { useState } from 'react'
 
 interface HeroProps {
   title: string
@@ -20,19 +21,23 @@ interface HeroProps {
   accentColor?: string   
   logoUrl?: string      
   cinematographer?: string 
+  onNext?: () => void   
+  onPrev?: () => void   
 }
 
 export function HeroProgramme({
   title, subtitle, director, year, country, runtime, synopsis, programmeNumber, 
   backgroundSrc, posterSrc, qualities, href, trailerUrl, accentColor = '#BF8F3C',
-  logoUrl, cinematographer
+  logoUrl, cinematographer, onNext, onPrev
 }: HeroProps) {
   
   const ease = [0.16, 1, 0.30, 1] as const
   const isFallback = !backgroundSrc || backgroundSrc === posterSrc
   const finalBg = backgroundSrc || posterSrc
 
-  // Extrai o ID do YouTube de forma segura
+  // Setas discretas - controle de hover
+  const [isHovered, setIsHovered] = useState(false);
+
   const getYoutubeId = (url?: string) => {
     if (!url) return null;
     const match = url.match(/[?&]v=([^&]+)/);
@@ -40,8 +45,13 @@ export function HeroProgramme({
   }
   const ytId = getYoutubeId(trailerUrl);
 
+  // Extrai o ID do filme da string "/movie/{id}" para plugar no botão de Projetar
+  const movieId = href.split('/').pop();
+
   return (
     <section 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{ 
         position: 'relative', width: '100%', minHeight: '100dvh', overflow: 'hidden', 
         display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
@@ -58,25 +68,31 @@ export function HeroProgramme({
           {/* ── BACKGROUND AMBIENTE & KINETIC ── */}
           <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden', backgroundColor: '#040402' }}>
             
-            {/* O Fallback da imagem fica SEMPRE no fundo para cobrir o buraco de carregamento */}
             <motion.img
-              initial={{ scale: 1.05 }} animate={{ scale: 1 }} transition={{ duration: 15, ease: 'linear' }}
+              initial={{ scale: 1.05, opacity: isFallback ? 0.3 : 0.2 }} 
+              animate={{ 
+                scale: 1, 
+                opacity: ytId ? 0 : (isFallback ? 0.3 : 0.2) 
+              }} 
+              transition={{ 
+                scale: { duration: 30, ease: 'linear' },
+                opacity: { delay: ytId ? 5 : 0, duration: 2 } 
+              }}
               src={finalBg} alt=""
               style={{ 
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%', objectFit: 'cover', 
                 filter: isFallback ? 'blur(40px) grayscale(60%) contrast(1.2)' : 'grayscale(100%) contrast(1.2)',
                 transform: isFallback ? 'scale(1.1)' : 'none',
-                opacity: isFallback ? 0.3 : 0.2, mixBlendMode: 'luminosity' 
+                mixBlendMode: 'luminosity' 
               }}
             />
 
             {ytId && (
-              
               <motion.div 
                 initial={{ opacity: 0 }} 
                 animate={{ opacity: 0.35 }} 
-                transition={{ duration: 3, delay: 3.5 }} 
+                transition={{ duration: 3, delay: 4 }} 
                 style={{ position: 'absolute', inset: 0, width: '100vw', height: '100vh', scale: 1.35 }}
               >
                 <iframe
@@ -94,7 +110,6 @@ export function HeroProgramme({
           {/* ── FOREGROUND CONTENT ──────────────────────────────────────────── */}
           <div style={{ position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '4vw', width: '100%', height: '100%', padding: '5vw 6vw' }}>
             
-            {/* LEFT COLUMN: EDITORIAL SCRIPT */}
             <div style={{ maxWidth: '65vw' }}>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.2, ease }} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
                 <motion.div animate={{ backgroundColor: accentColor }} transition={{ duration: 2 }} style={{ width: 40, height: 1 }} />
@@ -148,22 +163,27 @@ export function HeroProgramme({
                 {synopsis}
               </motion.p>
 
+              {/* ── BOTÕES DE COMANDO ATUALIZADOS ── */}
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 1, ease }} style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-                <Link href={href}>
+                
+                {/* Botão Primário: Vai para o Player */}
+                <Link href={`/player?id=${movieId}`}>
                   <motion.div 
                     animate={{ backgroundColor: accentColor }} transition={{ duration: 2 }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 12, height: 44, padding: '0 24px', color: '#080806', borderRadius: 1, fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', fontWeight: 600, textTransform: 'uppercase' }}
                   >
-                    <svg viewBox="0 0 12 12" fill="currentColor" style={{ width: 10, height: 10 }}><path d="M2 1.5L10 6L2 10.5V1.5Z" /></svg> Projectar
+                    <svg viewBox="0 0 12 12" fill="currentColor" style={{ width: 10, height: 10 }}><path d="M2 1.5L10 6L2 10.5V1.5Z" /></svg> Projetar
                   </motion.div>
                 </Link>
-                <Link href="/library" style={{ display: 'inline-flex', alignItems: 'center', height: 44, padding: '0 24px', border: '1px solid rgba(237,232,220,0.1)', color: '#EDE8DC', textDecoration: 'none', borderRadius: 1, fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-                  + Arquivo
+
+                {/* Botão Secundário: Vai para a página do Filme em si */}
+                <Link href={href} style={{ display: 'inline-flex', alignItems: 'center', height: 44, padding: '0 24px', border: '1px solid rgba(237,232,220,0.1)', color: '#EDE8DC', textDecoration: 'none', borderRadius: 1, fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                  Analisar Detalhes da Obra
                 </Link>
+                
               </motion.div>
             </div>
 
-            {/* RIGHT COLUMN: THE BLEEDING POSTER */}
             <motion.div initial={{ opacity: 0, x: 40, rotateY: 10 }} animate={{ opacity: 1, x: 0, rotateY: 0 }} transition={{ duration: 1.6, delay: 0.4, ease }} style={{ position: 'relative', width: '25vw', maxWidth: 360, perspective: 1000 }}>
               <div style={{ position: 'absolute', inset: -8, border: '1px solid rgba(237,232,220,0.05)', borderRadius: 2, pointerEvents: 'none' }} />
               <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden', borderRadius: 1, boxShadow: '-30px 0 60px rgba(8,8,6,0.9)' }}>
@@ -174,6 +194,31 @@ export function HeroProgramme({
 
           </div>
         </motion.div>
+      </AnimatePresence>
+
+      {/* ── SETAS DE NAVEGAÇÃO LATERAIS ── */}
+      <AnimatePresence>
+        {isHovered && onPrev && (
+          <motion.button 
+            initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
+            onClick={onPrev}
+            style={{ position: 'absolute', left: '2vw', top: '50%', transform: 'translateY(-50%)', zIndex: 50, background: 'transparent', border: 'none', color: 'rgba(237,232,220,0.3)', cursor: 'pointer', padding: 20 }}
+          >
+            <svg width="24" height="40" viewBox="0 0 24 40" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="22 2 2 20 22 38" /></svg>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isHovered && onNext && (
+          <motion.button 
+            initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
+            onClick={onNext}
+            style={{ position: 'absolute', right: '2vw', top: '50%', transform: 'translateY(-50%)', zIndex: 50, background: 'transparent', border: 'none', color: 'rgba(237,232,220,0.3)', cursor: 'pointer', padding: 20 }}
+          >
+            <svg width="24" height="40" viewBox="0 0 24 40" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="2 2 22 20 2 38" /></svg>
+          </motion.button>
+        )}
       </AnimatePresence>
 
       <div style={{ position: 'absolute', bottom: 0, left: '6vw', right: '6vw', height: 1, background: 'rgba(237,232,220,0.05)', zIndex: 20 }} />

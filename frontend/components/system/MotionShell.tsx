@@ -7,7 +7,7 @@ import Link from 'next/link'
 
 // Route depth for direction detection
 const DEPTH: Record<string, number> = {
-  '/': 0, '/library': 1, '/session': 2,
+  '/': 0, '/search': 1, '/library': 1, '/session': 2,
   '/party': 2, '/profile': 1, '/settings': 1,
 }
 
@@ -19,12 +19,13 @@ const getVariants = (dir: string) => {
 
 // ── Nav strip ──────────────────────────────────────────────────────────────────
 const NAV = [
-  { href: '/',          code: '01', label: 'Home',    abbr: 'HOM' },
-  { href: '/library',   code: '02', label: 'Archive',  abbr: 'ARC' },
-  { href: '/session',   code: '03', label: 'Screen',   abbr: 'SCR' },
-  { href: '/party',     code: '04', label: 'Party',    abbr: 'PTY' },
-  { href: '/profile',   code: '05', label: 'Profile',  abbr: 'PRF' },
-  { href: '/settings',  code: '06', label: 'Settings', abbr: 'SET' },
+  { href: '/',          code: '01', label: 'Home',     abbr: 'HOM' },
+  { href: '/search',    code: '02', label: 'Search',   abbr: 'SRC' },
+  { href: '/library',   code: '03', label: 'Archive',  abbr: 'ARC' },
+  { href: '/session',   code: '04', label: 'Screen',   abbr: 'SCR' },
+  { href: '/party',     code: '05', label: 'Party',    abbr: 'PTY' },
+  { href: '/profile',   code: '06', label: 'Profile',  abbr: 'PRF' },
+  { href: '/settings',  code: '07', label: 'Settings', abbr: 'SET' },
 ]
 
 function NavStrip({ pathname }: { pathname: string }) {
@@ -34,39 +35,41 @@ function NavStrip({ pathname }: { pathname: string }) {
     <motion.nav
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
-      animate={{ width: open ? 196 : 35 }}
-      transition={{ duration: 0.38, ease: [0.25, 0.10, 0.10, 1] }}
+      animate={{ width: open ? 210 : 42 }} // <-- Mais espaço de respiro (era 35 -> 196)
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }} // Fine Art Ease
       style={{
         position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 100,
         overflow: 'hidden', flexShrink: 0, display: 'flex',
-        flexDirection: 'column', background: 'rgba(6,6,4,0.97)',
-        backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(237,232,220,0.02)'
+        flexDirection: 'column', 
+        background: 'rgba(4, 4, 2, 0.75)', // <-- Mais transparente
+        backdropFilter: 'blur(30px) saturate(1.2)', // <-- Vidro mais cinematográfico
+        borderRight: '1px solid rgba(191,143,60,0.08)' // <-- Borda com leve tom dourado
       }}
       aria-label="Navigation"
     >
       {/* Gold accent line */}
       <motion.div
-        animate={{ opacity: [0.2, 0.38, 0.2], top: ['0%', '10%', '0%'] }}
-        transition={{ opacity: { duration: 5, repeat: Infinity }, top: { duration: 15, repeat: Infinity, ease: 'easeInOut' } }}
+        animate={{ opacity: [0.15, 0.3, 0.15], top: ['-50%', '10%', '-50%'] }}
+        transition={{ opacity: { duration: 6, repeat: Infinity }, top: { duration: 15, repeat: Infinity, ease: 'easeInOut' } }}
         style={{
           position: 'absolute', right: 0, bottom: 0, width: 1, height: '200%',
-          background: 'linear-gradient(to bottom, transparent 0%, #BF8F3C33 20%, #BF8F3C55 50%, #BF8F3C33 80%, transparent 100%)',
+          background: 'linear-gradient(to bottom, transparent 0%, rgba(191,143,60,0.2) 20%, rgba(191,143,60,0.5) 50%, rgba(191,143,60,0.2) 80%, transparent 100%)',
           pointerEvents: 'none',
         }}
       />
 
       {/* Brand */}
-      <div style={{ height: 54, display: 'flex', alignItems: 'center', paddingLeft: 14, gap: 12, flexShrink: 0, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
-        <motion.svg animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 3, repeat: Infinity }} viewBox="0 0 20 20" fill="none" style={{ width: 15, height: 15, flexShrink: 0 }}>
+      <div style={{ height: 64, display: 'flex', alignItems: 'center', paddingLeft: 18, gap: 14, flexShrink: 0 }}>
+        <motion.svg animate={{ opacity: [0.7, 1, 0.7] }} transition={{ duration: 4, repeat: Infinity }} viewBox="0 0 20 20" fill="none" style={{ width: 16, height: 16, flexShrink: 0, filter: 'drop-shadow(0 0 6px rgba(191,143,60,0.4))' }}>
           <rect x="3" y="2" width="2.2" height="16" fill="#BF8F3C" />
           <rect x="3" y="15.8" width="9.5" height="2.2" fill="#BF8F3C" />
         </motion.svg>
         <AnimatePresence>
           {open && (
             <motion.span
-              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.05rem', fontWeight: 500, letterSpacing: '0.10em', color: '#EDE8DC', whiteSpace: 'nowrap' }}
+              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.15rem', fontWeight: 500, letterSpacing: '0.12em', color: '#EDE8DC', whiteSpace: 'nowrap' }}
             >
               LUMIÈRE
             </motion.span>
@@ -74,13 +77,27 @@ function NavStrip({ pathname }: { pathname: string }) {
         </AnimatePresence>
       </div>
 
-      {/* Perforations */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 0', borderBottom: '1px solid rgba(237,232,220,0.04)', flexShrink: 0 }}>
-        {[0,1,2,3].map(i => <motion.div whileHover={{ backgroundColor: '#BF8F3C', scale: 1.2 }} key={i} style={{ width: 8, height: 6, border: '1px solid rgba(237,232,220,0.07)', borderRadius: 1, transition: 'background-color 0.3s' }} />)}
+      {/* Divisor Elegante (Fading Gradient) */}
+      <div style={{ height: 1, background: 'linear-gradient(90deg, rgba(237,232,220,0.08) 0%, transparent 100%)', marginBottom: 12 }} />
+
+      {/* Perforations (Efeito 3D de buraco) */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '4px 0', flexShrink: 0 }}>
+        {[0,1,2,3].map(i => (
+          <motion.div 
+            whileHover={{ backgroundColor: 'rgba(191,143,60,0.6)', scale: 1.1 }} 
+            key={i} 
+            style={{ 
+              width: 8, height: 5, 
+              background: 'rgba(0,0,0,0.85)', // Fundo escuro
+              boxShadow: 'inset 0 1px 3px rgba(0,0,0,1), 0 1px 0 rgba(255,255,255,0.03)', // Sombra interna (buraco real)
+              borderRadius: '1px', transition: 'background-color 0.4s' 
+            }} 
+          />
+        ))}
       </div>
 
       {/* Links */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, padding: '6px' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, padding: '12px 6px' }}>
         {NAV.map(item => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
           return (
@@ -89,32 +106,34 @@ function NavStrip({ pathname }: { pathname: string }) {
               href={item.href}
               style={{
                 position: 'relative', display: 'flex', alignItems: 'center',
-                height: 36, gap: 9, padding: '0 5px', textDecoration: 'none',
-                background: active ? 'rgba(191,143,60,0.06)' : 'transparent',
-                borderRadius: 1, transition: 'background 0.22s',
+                height: 42, gap: 14, padding: '0 8px', textDecoration: 'none',
+                background: active ? 'linear-gradient(90deg, rgba(191,143,60,0.08) 0%, transparent 100%)' : 'transparent',
+                borderRadius: '4px', transition: 'background 0.3s ease',
                 overflow: 'hidden',
               }}
             >
               {active && (
                 <motion.div
                   layoutId="nav-bar"
-                  animate={{ opacity: [1, 0.5, 1] }}
-                  transition={{ opacity: { duration: 2, repeat: Infinity }, type: 'spring', stiffness: 360, damping: 28 }}
-                  style={{ position: 'absolute', left: 0, top: 4, bottom: 4, width: 2, background: '#BF8F3C', borderRadius: 1, boxShadow: '0 0 8px rgba(191,143,60,0.5)' }}
+                  animate={{ opacity: [1, 0.7, 1] }}
+                  transition={{ opacity: { duration: 3, repeat: Infinity }, type: 'spring', stiffness: 360, damping: 28 }}
+                  style={{ position: 'absolute', left: 0, top: 8, bottom: 8, width: 2, background: '#BF8F3C', borderRadius: 2, boxShadow: '0 0 12px rgba(191,143,60,0.6)' }}
                 />
               )}
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8.5px', letterSpacing: '0.08em', color: active ? '#BF8F3C' : '#1C1B18', width: 15, textAlign: 'right', flexShrink: 0, zIndex: 1, transition: 'color 0.22s' }}>
+              
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: active ? '#BF8F3C' : '#4A4844', width: 16, textAlign: 'right', flexShrink: 0, zIndex: 1, transition: 'color 0.3s' }}>
                 {item.code}
               </span>
+              
               <AnimatePresence mode="wait">
                 {open ? (
-                  <motion.span key="full" initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}
-                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '9.5px', letterSpacing: '0.15em', textTransform: 'uppercase', color: active ? '#EDE8DC' : '#3A3836', whiteSpace: 'nowrap', zIndex: 1, transition: 'color 0.22s' }}>
+                  <motion.span key="full" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: active ? '#EDE8DC' : '#7A7874', whiteSpace: 'nowrap', zIndex: 1, transition: 'color 0.3s' }}>
                     {item.label}
                   </motion.span>
                 ) : (
-                  <motion.span key="abbr" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}
-                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '7.5px', letterSpacing: '0.06em', color: active ? '#7A5A20' : '#1C1B18', zIndex: 1 }}>
+                  <motion.span key="abbr" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.08em', color: active ? '#BF8F3C' : '#3A3836', zIndex: 1 }}>
                     {item.abbr}
                   </motion.span>
                 )}
@@ -125,18 +144,31 @@ function NavStrip({ pathname }: { pathname: string }) {
       </div>
 
       {/* Bottom perfs */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 0', borderTop: '1px solid rgba(237,232,220,0.04)', flexShrink: 0 }}>
-        {[0,1,2,3].map(i => <motion.div whileHover={{ backgroundColor: '#BF8F3C', scale: 1.2 }} key={i} style={{ width: 8, height: 6, border: '1px solid rgba(237,232,220,0.07)', borderRadius: 1, transition: 'background-color 0.3s' }} />)}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '4px 0', flexShrink: 0 }}>
+        {[0,1,2,3].map(i => (
+          <motion.div 
+            whileHover={{ backgroundColor: 'rgba(191,143,60,0.6)', scale: 1.1 }} 
+            key={i} 
+            style={{ 
+              width: 8, height: 5, 
+              background: 'rgba(0,0,0,0.85)', 
+              boxShadow: 'inset 0 1px 3px rgba(0,0,0,1), 0 1px 0 rgba(255,255,255,0.03)', 
+              borderRadius: '1px', transition: 'background-color 0.4s' 
+            }} 
+          />
+        ))}
       </div>
 
+      <div style={{ height: 1, background: 'linear-gradient(90deg, rgba(237,232,220,0.08) 0%, transparent 100%)', marginTop: 12 }} />
+
       {/* Footer dot */}
-      <div style={{ height: 42, borderTop: '1px solid rgba(237,232,220,0.05)', display: 'flex', alignItems: 'center', paddingLeft: 14, gap: 10, flexShrink: 0 }}>
-        <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 3, repeat: Infinity }}
-          style={{ width: 5, height: 5, borderRadius: '50%', background: '#BF8F3C', flexShrink: 0, boxShadow: '0 0 10px rgba(191,143,60,0.6)' }} />
+      <div style={{ height: 56, display: 'flex', alignItems: 'center', paddingLeft: 18, gap: 12, flexShrink: 0 }}>
+        <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 4, repeat: Infinity }}
+          style={{ width: 6, height: 6, borderRadius: '50%', background: '#BF8F3C', flexShrink: 0, boxShadow: '0 0 12px rgba(191,143,60,0.8)' }} />
         <AnimatePresence>
           {open && (
             <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#565450', whiteSpace: 'nowrap' }}>
+              style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#565450', whiteSpace: 'nowrap' }}>
               Personal Cinema · v1
             </motion.span>
           )}
@@ -231,8 +263,8 @@ export function MotionShell({ children }: { children: ReactNode }) {
         </div>
       )}
       
-      {/* Layer 4: page content (Sem margem esquerda no Login) */}
-      <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 5, marginLeft: isLoginPage ? 0 : 52 }}>
+      {/* Layer 4: page content (Espaçamento ajustado para compensar a nova largura de 42px) */}
+      <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 5, marginLeft: isLoginPage ? 0 : 54 }}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={pathname}

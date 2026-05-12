@@ -2,58 +2,79 @@
 
 import { HeroProgramme } from '@/components/home/HeroProgramme'
 import { CinemaMarquee, FilmProgramme, FilmEntry } from '@/components/home/FilmProgramme'
-import { NowProjecting, AdmitOne, LibraryCount, SessionRow} from '@/components/home/Sections'
-import { motion } from 'framer-motion'
+import { NowProjecting, AdmitOne, LibraryCount, SessionRow } from '@/components/home/Sections'
+import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useMovies } from '@/features/movies/hooks/useMovies';
 
 const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]
 
-// ── DICIONÁRIO CAMALEÃO: Mapeia Gêneros para Cores Cinematográficas ──
+// ── TIPAGEM SEGURA PARA ACALMAR O TYPESCRIPT ──
+interface HomeMovie {
+  id: string | number;
+  title: string;
+  original_title?: string;
+  director?: string;
+  year?: number | string | null; // <-- Agora aceita null perfeitamente
+  country?: string;
+  length_minutes?: number | null;
+  in_plex?: boolean;
+  poster_url?: string;
+  background_url?: string;
+  genres?: string[];
+  overview?: string;
+  ranking_current?: number | null;
+  tmdb_rating?: number | string | null; // Prevendo que a API possa mandar como string
+  tagline?: string;
+  trailer_url?: string;
+  logo_url?: string;
+  cinematographer?: string;
+}
+
 const getCinematicColor = (genres: string[]) => {
-  if (!genres || genres.length === 0) return '#BF8F3C'; // Dourado Lumière (Padrão)
+  if (!genres || genres.length === 0) return '#BF8F3C'; 
   const genreList = genres.join(',').toLowerCase();
   
-  if (genreList.includes('ficção') || genreList.includes('sci-fi')) return '#4A7A8C'; // Teal
-  if (genreList.includes('terror') || genreList.includes('horror')) return '#8C3A3A'; // Crimson
-  if (genreList.includes('romance')) return '#A87A8C'; // Rose
-  if (genreList.includes('mistério') || genreList.includes('thriller')) return '#5E8872'; // Musgo
+  if (genreList.includes('ficção') || genreList.includes('sci-fi')) return '#4A7A8C'; 
+  if (genreList.includes('terror') || genreList.includes('horror')) return '#8C3A3A'; 
+  if (genreList.includes('romance')) return '#A87A8C'; 
+  if (genreList.includes('mistério') || genreList.includes('thriller')) return '#5E8872'; 
   return '#BF8F3C'; 
 };
 
 export default function HomePage() {
   const [hoveredSessionId, setHoveredSessionId] = useState<string | number | null>(null)
+  const [hoveredFeaturedId, setHoveredFeaturedId] = useState<string | number | null>(null)
   
   const [heroIndex, setHeroIndex] = useState(0);
-  const [randomHeroMovies, setRandomHeroMovies] = useState<any[]>([]);
-  
-  // O Estado do Cérebro (Último filme assistido)
+  const [randomHeroMovies, setRandomHeroMovies] = useState<HomeMovie[]>([]);
   const [lastWatched, setLastWatched] = useState<any | null>(null);
 
   const { data, isLoading } = useMovies({ page: 1 });
 
-  // ── INICIALIZA O CARROSSEL E A MEMÓRIA ──
   useEffect(() => {
-    if (data?.results && randomHeroMovies.length === 0) {
+    if (data?.results && data.results.length > 0 && randomHeroMovies.length === 0) {
+      // Cria a lista embaralhada para o Hero
       const shuffled = [...data.results].sort(() => 0.5 - Math.random());
-      setRandomHeroMovies(shuffled.slice(0, 5));
+      setRandomHeroMovies(shuffled.slice(0, 10) as HomeMovie[]); 
 
-      // Busca na memória do navegador o progresso real (Se existir)
+      // Puxa o filme mais bem avaliado garantindo a tipagem de Number
+      const topRatedFallback = [...data.results].sort((a, b) => Number(b.tmdb_rating || 0) - Number(a.tmdb_rating || 0))[0];
+
       try {
         const historyStr = localStorage.getItem('lumiere_history');
         if (historyStr) {
           setLastWatched(JSON.parse(historyStr));
         } else {
-          // Fallback: Pega o terceiro filme da lista aleatória para simular
           setLastWatched({
-            id: shuffled[2].id,
-            title: shuffled[2].title,
-            director: shuffled[2].director,
-            year: shuffled[2].year,
-            backgroundSrc: shuffled[2].background_url || shuffled[2].poster_url,
-            progress: 42,
-            remainingTime: '1h 12m'
+            id: topRatedFallback.id,
+            title: topRatedFallback.title,
+            director: topRatedFallback.director,
+            year: topRatedFallback.year,
+            backgroundSrc: topRatedFallback.background_url || topRatedFallback.poster_url,
+            progress: 15,
+            remainingTime: '1h 55m'
           });
         }
       } catch (e) {
@@ -62,24 +83,45 @@ export default function HomePage() {
     }
   }, [data, randomHeroMovies.length]);
 
-  // Rotaciona os filmes do Hero
+  const handleNextHero = useCallback(() => {
+    setHeroIndex(prev => (prev + 1) % randomHeroMovies.length);
+  }, [randomHeroMovies.length]);
+
+  const handlePrevHero = useCallback(() => {
+    setHeroIndex(prev => (prev - 1 + randomHeroMovies.length) % randomHeroMovies.length);
+  }, [randomHeroMovies.length]);
+
   useEffect(() => {
     if (randomHeroMovies.length === 0) return;
     const interval = setInterval(() => {
-      setHeroIndex(prev => (prev + 1) % randomHeroMovies.length);
-    }, 15000); 
+      handleNextHero();
+    }, 30000); 
     return () => clearInterval(interval);
-  }, [randomHeroMovies]);
+  }, [randomHeroMovies, heroIndex, handleNextHero]);
 
-  const getRuntimeStr = (mins: any) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') handleNextHero();
+      else if (e.key === 'ArrowLeft') handlePrevHero();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNextHero, handlePrevHero]);
+
+  const getRuntimeStr = (mins: number | string | null | undefined) => {
     const v = Number(mins);
     if (!v || v <= 0 || isNaN(v)) return 'Duração desconhecida';
     return `${Math.floor(v / 60)}h ${v % 60}m`;
   };
 
+  // ── NOVO LOADING CINEMATOGRÁFICO ──
   if (isLoading || randomHeroMovies.length === 0) {
     return (
-      <div style={{ background: '#080806', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#080806', minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+        <motion.svg animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }} viewBox="0 0 20 20" fill="none" style={{ width: 24, height: 24 }}>
+          <rect x="3" y="2" width="2.2" height="16" fill="#BF8F3C" />
+          <rect x="3" y="15.8" width="9.5" height="2.2" fill="#BF8F3C" />
+        </motion.svg>
         <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#BF8F3C', letterSpacing: '0.2em' }}>
           MONTANDO PROGRAMAÇÃO...
         </motion.div>
@@ -87,48 +129,44 @@ export default function HomePage() {
     );
   }
 
-  const results = data?.results || [];
+  // Cast explícito dos resultados para nossa interface clemente
+  const results: HomeMovie[] = (data?.results as unknown as HomeMovie[]) || [];
   const heroMovie = randomHeroMovies[heroIndex];
   const heroAccentColor = getCinematicColor(heroMovie?.genres || []);
 
-  // ── CURADORIA INTENCIONAL: Obras-Primas Intocáveis ──
-  // Filtra filmes que têm ranking TSPDT e ordena do melhor (menor número) pro pior
+  // ── CORREÇÃO DAS OPERAÇÕES MATEMÁTICAS COM NUMBER() ──
   const masterPieces = [...results]
-    .filter(m => m.ranking_current && m.ranking_current < 1000)
-    .sort((a, b) => a.ranking_current - b.ranking_current);
+    .filter(m => m.ranking_current !== null && m.ranking_current !== undefined && Number(m.ranking_current) < 1000)
+    .sort((a, b) => Number(a.ranking_current || 9999) - Number(b.ranking_current || 9999));
   
-  // Se não achou TSPDT suficiente, pega os de maior nota no TMDB
   const programmeMovies = masterPieces.length >= 4 
     ? masterPieces.slice(0, 8) 
-    : [...results].sort((a, b) => (b.tmdb_rating || 0) - (a.tmdb_rating || 0)).slice(0, 8);
+    : [...results].sort((a, b) => Number(b.tmdb_rating || 0) - Number(a.tmdb_rating || 0)).slice(0, 8);
 
-  const FEATURED_FILMS: FilmEntry[] = programmeMovies.map((movie: any, index: number) => ({
-    id: movie.id,
+  const FEATURED_FILMS: FilmEntry[] = programmeMovies.map((movie, index) => ({
+    id: String(movie.id),
     number: String(index + 1).padStart(3, '0'),
     title: movie.title,
-    originalTitle: movie.original_title,
+    originalTitle: movie.original_title || '',
     director: movie.director || 'Desconhecido',
     year: String(movie.year || '----'),
     country: movie.country || 'N/A',
     runtime: getRuntimeStr(movie.length_minutes),
     qualities: movie.in_plex ? ['PLEX'] : ['OFFLINE'],
     posterSrc: movie.poster_url || '/images/poster-1.png',
-    backgroundSrc: movie.background_url || '',
+    backgroundSrc: movie.background_url || movie.poster_url || '/images/poster-1.png',
     genre: movie.genres?.[0] || 'Cinema',
     synopsis: movie.overview || 'Registro ausente.'
   }));
 
-  // ── CURADORIA INTENCIONAL: Foco no Diretor ──
-  // Acha o diretor com mais filmes no acervo carregado e cria a sessão dele
-  const directorCount: Record<string, any[]> = {};
-  results.forEach((m: any) => {
+  const directorCount: Record<string, HomeMovie[]> = {};
+  results.forEach((m) => {
     if (m.director && m.director !== 'Desconhecido') {
       if (!directorCount[m.director]) directorCount[m.director] = [];
       directorCount[m.director].push(m);
     }
   });
   
-  // Ordena para achar o diretor mais presente
   const sortedDirectors = Object.entries(directorCount).sort((a, b) => b[1].length - a[1].length);
   const topDirectorName = sortedDirectors[0]?.[0] || 'Auteurs';
   const topDirectorMovies = sortedDirectors[0]?.[1] || results.slice(12, 15);
@@ -138,7 +176,7 @@ export default function HomePage() {
       number: 'S·001',
       title: `Foco: ${topDirectorName}`,
       films: topDirectorMovies.length,
-      duration: getRuntimeStr(topDirectorMovies.reduce((acc: number, m: any) => acc + (Number(m.length_minutes) || 120), 0)),
+      duration: getRuntimeStr(topDirectorMovies.reduce((acc, m) => acc + (Number(m.length_minutes) || 120), 0)),
       date: 'Nesta Semana'
     },
     {
@@ -150,6 +188,8 @@ export default function HomePage() {
     }
   ];
 
+  const hoveredFeaturedFilm = FEATURED_FILMS.find(f => f.id === String(hoveredFeaturedId));
+
   return (
     <div style={{ background: '#080806', color: '#EDE8DC', minHeight: '100dvh', display: 'flex' }}>
       <main style={{ flex: 1, minWidth: 0, marginLeft: 0 }}>
@@ -158,7 +198,7 @@ export default function HomePage() {
           <HeroProgramme
             programmeNumber={`00${heroIndex + 1}`}
             title={heroMovie.title}
-            subtitle={heroMovie.tagline || heroMovie.original_title}
+            subtitle={heroMovie.tagline || heroMovie.original_title || ''}
             director={heroMovie.director || 'Desconhecido'}
             year={String(heroMovie.year || '----')}
             country={heroMovie.country || 'N/A'}
@@ -167,19 +207,51 @@ export default function HomePage() {
             qualities={heroMovie.in_plex ? ['PLEX'] : ['OFFLINE']}
             backgroundSrc={heroMovie.background_url || ''} 
             posterSrc={heroMovie.poster_url || '/images/posters/2001.jpg'}
-            trailerUrl={heroMovie.trailer_url} // <- O TRAILER PASSA AQUI!
-            accentColor={heroAccentColor}      // <- O CAMALEÃO PASSA AQUI!
-            href={`/movie/${heroMovie.id}`}
+            trailerUrl={heroMovie.trailer_url} 
+            accentColor={heroAccentColor}      
             logoUrl={heroMovie.logo_url}
             cinematographer={heroMovie.cinematographer}
+            href={`/movie/${heroMovie.id}`}
+            onNext={handleNextHero}
+            onPrev={handlePrevHero}
           />
         )}
 
         <CinemaMarquee />
 
-        <FilmProgramme title="Obras-Primas do Acervo" subtitle="Top TSPDT / Aclamados" films={FEATURED_FILMS} />
+        <section style={{ position: 'relative' }}>
+          <AnimatePresence>
+            {hoveredFeaturedFilm?.backgroundSrc && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.15 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.2, ease: FINE_ART_EASE }}
+                style={{
+                  position: 'absolute', top: -100, left: 0, right: 0, bottom: -100, zIndex: 0, pointerEvents: 'none',
+                  maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)'
+                }}
+              >
+                <img 
+                  src={hoveredFeaturedFilm.backgroundSrc} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(60%) contrast(1.1)' }} 
+                  alt=""
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {/* ── 4. NOW PROJECTING (Alimentado pela Memória) ── */}
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <FilmProgramme 
+              title="Obras-Primas do Acervo" 
+              subtitle="Top TSPDT / Aclamados" 
+              films={FEATURED_FILMS} 
+              onHover={setHoveredFeaturedId} 
+            />
+          </div>
+        </section>
+
         {lastWatched && (
           <NowProjecting
             title={lastWatched.title}
@@ -214,7 +286,7 @@ export default function HomePage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            {DYNAMIC_SESSIONS.map((s: any, i: number) => (
+            {DYNAMIC_SESSIONS.map((s, i) => (
               <motion.div
                 key={s.number} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-5%" }} transition={{ delay: i * 0.08, duration: 0.8, ease: FINE_ART_EASE }}
               >
@@ -231,7 +303,7 @@ export default function HomePage() {
           date="HOJE"
           sessionNumber="004"
           href={`/library?search=${encodeURIComponent(topDirectorName)}`}
-          filmList={topDirectorMovies.slice(0,3).map((m: any) => m.title)} 
+          filmList={topDirectorMovies.slice(0,3).map((m) => m.title)} 
         />
 
         <LibraryCount count={data?.count || 0} />

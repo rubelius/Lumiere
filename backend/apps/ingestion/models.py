@@ -6,6 +6,7 @@ class RawIngestion(models.Model):
         ('PROCESSING', 'Processando'),
         ('COMPLETED', 'Concluído'),
         ('FAILED', 'Falhou'),
+        ('NON_FILM', 'Ignorado (Não-Filme)'), 
     ]
 
     source_name = models.CharField(max_length=50, default='TSPDT')

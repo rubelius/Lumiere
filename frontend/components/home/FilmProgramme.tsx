@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence, useAnimationFrame, useMotionValue, useTransform, useSpring } from 'framer-motion'
 import { useMovies } from '@/features/movies/hooks/useMovies';
+
 /* ─────────────────────────────────────────────────────────────
    MARQUEE — Horizontal scrolling film titles.
    Like a cinema marquee sign or end credits crawl.
@@ -19,17 +20,14 @@ const MARQUEE_ITEMS = [
   'Aguirre', 'Sans Soleil', 'The Tree of Life',
 ]
 
-
 export function CinemaMarquee() {
-  // Chamamos os filmes reais!
-  const { data } = useMovies({ page: 2 }); // Pega a página 2 para ser diferente do Hero
+  const { data } = useMovies({ page: 2 }); 
   
-  // Extrai os títulos. Se ainda estiver carregando, usamos um fallback elegante
   const realTitles = data?.results?.map((m: any) => m.title).slice(0, 15) || [
     'Carregando Arquivos...', 'Indexando Obras', 'Preservação Digital'
   ];
   
-  const items = [...realTitles, ...realTitles]; // Duplica para o efeito infinito
+  const items = [...realTitles, ...realTitles]; 
 
   const baseX = useMotionValue(0)
   const x = useTransform(baseX, (v) => `${v}%`)
@@ -78,13 +76,6 @@ export function CinemaMarquee() {
 
 /* ─────────────────────────────────────────────────────────────
    FILM PROGRAMME — The main film list.
-   Inspired by cinema programme brochures and siena.film's 
-   architectural list view. NOT a grid of cards.
-   
-   Each row is a programme entry:
-   [number] [title]          [director]  [year] [runtime] [badges]
-   
-   On hover: a thumbnail preview reveals on the right.
    ───────────────────────────────────────────────────────────── */
 
 export interface FilmEntry {
@@ -101,12 +92,6 @@ export interface FilmEntry {
   backgroundSrc: string
   genre?: string
   synopsis: string
-}
-
-interface FilmProgrammeProps {
-  title: string
-  subtitle?: string
-  films: FilmEntry[]
 }
 
 function QualityDots({ qualities }: { qualities: string[] }) {
@@ -145,7 +130,6 @@ const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]
 
 function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, router }: any) {
   
-  // Tratamento da Imagem de Fundo (Blur se for fallback)
   const isFallbackBg = !film.backgroundSrc || film.backgroundSrc === film.posterSrc;
   const finalBg = film.backgroundSrc || film.posterSrc;
 
@@ -168,7 +152,6 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
         style={{ borderBottom: '1px solid rgba(237,232,220,0.03)', overflow: 'hidden', position: 'relative' }}
       >
 
-        {/* ── 0. IMAGEM DE FUNDO COM DESFOQUE DE FALLBACK ── */}
         <motion.div
           initial={false}
           animate={{ opacity: isExpanded ? 1 : isHovered ? 0.35 : 0, width: isExpanded ? '100%' : isHovered ? '60%' : '0%' }}
@@ -199,7 +182,6 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
           )}
         </AnimatePresence>
 
-        {/* Título sem corte tipográfico */}
         <motion.h3
           animate={{ scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1, color: isExpanded ? '#FFFFFF' : isHovered ? '#EDE8DC' : '#8C8880', y: isExpanded ? '30vh' : isHovered ? 12 : 0, x: isExpanded ? '10vw' : 0 }}
           transition={{ duration: 0.85, ease: FINE_ART_EASE }}
@@ -243,12 +225,20 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
   )
 }
 
-export function FilmProgramme({ title, subtitle, films }: any) {
+// ── AGORA O FILMPROGRAMME RECEBE O onHover DA HOMEPAGE ──
+export function FilmProgramme({ title, subtitle, films, onHover }: any) {
   const [hoveredId, setHoveredId] = useState<string | number | null>(null)
   const [expandedId, setExpandedId] = useState<string | number | null>(null)
-  
-  // Pegamos o router do Next.js para fazer a navegação manual
   const router = useRouter() 
+
+  // ── A PONTE DE COMUNICAÇÃO ──
+  // Quando passamos o mouse, ele atualiza o estado local E avisa a HomePage!
+  const handleHover = (id: string | number | null) => {
+    setHoveredId(id);
+    if (onHover) {
+      onHover(id);
+    }
+  };
 
   return (
     <section style={{ padding: '80px 72px' }}>
@@ -263,11 +253,9 @@ export function FilmProgramme({ title, subtitle, films }: any) {
               </motion.div>
             </div>
           )}
-          {/* Adicionamos paddingBottom para a perna do 'g' não bater no fundo da caixa */}
           <div style={{ overflow: 'hidden', paddingBottom: 16 }}> 
             <motion.h2
               initial={{ y: '100%' }} whileInView={{ y: '0%' }} viewport={{ once: true }} transition={{ duration: 1.2, ease: FINE_ART_EASE }}
-              // Mudamos o lineHeight de 1 para 1.1 para dar respiro interno
               style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(2rem, 3vw, 2.8rem)', fontWeight: 400, color: '#EDE8DC', lineHeight: 1.1, letterSpacing: '-0.01em', margin: 0 }}
             >
               {title}
@@ -296,9 +284,9 @@ export function FilmProgramme({ title, subtitle, films }: any) {
               isHovered={hoveredId === film.id && expandedId === null}
               isDimmed={(hoveredId !== null && hoveredId !== film.id) || (expandedId !== null && expandedId !== film.id)}
               isExpanded={expandedId === film.id}
-              onHover={setHoveredId}
+              onHover={handleHover} // <-- PASSAMOS A PONTE PARA O FILmrow
               onClick={setExpandedId} 
-              router={router} // Passamos o router para o FilmRow poder navegar
+              router={router} 
             />
           </motion.div>
         ))}

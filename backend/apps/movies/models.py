@@ -5,7 +5,6 @@ from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from pgvector.django import VectorField
 
-
 class Movie(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     
@@ -14,12 +13,13 @@ class Movie(models.Model):
     # --------------------------------------------------------
     title = models.CharField(max_length=500)
     original_title = models.CharField(max_length=500, blank=True)
+    alternative_titles = models.JSONField(default=list, blank=True, null=True) # <-- Movido pra cá
     year = models.IntegerField(null=True, blank=True)
     length_minutes = models.IntegerField(null=True, blank=True)
     country = models.CharField(max_length=200, blank=True)
     countries = ArrayField(models.CharField(max_length=100), default=list, blank=True)
     spoken_languages = ArrayField(models.CharField(max_length=50), default=list, blank=True)
-    color = models.CharField(max_length=10, blank=True)  # Col, BW, Mixed
+    color = models.CharField(max_length=10, blank=True)
     
     # --------------------------------------------------------
     # 2. CLASSIFICATION & THEMES
@@ -30,12 +30,16 @@ class Movie(models.Model):
     moods = ArrayField(models.CharField(max_length=100), blank=True, default=list)
     keywords = ArrayField(models.CharField(max_length=100), blank=True, default=list)
     mpaa_rating = models.CharField(max_length=20, blank=True, help_text="R, PG-13, etc")
+    festivals = models.JSONField(default=list, blank=True, help_text="Premiações e Festivais (ex: Cannes, Oscars)")
     
     # --------------------------------------------------------
     # 3. CAST, CREW & PRODUCTION
     # --------------------------------------------------------
     director = models.CharField(max_length=500, blank=True)
     co_directors = ArrayField(models.CharField(max_length=200), blank=True, default=list)
+    cinematographer = models.CharField(max_length=255, blank=True, null=True) # <-- Movido pra cá
+    composer = models.CharField(max_length=255, blank=True, null=True)        # <-- Movido pra cá
+    writer = models.CharField(max_length=255, blank=True, null=True)          # <-- Movido pra cá
     cast = models.JSONField(default=list, blank=True, help_text="Atores e personagens")
     crew = models.JSONField(default=list, blank=True, help_text="Equipe técnica principal")
     production_companies = ArrayField(models.CharField(max_length=200), default=list, blank=True)
@@ -44,8 +48,8 @@ class Movie(models.Model):
     # 4. RANKINGS & HISTORY (TSPDT)
     # --------------------------------------------------------
     tspdt_id = models.CharField(max_length=20, null=True, blank=True, unique=True)
-    ranking_current = models.IntegerField(null=True, blank=True, help_text="Ranking mais recente (ex: 2026)")
-    tspdt_history = models.JSONField(default=dict, blank=True, help_text="Histórico completo de rankings ex: {'2008': 100, '2025': 45}")
+    ranking_current = models.IntegerField(null=True, blank=True, help_text="Ranking mais recente")
+    tspdt_history = models.JSONField(default=dict, blank=True, help_text="Ex: {'2008': 100, '2025': 45}")
     
     # --------------------------------------------------------
     # 5. EXTERNAL IDs
@@ -62,7 +66,8 @@ class Movie(models.Model):
     poster_url = models.URLField(blank=True, max_length=500)
     background_url = models.URLField(blank=True, max_length=500)
     trailer_url = models.URLField(blank=True, max_length=500)
-    collection_name = models.CharField(max_length=200, blank=True, null=True, help_text="Ex: The Lord of the Rings Collection")
+    logo_url = models.URLField(max_length=500, blank=True, null=True) # <-- Movido pra cá
+    collection_name = models.CharField(max_length=200, blank=True, null=True)
     
     # Financials
     budget = models.BigIntegerField(null=True, blank=True)
@@ -84,8 +89,9 @@ class Movie(models.Model):
     embedding_model = models.CharField(max_length=100, blank=True)
     
     # --------------------------------------------------------
-    # 9. AVAILABILITY & STATS (Plex/Real-Debrid)
+    # 9. AVAILABILITY & STATS
     # --------------------------------------------------------
+    streaming_providers = models.JSONField(default=list, blank=True, null=True) # <-- Movido pra cá
     in_plex = models.BooleanField(default=False)
     in_realdebrid = models.BooleanField(default=False)
     available_instantly = models.BooleanField(default=False)
@@ -103,15 +109,23 @@ class Movie(models.Model):
     last_checked = models.DateTimeField(null=True, blank=True)
     metadata_updated_at = models.DateTimeField(null=True, blank=True)
 
-    # ── METADADOS PREMIUM ──
-    logo_url = models.URLField(max_length=500, blank=True, null=True)
-    cinematographer = models.CharField(max_length=255, blank=True, null=True)
-    composer = models.CharField(max_length=255, blank=True, null=True)
-    writer = models.CharField(max_length=255, blank=True, null=True)
+    # --------------------------------------------------------
+    # 11. OMDB & EXTRA METADATA
+    # --------------------------------------------------------
+    omdb_checked = models.BooleanField(default=False, help_text="Evita gastar cota da API OMDb duas vezes no mesmo filme")
+    rotten_tomatoes_rating = models.CharField(max_length=20, blank=True, null=True)
+    metacritic_rating = models.CharField(max_length=20, blank=True, null=True)
+    awards_summary = models.CharField(max_length=500, blank=True, null=True, help_text="Texto bruto do OMDb. Ex: Won 3 Oscars...")
     
-    # Usamos JSONField para guardar listas (arrays) de forma segura em qualquer banco
-    alternative_titles = models.JSONField(default=list, blank=True, null=True)
-    streaming_providers = models.JSONField(default=list, blank=True, null=True)
+    # --------------------------------------------------------
+    # 12. CINEPHILE & WIKIDATA METADATA
+    # --------------------------------------------------------
+    wikidata_id = models.CharField(max_length=50, blank=True, null=True, unique=True)
+    mubi_id = models.CharField(max_length=50, blank=True, null=True, help_text="ID oficial da MUBI")
+    aspect_ratio = models.CharField(max_length=50, blank=True, null=True)
+    filming_locations = ArrayField(models.CharField(max_length=200), default=list, blank=True)
+    bechdel_status = models.CharField(max_length=50, blank=True, null=True, help_text="Passed / Failed / etc")
+    wikidata_checked = models.BooleanField(default=False)
 
     class Meta:
         indexes = [
@@ -130,82 +144,69 @@ class Movie(models.Model):
     def __str__(self):
         return f"{self.title} ({self.year})"
 
-
-
 class TorrentRelease(models.Model):
-    """Release de torrent com informações de qualidade"""
+    # ... Mantenha o resto do seu modelo TorrentRelease exatamente como estava ...
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='torrent_releases')
     info_hash = models.CharField(max_length=40, unique=True)
     
-    # Basic
     title = models.CharField(max_length=500)
     size_bytes = models.BigIntegerField()
     magnet_link = models.TextField(blank=True)
     
-    # Indexer
     indexer_id = models.IntegerField(null=True, blank=True)
     indexer_name = models.CharField(max_length=100, blank=True)
     
-    # Video Quality
-    resolution = models.CharField(max_length=20, blank=True)  # 2160p, 1080p, 720p, 480p
+    resolution = models.CharField(max_length=20, blank=True)
     is_remux = models.BooleanField(default=False)
     is_4k = models.BooleanField(default=False)
     has_hdr = models.BooleanField(default=False)
     has_hdr10_plus = models.BooleanField(default=False)
     has_dolby_vision = models.BooleanField(default=False)
-    video_codec = models.CharField(max_length=50, blank=True)  # HEVC, AVC, AV1
+    video_codec = models.CharField(max_length=50, blank=True)
     video_bitrate_kbps = models.IntegerField(null=True, blank=True)
     
-    # Audio Quality
     audio_codec = models.CharField(max_length=100, blank=True)
     has_atmos = models.BooleanField(default=False)
     has_dtsx = models.BooleanField(default=False)
     has_truehd = models.BooleanField(default=False)
     has_dts_hd_ma = models.BooleanField(default=False)
-    audio_channels = models.CharField(max_length=10, blank=True)  # 7.1, 5.1, 2.0
+    audio_channels = models.CharField(max_length=10, blank=True)
     audio_bitrate_kbps = models.IntegerField(null=True, blank=True)
     audio_languages = ArrayField(models.CharField(max_length=50), blank=True, default=list)
     
-    # Subtitles
     subtitle_languages = ArrayField(models.CharField(max_length=50), blank=True, default=list)
     has_hardcoded_subs = models.BooleanField(default=False)
     
-    # Release Info
     release_group = models.CharField(max_length=100, blank=True)
-    release_type = models.CharField(max_length=50, blank=True)  # remux, web-dl, bluray
+    release_type = models.CharField(max_length=50, blank=True)
     is_scene = models.BooleanField(default=False)
-    edition = models.CharField(max_length=100, blank=True)  # Extended, Director's Cut
+    edition = models.CharField(max_length=100, blank=True)
     is_proper = models.BooleanField(default=False)
     is_repack = models.BooleanField(default=False)
     
-    # Availability
     seeders = models.IntegerField(default=0)
     leechers = models.IntegerField(default=0)
     upload_date = models.DateTimeField(null=True, blank=True)
     
-    # Quality Scores (0-100)
-    quality_score = models.IntegerField(default=0)  # Total score
-    video_score = models.IntegerField(default=0)  # Max 30
-    audio_score = models.IntegerField(default=0)  # Max 40
-    hdr_score = models.IntegerField(default=0)  # Max 15
-    release_score = models.IntegerField(default=0)  # Max 10
-    seeds_score = models.IntegerField(default=0)  # Max 5
+    quality_score = models.IntegerField(default=0)
+    video_score = models.IntegerField(default=0)
+    audio_score = models.IntegerField(default=0)
+    hdr_score = models.IntegerField(default=0)
+    release_score = models.IntegerField(default=0)
+    seeds_score = models.IntegerField(default=0)
     
-    # Real-Debrid Status
     in_realdebrid = models.BooleanField(default=False)
     realdebrid_id = models.CharField(max_length=100, blank=True)
-    realdebrid_status = models.CharField(max_length=50, blank=True)  # downloading, downloaded, error
-    realdebrid_progress = models.IntegerField(default=0)  # 0-100
+    realdebrid_status = models.CharField(max_length=50, blank=True)
+    realdebrid_progress = models.IntegerField(default=0)
     realdebrid_added_at = models.DateTimeField(null=True, blank=True)
     realdebrid_completed_at = models.DateTimeField(null=True, blank=True)
-    realdebrid_links = models.JSONField(default=list, blank=True)  # Direct download links
+    realdebrid_links = models.JSONField(default=list, blank=True)
     
-    # Instant Availability
     instantly_available = models.BooleanField(default=False)
     instant_check_at = models.DateTimeField(null=True, blank=True)
     
-    # Timestamps
     found_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_seeder_check = models.DateTimeField(null=True, blank=True)

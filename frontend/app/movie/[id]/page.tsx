@@ -4,6 +4,9 @@ import { cookies } from 'next/headers';
 // CORREÇÃO AQUI: Sem as chaves { } !
 import MovieClient from './MovieClient'; 
 
+// Força o Next.js a nunca cachear essa página inteira (Ótimo para apps dinâmicos como o nosso)
+export const dynamic = 'force-dynamic';
+
 export default async function MovieServerPage({ params }: { params: Promise<{ id: string }> }) {
   const queryClient = new QueryClient();
   
@@ -18,6 +21,7 @@ export default async function MovieServerPage({ params }: { params: Promise<{ id
     queryFn: async () => {
       const djangoUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const res = await fetch(`${djangoUrl}/api/movies/${movieId}/`, {
+        cache: 'no-store', // <-- O DESTRUIDOR DE CACHE AQUI!
         headers: {
           'Content-Type': 'application/json',
           ...(token && { 'Authorization': `Bearer ${token}` }),

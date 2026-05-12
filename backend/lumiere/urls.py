@@ -16,6 +16,7 @@ from apps.users.views import UserViewSet
 
 # 1. IMPORTAÇÃO NOVA PARA O WEBSOCKET TICKET
 from apps.core.views import issue_ws_ticket, health_check
+from apps.users.views import ProfileTelemetryView # <-- Tem que vir do users/views!
 
 
 def home(request):
@@ -56,4 +57,7 @@ urlpatterns = [
 
     # Prometheus metrics endpoint
     path('metrics/', include('django_prometheus.urls')),
+
+    # Users telemetry
+    path('api/profile/telemetry/', ProfileTelemetryView.as_view(), name='profile-telemetry'),
 ]

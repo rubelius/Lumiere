@@ -4,13 +4,21 @@ from .utils import calculate_quality_score, parse_quality_from_title
 
 
 class MovieListSerializer(serializers.ModelSerializer):
+    """
+    Serializer otimizado para as listas (Home e Library).
+    Traz apenas o essencial para montar cards bonitos e ricos em detalhes visuais,
+    mas deixa listas gigantes (cast, alternative_titles) de fora para não pesar a rede.
+    """
     class Meta:
         model = Movie
         fields = [
             'id', 'title', 'original_title', 'overview', 'year', 'director', 
             'poster_url', 'ranking_current', 'tmdb_rating',
             'length_minutes', 'background_url', 'country', 'tagline', 'in_plex', 'genres', 'trailer_url',
-            'logo_url', 'cinematographer', 'composer', 'writer', 'streaming_providers'
+            
+            # ── METADADOS PREMIUM EXPOSTOS PARA A LISTA ──
+            'logo_url', 'cinematographer', 'composer', 'writer', 'streaming_providers',
+            'mpaa_rating', 'color', 'collection_name' 
         ]
 
 class MovieSerializer(serializers.ModelSerializer):
@@ -19,7 +27,15 @@ class MovieSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class MovieDetailSerializer(serializers.ModelSerializer):
-    # Mantemos o nome 'current_ranking' aqui pro frontend não quebrar
+    """
+    Serializer pesado para a página individual do filme.
+    Como usa '__all__', o Frontend já tem acesso automático a:
+    - cast (Atores com fotos)
+    - alternative_titles (Outros nomes do filme)
+    - budget & revenue (Orçamento e Bilheteria)
+    - tspdt_history (O gráfico histórico de evolução do filme)
+    """
+    # Mantemos o nome 'current_ranking' aqui pro frontend antigo não quebrar
     current_ranking = serializers.SerializerMethodField() 
     best_releases = serializers.SerializerMethodField()
     similar_movies = serializers.SerializerMethodField()
@@ -29,7 +45,6 @@ class MovieDetailSerializer(serializers.ModelSerializer):
         fields = '__all__'
     
     def get_current_ranking(self, obj):
-        # CORRIGIDO: Agora usamos o campo novo da Curated Zone!
         return obj.ranking_current
     
     def get_best_releases(self, obj):

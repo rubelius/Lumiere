@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Carregar variáveis de ambiente do arquivo .env
-env_path = BASE_DIR / 'lumiere' / '.env'
+env_path = BASE_DIR / '.env'
 load_dotenv(dotenv_path=env_path)
 
 # ==============================================================================
@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     
     # Third party apps
     'rest_framework',
@@ -117,7 +118,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME', 'lumiere'),
         'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),  # ✅ NUNCA hardcode senhas
+        'PASSWORD': os.getenv('DB_PASSWORD', ''), 
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
         'CONN_MAX_AGE': 600,  # Connection pooling
@@ -304,3 +305,12 @@ LOGGING = {
         'level': 'INFO',
     },
 }
+
+
+# ==============================================================================
+# EXTERNAL SOURCES
+# ==============================================================================
+
+OMDB_API_KEY = os.getenv('OMDB_API_KEY')
+TMDB_API_KEY = os.getenv('TMDB_API_KEY')
+REAL_DEBRID_API_KEY = os.getenv('REAL_DEBRID_API_KEY')
