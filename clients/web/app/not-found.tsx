@@ -1,21 +1,50 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+'use client';
+
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
+
+const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
+    <div
+      className="min-h-screen w-full flex items-center justify-center"
+      style={{ backgroundColor: 'var(--bg)', color: 'var(--film)' }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: FINE_ART_EASE }}
+        style={{ maxWidth: 560, padding: '0 32px' }}
+      >
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--m3)', textTransform: 'uppercase' }}>
+          [ Referência não localizada ]
+        </div>
 
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
-        </CardContent>
-      </Card>
+        <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '4rem', fontWeight: 400, lineHeight: 1, margin: '24px 0 0 0' }}>
+          Rolo ausente.
+        </h1>
+
+        <div style={{ height: 1, background: 'color-mix(in srgb, var(--film) 7%, transparent)', margin: '32px 0' }} />
+
+        <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', lineHeight: 1.8, letterSpacing: '0.05em', color: 'var(--m2)', margin: 0 }}>
+          Esta bobina não consta no acervo. O endereço pode ter sido
+          reclassificado, ou nunca ter existido.
+        </p>
+
+        <motion.div whileHover="hover" initial="rest" animate="rest" style={{ display: 'inline-block', marginTop: 48 }}>
+          <Link
+            href="/"
+            style={{ display: 'flex', alignItems: 'center', gap: 12, fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid color-mix(in srgb, var(--gold) 30%, transparent)', padding: '14px 24px' }}
+          >
+            <motion.span variants={{ rest: { x: 0 }, hover: { x: -4 } }} style={{ display: 'flex' }}>
+              <ArrowLeft style={{ width: 14, height: 14 }} />
+            </motion.span>
+            Retornar ao acervo
+          </Link>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
