@@ -32,6 +32,25 @@ async function parseError(response: Response): Promise<never> {
   throw new APIError(body.error || body);
 }
 
+/**
+ * Uma renovação por vez: várias queries paralelas tomando 401 juntas devem
+ * compartilhar o mesmo refresh, e não disparar N rotações de token (o Django
+ * usa ROTATE_REFRESH_TOKENS, então corridas invalidariam umas às outras).
+ */
+let isRefreshing: Promise<boolean> | null = null;
+
+function refreshSession(): Promise<boolean> {
+  if (!isRefreshing) {
+    isRefreshing = fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
+      .then((r) => r.ok)
+      .catch(() => false)
+      .finally(() => {
+        isRefreshing = null;
+      });
+  }
+  return isRefreshing;
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { params, ...fetchOptions } = options;
 
@@ -46,14 +65,22 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const headers = new Headers(fetchOptions.headers);
   headers.set('Content-Type', 'application/json');
 
-  const response = await fetch(url.toString(), {
-    ...fetchOptions,
-    headers,
-    credentials: 'include', // <-- A MÁGICA ACONTECE AQUI. O navegador envia o Cookie HttpOnly automaticamente.
-  });
+  const enviar = () =>
+    fetch(url.toString(), {
+      ...fetchOptions,
+      headers,
+      credentials: 'include', // o navegador envia o Cookie HttpOnly automaticamente
+    });
 
-  // TODO: Lógica de refresh token silencioso no caso de status 401
-  // Será implementada posteriormente usando a rota /api/auth/refresh do Next.js
+  let response = await enviar();
+
+  // Refresh silencioso: no 401, renova a sessão pela rota do Next (que guarda
+  // o refresh_token HttpOnly) e repete a requisição uma única vez. Requisições
+  // simultâneas aguardam a mesma renovação — refreshSession() faz a dedupe.
+  if (response.status === 401) {
+    const renovou = await refreshSession();
+    if (renovou) response = await enviar();
+  }
 
   if (!response.ok) return parseError(response);
   

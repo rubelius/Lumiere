@@ -1,4 +1,6 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+
 from .models import Movie, TorrentRelease
 from .utils import calculate_quality_score, parse_quality_from_title
 
@@ -24,45 +26,7 @@ class MovieListSerializer(serializers.ModelSerializer):
 class MovieSerializer(serializers.ModelSerializer):
     class Meta:
         model = Movie
-        fields = '__all__'
-
-class MovieDetailSerializer(serializers.ModelSerializer):
-    """
-    Serializer pesado para a página individual do filme.
-    Como usa '__all__', o Frontend já tem acesso automático a:
-    - cast (Atores com fotos)
-    - alternative_titles (Outros nomes do filme)
-    - budget & revenue (Orçamento e Bilheteria)
-    - tspdt_history (O gráfico histórico de evolução do filme)
-    """
-    # Mantemos o nome 'current_ranking' aqui pro frontend antigo não quebrar
-    current_ranking = serializers.SerializerMethodField() 
-    best_releases = serializers.SerializerMethodField()
-    similar_movies = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Movie
-        fields = '__all__'
-    
-    def get_current_ranking(self, obj):
-        return obj.ranking_current
-    
-    def get_best_releases(self, obj):
-        releases = list(obj.torrent_releases.all())[:5]
-        return TorrentReleaseSerializer(releases, many=True).data
-    
-    def get_similar_movies(self, obj):
-        from apps.ml.models import MovieSimilarity
-        similarities = MovieSimilarity.objects.filter(
-            movie=obj
-        ).select_related('similar_movie')[:10]
-        
-        return [{
-            'movie': MovieListSerializer(sim.similar_movie).data,
-            'similarity': float(sim.overall_similarity) if sim.overall_similarity is not None else 0.0,
-            'type': str(sim.similarity_type)
-        } for sim in similarities]
-
+        exclude = ['embedding', 'embedding_model']
 
 class TorrentReleaseSerializer(serializers.ModelSerializer):
     size_gb = serializers.ReadOnlyField()
@@ -88,6 +52,57 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
         scores = calculate_quality_score(validated_data)
         validated_data.update(scores)
         return super().create(validated_data)
+
+
+class SimilarMovieSerializer(serializers.Serializer):
+    """Forma de cada item de MovieDetailSerializer.similar_movies."""
+    movie = MovieListSerializer(read_only=True)
+    similarity = serializers.FloatField(read_only=True)
+    type = serializers.CharField(read_only=True)
+
+
+class MovieDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer pesado para a página individual do filme.
+    Expõe todo o modelo menos o embedding, então o frontend já recebe:
+    - cast (Atores com fotos)
+    - alternative_titles (Outros nomes do filme)
+    - budget & revenue (Orçamento e Bilheteria)
+    - tspdt_history (O gráfico histórico de evolução do filme)
+    """
+    # Mantemos o nome 'current_ranking' aqui pro frontend antigo não quebrar
+    current_ranking = serializers.SerializerMethodField() 
+    best_releases = serializers.SerializerMethodField()
+    similar_movies = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Movie
+        # 'embedding' e um vetor de 768 dimensoes usado apenas pelo recomendador:
+        # ~12 KB por filme na rede quando preenchido, e nenhum cliente le.
+        exclude = ['embedding', 'embedding_model']
+    
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_current_ranking(self, obj):
+        return obj.ranking_current
+    
+    @extend_schema_field(TorrentReleaseSerializer(many=True))
+    def get_best_releases(self, obj):
+        releases = list(obj.torrent_releases.all())[:5]
+        return TorrentReleaseSerializer(releases, many=True).data
+    
+    @extend_schema_field(SimilarMovieSerializer(many=True))
+    def get_similar_movies(self, obj):
+        from apps.ml.models import MovieSimilarity
+        similarities = MovieSimilarity.objects.filter(
+            movie=obj
+        ).select_related('similar_movie')[:10]
+        
+        return [{
+            'movie': MovieListSerializer(sim.similar_movie).data,
+            'similarity': float(sim.overall_similarity) if sim.overall_similarity is not None else 0.0,
+            'type': str(sim.similarity_type)
+        } for sim in similarities]
+
 
 class TorrentReleaseCreateSerializer(serializers.Serializer):
     movie_id = serializers.UUIDField()

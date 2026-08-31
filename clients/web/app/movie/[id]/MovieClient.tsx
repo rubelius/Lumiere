@@ -107,7 +107,7 @@ export default function MovieClient() {
   const similarMovies = movie.similar_movies || [];
   const mediaCaptures = (movie as any).media_captures || [];
 
-  const getYoutubeId = (url: string) => {
+  const getYoutubeId = (url?: string) => {
     if (!url) return null;
     const match = url.match(/[?&]v=([^&]+)/);
     return match ? match[1] : null;
@@ -236,7 +236,7 @@ export default function MovieClient() {
                 </motion.div> 
 
                 <motion.div variants={fadeUpItem} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '64px' }}> 
-                  {movie.genres?.length > 0 ? (
+                  {movie.genres && movie.genres.length > 0 ? (
                     movie.genres.map((tag: string) => ( 
                       <motion.span whileHover={{ scale: 1.1, backgroundColor: 'var(--gold)' }} whileTap={{ scale: 0.95 }} key={tag} style={{ cursor: 'crosshair', transition: 'background-color 0.3s', fontFamily: "'DM Mono', monospace", fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.2em', padding: '6px 12px', backgroundColor: 'var(--film)', color: 'var(--void)' }}> 
                         {tag} 

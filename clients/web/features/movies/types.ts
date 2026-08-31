@@ -1,5 +1,18 @@
 // src/features/movies/types.ts
+//
+// Os tipos derivam de types/api-generated.ts, gerado do schema OpenAPI do
+// Django (`npm run gen:api`). Não escreva campos de filme à mão aqui: foi
+// assim que surgiu um MovieListItem com 7 campos que a API nunca devolveu.
+//
+// A única coisa que refinamos são os JSONField do Django, que o
+// drf-spectacular não consegue inferir e tipa como `unknown`.
 
+import type { components } from '@/types/api-generated'
+
+type GenMovieList = components['schemas']['MovieList']
+type GenMovieDetail = components['schemas']['MovieDetail']
+
+// ── Formas dos JSONField (invisíveis para o gerador) ──
 export interface StreamingProvider {
   name: string;
   logo: string;
@@ -18,56 +31,29 @@ export interface AlternativeTitle {
   country: string;
 }
 
-// ── 1. TIPAGEM DA LISTA (Home e Library) ──
-// Esse é o reflexo exato do nosso MovieListSerializer do Django
-export interface MovieListItem {
-  id: string;
-  title: string;
-  original_title: string;
-  overview: string;
-  year: number | null;
-  director: string;
-  poster_url: string;
-  ranking_current: number | null;
-  tmdb_rating: string | number | null;
-  length_minutes: number | null;
-  background_url: string;
-  country: string;
-  tagline: string;
-  in_plex: boolean;
-  genres: string[];
-  trailer_url: string;
-  
-  // Nossos novos campos Premium!
-  logo_url: string | null;
-  cinematographer: string | null;
-  composer: string | null;
-  writer: string | null;
+// ── 1. LISTA (Home e Library) ──
+export type MovieListItem = Omit<GenMovieList, 'streaming_providers'> & {
   streaming_providers: StreamingProvider[] | null;
-  mpaa_rating: string;
-  color: string;
-  collection_name: string | null;
 }
 
-// ── 2. TIPAGEM DO FILME COMPLETO (Página de Detalhes) ──
-// Herda a lista e adiciona os campos pesados do MovieDetailSerializer
-export interface MovieDetail extends MovieListItem {
+// ── 2. DETALHE (página individual) ──
+export type MovieDetail = Omit<
+  GenMovieDetail,
+  'streaming_providers' | 'cast' | 'crew' | 'alternative_titles' | 'tspdt_history' | 'festivals'
+> & {
+  streaming_providers: StreamingProvider[] | null;
   cast: CastMember[];
-  crew: any[]; 
+  crew: unknown[];
   alternative_titles: AlternativeTitle[];
+  /** Evolução do ranking TSPDT por ano — alimenta o TspdtHistoryChart. */
   tspdt_history: Record<string, number>;
-  budget: number | null;
-  revenue: number | null;
-  current_ranking: number | null;
-  best_releases: any[]; // Tiparemos isso melhor quando focarmos no Prowlarr
-  similar_movies: Array<{
-    movie: MovieListItem;
-    similarity: number;
-    type: string;
-  }>;
+  festivals: unknown;
 }
 
-// ── 3. TIPAGEM DA PAGINAÇÃO DO DJANGO ──
+export type SimilarMovie = components['schemas']['SimilarMovie']
+export type TorrentRelease = components['schemas']['TorrentRelease']
+
+// ── 3. PAGINAÇÃO DO DJANGO ──
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;

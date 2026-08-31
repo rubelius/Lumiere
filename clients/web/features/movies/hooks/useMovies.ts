@@ -2,6 +2,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { http } from '@/services/http/client';
 import { moviesApi } from '../api/moviesApi';
 import { PaginatedResponse, MovieListItem, MovieDetail } from '../types';
 
@@ -38,32 +39,23 @@ export function useMovies(params: UseMoviesParams = { page: 1 }) {
       params.curations
     ],
     
-    queryFn: async (): Promise<PaginatedResponse<MovieListItem>> => {
-      const queryParams = new URLSearchParams();
-      
-      // Filtros básicos
-      if (params.page) queryParams.append('page', params.page.toString());
-      if (params.search) queryParams.append('search', params.search);
-      // Evita mandar "Acervo Completo" (que é o 'Todos') para o backend
-      if (params.category && params.category !== "Acervo Completo") {
-        queryParams.append('category', params.category);
-      }
+    queryFn: (): Promise<PaginatedResponse<MovieListItem>> => {
+      // Arrays viram lista separada por virgula: genres=Drama,Ação
+      const csv = (v?: string[]) => (v?.length ? v.join(',') : undefined);
 
-      // 👇 3. FILTROS AVANÇADOS: Junta os arrays com vírgula. 
-      // Ex: se tiver ["Drama", "Ação"], vai virar "genres=Drama,Ação" na URL
-      if (params.qualities?.length) queryParams.append('qualities', params.qualities.join(','));
-      if (params.genres?.length) queryParams.append('genres', params.genres.join(','));
-      if (params.decades?.length) queryParams.append('decades', params.decades.join(','));
-      if (params.curations?.length) queryParams.append('curations', params.curations.join(','));
-
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/movies/?${queryParams.toString()}`;
-      
-      const res = await fetch(url, {
-        credentials: 'include'
+      return http.get<PaginatedResponse<MovieListItem>>('/api/movies/', {
+        params: {
+          page: params.page,
+          // string vazia nao vira `search=` na URL
+          search: params.search || undefined,
+          // 'Acervo Completo' e o "todos" da UI — nao vai para o backend
+          category: params.category !== 'Acervo Completo' ? params.category : undefined,
+          qualities: csv(params.qualities),
+          genres: csv(params.genres),
+          decades: csv(params.decades),
+          curations: csv(params.curations),
+        },
       });
-      
-      if (!res.ok) throw new Error('Falha ao buscar filmes');
-      return res.json();
     },
     staleTime: 60000, 
   });

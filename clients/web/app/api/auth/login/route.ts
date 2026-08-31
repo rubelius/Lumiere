@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { setAuthCookies } from '@/lib/auth-cookies';
 
 const DJANGO_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -26,24 +27,9 @@ export async function POST(request: Request) {
       return NextResponse.json(data, { status: djangoResponse.status });
     }
 
-    // Sucesso! Configurando os Cookies HttpOnly
+    // Sucesso! Cookies HttpOnly dimensionados pelo `exp` do proprio token.
     const response = NextResponse.json({ success: true });
-
-    response.cookies.set('access_token', data.access, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 15,
-      path: '/',
-    });
-
-    response.cookies.set('refresh_token', data.refresh, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/',
-    });
+    setAuthCookies(response, data.access, data.refresh);
 
     return response;
 
