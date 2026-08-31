@@ -1,6 +1,7 @@
 'use client'
 
 import { HeroProgramme } from '@/components/home/HeroProgramme'
+import Image from 'next/image';
 import { CinemaMarquee, FilmProgramme, FilmEntry } from '@/components/home/FilmProgramme'
 import { NowProjecting, AdmitOne, LibraryCount, SessionRow } from '@/components/home/Sections'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -233,10 +234,12 @@ export default function HomePage() {
                   WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)'
                 }}
               >
-                <img 
-                  src={hoveredFeaturedFilm.backgroundSrc} 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(60%) contrast(1.1)' }} 
+                <Image
+                  src={hoveredFeaturedFilm.backgroundSrc}
                   alt=""
+                  fill
+                  sizes="100vw"
+                  style={{ objectFit: 'cover', filter: 'grayscale(60%) contrast(1.1)' }}
                 />
               </motion.div>
             )}

@@ -1,6 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image';
 import Link from 'next/link'
 import { useState } from 'react'
 
@@ -187,7 +188,14 @@ export function HeroProgramme({
             <motion.div initial={{ opacity: 0, x: 40, rotateY: 10 }} animate={{ opacity: 1, x: 0, rotateY: 0 }} transition={{ duration: 1.6, delay: 0.4, ease }} style={{ position: 'relative', width: '25vw', maxWidth: 360, perspective: 1000 }}>
               <div style={{ position: 'absolute', inset: -8, border: '1px solid rgba(237,232,220,0.05)', borderRadius: 2, pointerEvents: 'none' }} />
               <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden', borderRadius: 1, boxShadow: '-30px 0 60px rgba(8,8,6,0.9)' }}>
-                <img src={posterSrc} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'saturate(0.85) contrast(1.1)' }} />
+                <Image
+                  src={posterSrc}
+                  alt={title}
+                  fill
+                  priority
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  style={{ objectFit: 'cover', filter: 'saturate(0.85) contrast(1.1)' }}
+                />
                 <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 40px rgba(8,8,6,0.6)', pointerEvents: 'none' }} />
               </div>
             </motion.div>

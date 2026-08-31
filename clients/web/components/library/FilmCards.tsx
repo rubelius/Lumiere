@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion";
 
 const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
@@ -55,7 +56,7 @@ export function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClic
           style={{ position: 'absolute', top: 0, bottom: 0, right: 0, overflow: 'hidden', zIndex: -1, filter: 'grayscale(100%)', transformOrigin: 'right' }}
         >
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--bg) 0%, transparent 100%)', zIndex: 1 }} />
-          <img src={film.img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
+          <Image src={film.img} alt="" fill sizes="50vw" style={{ objectFit: 'cover' }} />
         </motion.div>
 
         <motion.div animate={{ color: isHovered ? 'var(--gold)' : 'var(--m4)' }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
@@ -68,7 +69,7 @@ export function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClic
               initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }} animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }} exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }}
               style={{ position: 'absolute', left: 90, top: 35, width: 110, height: 160, zIndex: 5 }}
             >
-              <img src={film.img} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(25%) contrast(1.1)' }} alt="" />
+              <Image src={film.img} width={110} height={160} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(25%) contrast(1.1)' }} />
             </motion.div>
           )}
         </AnimatePresence>

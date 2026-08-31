@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import Image from 'next/image';
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence, useAnimationFrame, useMotionValue, useTransform, useSpring } from 'framer-motion'
@@ -159,10 +160,12 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
           style={{ position: 'absolute', top: 0, bottom: 0, right: 0, overflow: 'hidden', zIndex: -1, filter: 'grayscale(100%)', willChange: 'width, opacity' }}
         >
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--bg) 0%, transparent 100%)', zIndex: 1 }} />
-          <img 
+          <Image 
             src={finalBg} 
+            fill
+            sizes="50vw"
             style={{ 
-              width: '100%', height: '100%', objectFit: 'cover', 
+              objectFit: 'cover', 
               filter: isFallbackBg ? 'blur(20px) grayscale(60%) contrast(1.2)' : 'none', 
               transform: isFallbackBg ? 'scale(1.1)' : 'none' 
             }} 
@@ -177,7 +180,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
         <AnimatePresence>
           {isHovered && !isExpanded && (
             <motion.div initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }} animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }} exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }} transition={{ duration: 0.85, ease: FINE_ART_EASE }} style={{ position: 'absolute', left: 90, top: 35, width: 110, height: 160 }}>
-              <img src={film.posterSrc} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(25%) contrast(1.1)' }} alt="" />
+              <Image src={film.posterSrc} width={110} height={160} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(25%) contrast(1.1)' }} />
             </motion.div>
           )}
         </AnimatePresence>
