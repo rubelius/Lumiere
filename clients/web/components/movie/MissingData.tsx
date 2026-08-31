@@ -13,8 +13,8 @@ export const MissingData = ({ label }: { label: string }) => (
       alignItems: 'center', justifyContent: 'center', gap: '12px', transition: 'all 0.3s'
     }}
   >
-    <AlertCircle style={{ width: 24, height: 24, color: '#8C8880' }} />
-    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#8C8880', letterSpacing: '0.2em', textTransform: 'uppercase', textAlign: 'center' }}>
+    <AlertCircle style={{ width: 24, height: 24, color: 'var(--m2)' }} />
+    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m2)', letterSpacing: '0.2em', textTransform: 'uppercase', textAlign: 'center' }}>
       [ REGISTRO INCOMPLETO: "{label}" NÃO LOCALIZADO NO BANCO DE DADOS ]
     </span>
   </motion.div>

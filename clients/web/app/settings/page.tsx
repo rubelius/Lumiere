@@ -75,7 +75,7 @@ export default function Settings() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#080806', color: '#EDE8DC', paddingBottom: 120 }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', color: 'var(--film)', paddingBottom: 120 }}>
       <div className="fixed inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none z-50" />
       
       <main style={{ maxWidth: 1400, margin: '0 auto', padding: '120px 72px 0' }}>
@@ -86,16 +86,16 @@ export default function Settings() {
           style={{ marginBottom: 80, borderBottom: '1px solid rgba(237,232,220,0.05)', paddingBottom: 40, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}
         >
           <div>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 16 }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 16 }}>
               [ DIRETÓRIO DE CONFIGURAÇÃO ]
             </div>
             <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 6vw, 5.5rem)', fontWeight: 400, margin: 0, lineHeight: 1, letterSpacing: '-0.02em' }}>
               Parâmetros do Sistema.
             </h1>
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', textAlign: 'right' }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', textAlign: 'right' }}>
             <div style={{ marginBottom: 4 }}>TEMPO DE ATIVIDADE</div>
-            <div style={{ color: '#BF8F3C' }}>{systemTime}</div>
+            <div style={{ color: 'var(--gold)' }}>{systemTime}</div>
           </div>
         </motion.div>
 
@@ -114,8 +114,8 @@ export default function Settings() {
                   onClick={() => setActiveTab(item.label)}
                   animate={{ 
                     backgroundColor: isActive ? 'rgba(191,143,60,0.05)' : 'rgba(237,232,220,0)',
-                    borderLeftColor: isActive ? '#BF8F3C' : 'rgba(191,143,60,0)',
-                    color: isActive ? '#BF8F3C' : '#8C8880',
+                    borderLeftColor: isActive ? 'var(--gold)' : 'rgba(191,143,60,0)',
+                    color: isActive ? 'var(--gold)' : 'var(--m2)',
                     x: isActive ? 4 : 0
                   }}
                   whileHover={{ backgroundColor: isActive ? 'rgba(191,143,60,0.08)' : 'rgba(237,232,220,0.02)', x: 4 }}
@@ -126,7 +126,7 @@ export default function Settings() {
                     fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase'
                   }}
                 >
-                  <item.icon style={{ width: 16, height: 16, color: isActive ? '#BF8F3C' : '#565450' }} />
+                  <item.icon style={{ width: 16, height: 16, color: isActive ? 'var(--gold)' : 'var(--m3)' }} />
                   {item.label}
                 </motion.button>
               )
@@ -146,8 +146,8 @@ export default function Settings() {
                 {activeTab === "Reprodução" && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-                      <Tv style={{ width: 24, height: 24, color: '#BF8F3C' }} />
-                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>Preferências de Reprodução</h2>
+                      <Tv style={{ width: 24, height: 24, color: 'var(--gold)' }} />
+                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: 'var(--film)' }}>Preferências de Reprodução</h2>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -160,13 +160,13 @@ export default function Settings() {
                           style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr 40px', alignItems: 'center', padding: '24px 0', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
                         >
                           <div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: '#EDE8DC', letterSpacing: '0.15em', marginBottom: 6 }}>QUALIDADE ALVO</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#565450', letterSpacing: '0.1em' }}>AQUISIÇÃO PREFERENCIAL DO REAL-DEBRID</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: 'var(--film)', letterSpacing: '0.15em', marginBottom: 6 }}>QUALIDADE ALVO</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>AQUISIÇÃO PREFERENCIAL DO REAL-DEBRID</div>
                           </div>
-                          <div style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#BF8F3C' }}>
+                          <div style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)' }}>
                             [ {playbackPrefs.quality} ]
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', color: '#565450' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', color: 'var(--m3)' }}>
                             <motion.div animate={{ rotate: openDropdown === 'quality' ? 180 : 0 }}><ChevronDown style={{ width: 16, height: 16 }} /></motion.div>
                           </div>
                         </motion.button>
@@ -177,8 +177,8 @@ export default function Settings() {
                                 {["4K HDR REMUX", "4K WEB-DL", "1080P REMUX", "1080P WEB-DL"].map(opt => (
                                   <motion.button 
                                     key={opt} onClick={() => { setPlaybackPrefs(prev => ({...prev, quality: opt})); setOpenDropdown(null); }}
-                                    whileHover={{ backgroundColor: 'rgba(191,143,60,0.05)', borderColor: '#BF8F3C' }}
-                                    style={{ padding: '12px 16px', background: playbackPrefs.quality === opt ? 'rgba(191,143,60,0.1)' : 'transparent', border: playbackPrefs.quality === opt ? '1px solid #BF8F3C' : '1px solid rgba(237,232,220,0.05)', cursor: 'pointer', textAlign: 'left', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: playbackPrefs.quality === opt ? '#EDE8DC' : '#8C8880', transition: 'all 0.2s' }}
+                                    whileHover={{ backgroundColor: 'rgba(191,143,60,0.05)', borderColor: 'var(--gold)' }}
+                                    style={{ padding: '12px 16px', background: playbackPrefs.quality === opt ? 'rgba(191,143,60,0.1)' : 'transparent', border: playbackPrefs.quality === opt ? '1px solid var(--gold)' : '1px solid rgba(237,232,220,0.05)', cursor: 'pointer', textAlign: 'left', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: playbackPrefs.quality === opt ? 'var(--film)' : 'var(--m2)', transition: 'all 0.2s' }}
                                   >
                                     {opt}
                                   </motion.button>
@@ -197,13 +197,13 @@ export default function Settings() {
                           style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr 40px', alignItems: 'center', padding: '24px 0', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
                         >
                           <div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: '#EDE8DC', letterSpacing: '0.15em', marginBottom: 6 }}>PRIORIDADE DE ÁUDIO</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#565450', letterSpacing: '0.1em' }}>FORMATO PADRÃO SELECIONADO NO PLAYER</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: 'var(--film)', letterSpacing: '0.15em', marginBottom: 6 }}>PRIORIDADE DE ÁUDIO</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>FORMATO PADRÃO SELECIONADO NO PLAYER</div>
                           </div>
-                          <div style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#BF8F3C' }}>
+                          <div style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)' }}>
                             [ {playbackPrefs.audio} ]
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', color: '#565450' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', color: 'var(--m3)' }}>
                             <motion.div animate={{ rotate: openDropdown === 'audio' ? 180 : 0 }}><ChevronDown style={{ width: 16, height: 16 }} /></motion.div>
                           </div>
                         </motion.button>
@@ -214,8 +214,8 @@ export default function Settings() {
                                 {["TRUEHD / DTS-HD MA", "E-AC3 / AC3 5.1", "AAC 2.0 (STEREO)"].map(opt => (
                                   <motion.button 
                                     key={opt} onClick={() => { setPlaybackPrefs(prev => ({...prev, audio: opt})); setOpenDropdown(null); }}
-                                    whileHover={{ backgroundColor: 'rgba(191,143,60,0.05)', borderColor: '#BF8F3C' }}
-                                    style={{ padding: '12px 16px', background: playbackPrefs.audio === opt ? 'rgba(191,143,60,0.1)' : 'transparent', border: playbackPrefs.audio === opt ? '1px solid #BF8F3C' : '1px solid rgba(237,232,220,0.05)', cursor: 'pointer', textAlign: 'left', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: playbackPrefs.audio === opt ? '#EDE8DC' : '#8C8880', transition: 'all 0.2s' }}
+                                    whileHover={{ backgroundColor: 'rgba(191,143,60,0.05)', borderColor: 'var(--gold)' }}
+                                    style={{ padding: '12px 16px', background: playbackPrefs.audio === opt ? 'rgba(191,143,60,0.1)' : 'transparent', border: playbackPrefs.audio === opt ? '1px solid var(--gold)' : '1px solid rgba(237,232,220,0.05)', cursor: 'pointer', textAlign: 'left', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: playbackPrefs.audio === opt ? 'var(--film)' : 'var(--m2)', transition: 'all 0.2s' }}
                                   >
                                     {opt}
                                   </motion.button>
@@ -234,13 +234,13 @@ export default function Settings() {
                           style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr 40px', alignItems: 'center', padding: '24px 0', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
                         >
                           <div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: '#EDE8DC', letterSpacing: '0.15em', marginBottom: 6 }}>LIMITE DE AQUISIÇÃO</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#565450', letterSpacing: '0.1em' }}>TAMANHO MÁXIMO POR ARQUIVO DE FILME</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: 'var(--film)', letterSpacing: '0.15em', marginBottom: 6 }}>LIMITE DE AQUISIÇÃO</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>TAMANHO MÁXIMO POR ARQUIVO DE FILME</div>
                           </div>
-                          <div style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#BF8F3C' }}>
+                          <div style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)' }}>
                             [ {playbackPrefs.limit} ]
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', color: '#565450' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', color: 'var(--m3)' }}>
                             <motion.div animate={{ rotate: openDropdown === 'limit' ? 180 : 0 }}><ChevronDown style={{ width: 16, height: 16 }} /></motion.div>
                           </div>
                         </motion.button>
@@ -251,8 +251,8 @@ export default function Settings() {
                                 {["SEM LIMITE", "100 GB / FILME", "50 GB / FILME", "20 GB / FILME"].map(opt => (
                                   <motion.button 
                                     key={opt} onClick={() => { setPlaybackPrefs(prev => ({...prev, limit: opt})); setOpenDropdown(null); }}
-                                    whileHover={{ backgroundColor: 'rgba(191,143,60,0.05)', borderColor: '#BF8F3C' }}
-                                    style={{ padding: '12px 16px', background: playbackPrefs.limit === opt ? 'rgba(191,143,60,0.1)' : 'transparent', border: playbackPrefs.limit === opt ? '1px solid #BF8F3C' : '1px solid rgba(237,232,220,0.05)', cursor: 'pointer', textAlign: 'left', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: playbackPrefs.limit === opt ? '#EDE8DC' : '#8C8880', transition: 'all 0.2s' }}
+                                    whileHover={{ backgroundColor: 'rgba(191,143,60,0.05)', borderColor: 'var(--gold)' }}
+                                    style={{ padding: '12px 16px', background: playbackPrefs.limit === opt ? 'rgba(191,143,60,0.1)' : 'transparent', border: playbackPrefs.limit === opt ? '1px solid var(--gold)' : '1px solid rgba(237,232,220,0.05)', cursor: 'pointer', textAlign: 'left', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: playbackPrefs.limit === opt ? 'var(--film)' : 'var(--m2)', transition: 'all 0.2s' }}
                                   >
                                     {opt}
                                   </motion.button>
@@ -266,20 +266,20 @@ export default function Settings() {
                       {/* Toggles Extras */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '32px 0', borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                         <div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: '#EDE8DC', letterSpacing: '0.15em', marginBottom: 6 }}>REPRODUÇÃO AUTOMÁTICA</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#565450', letterSpacing: '0.1em' }}>INICIAR PRÓXIMO EPISÓDIO DE SÉRIES AUTOMATICAMENTE.</div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: 'var(--film)', letterSpacing: '0.15em', marginBottom: 6 }}>REPRODUÇÃO AUTOMÁTICA</div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>INICIAR PRÓXIMO EPISÓDIO DE SÉRIES AUTOMATICAMENTE.</div>
                         </div>
-                        <motion.button onClick={() => handleToggle('autoPlayNext')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.autoPlayNext ? '#BF8F3C' : '#565450', borderColor: toggles.autoPlayNext ? '#BF8F3C' : '#565450' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
+                        <motion.button onClick={() => handleToggle('autoPlayNext')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.autoPlayNext ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.autoPlayNext ? 'var(--gold)' : 'var(--m3)' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
                           [ {toggles.autoPlayNext ? 'ON' : 'OFF'} ]
                         </motion.button>
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '32px 0', borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                         <div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: '#EDE8DC', letterSpacing: '0.15em', marginBottom: 6 }}>PULAR ABERTURAS</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#565450', letterSpacing: '0.1em' }}>PULA AUTOMATICAMENTE A INTRODUÇÃO SE MARCADA PELO SERVIDOR.</div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: 'var(--film)', letterSpacing: '0.15em', marginBottom: 6 }}>PULAR ABERTURAS</div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>PULA AUTOMATICAMENTE A INTRODUÇÃO SE MARCADA PELO SERVIDOR.</div>
                         </div>
-                        <motion.button onClick={() => handleToggle('skipIntro')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.skipIntro ? '#BF8F3C' : '#565450', borderColor: toggles.skipIntro ? '#BF8F3C' : '#565450' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
+                        <motion.button onClick={() => handleToggle('skipIntro')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.skipIntro ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.skipIntro ? 'var(--gold)' : 'var(--m3)' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
                           [ {toggles.skipIntro ? 'ON' : 'OFF'} ]
                         </motion.button>
                       </div>
@@ -292,12 +292,12 @@ export default function Settings() {
                 {activeTab === "Legendas" && (
                    <div>
                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-                       <Type style={{ width: 24, height: 24, color: '#BF8F3C' }} />
-                       <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>Renderização de Texto</h2>
+                       <Type style={{ width: 24, height: 24, color: 'var(--gold)' }} />
+                       <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: 'var(--film)' }}>Renderização de Texto</h2>
                      </div>
                      
                      {/* O Preview Reage aos Sliders */}
-                     <div style={{ aspectRatio: '21/9', width: '100%', backgroundColor: '#040402', border: '1px solid rgba(237,232,220,0.1)', marginBottom: 48, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '5%' }}>
+                     <div style={{ aspectRatio: '21/9', width: '100%', backgroundColor: 'var(--void)', border: '1px solid rgba(237,232,220,0.1)', marginBottom: 48, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '5%' }}>
                        <img src="/images/poster-1.png" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(50%) contrast(1.2)', opacity: 0.5 }} alt="" />
                        
                        <motion.div animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ repeat: Infinity, duration: 4 }} style={{ position: 'absolute', inset: '5%', border: '1px dashed rgba(191,143,60,0.5)', pointerEvents: 'none' }}>
@@ -321,13 +321,13 @@ export default function Settings() {
                         {/* Fader de Escala (Invisível Input Trick) */}
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', textTransform: 'uppercase' }}>// ESCALA DA FONTE</span>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C' }}>{subPrefs.size} PX</span>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>// ESCALA DA FONTE</span>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)' }}>{subPrefs.size} PX</span>
                           </div>
                           <div style={{ width: '100%', height: 24, display: 'flex', alignItems: 'center', position: 'relative' }}>
                             <div style={{ width: '100%', height: 1, backgroundColor: 'rgba(237,232,220,0.1)' }} />
-                            <div style={{ position: 'absolute', left: 0, height: 1, width: `${(subPrefs.size - 16) / (64 - 16) * 100}%`, backgroundColor: '#BF8F3C', pointerEvents: 'none' }} />
-                            <div style={{ position: 'absolute', left: `${(subPrefs.size - 16) / (64 - 16) * 100}%`, width: 2, height: 12, backgroundColor: '#EDE8DC', transform: 'translate(-50%)', boxShadow: '0 0 5px rgba(237,232,220,0.5)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', left: 0, height: 1, width: `${(subPrefs.size - 16) / (64 - 16) * 100}%`, backgroundColor: 'var(--gold)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', left: `${(subPrefs.size - 16) / (64 - 16) * 100}%`, width: 2, height: 12, backgroundColor: 'var(--film)', transform: 'translate(-50%)', boxShadow: '0 0 5px rgba(237,232,220,0.5)', pointerEvents: 'none' }} />
                             <input 
                               type="range" min="16" max="64" value={subPrefs.size} 
                               onChange={(e) => setSubPrefs(prev => ({ ...prev, size: Number(e.target.value) }))}
@@ -339,13 +339,13 @@ export default function Settings() {
                         {/* Fader de Fundo */}
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', textTransform: 'uppercase' }}>// OPACIDADE DO FUNDO</span>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C' }}>{subPrefs.opacity} %</span>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>// OPACIDADE DO FUNDO</span>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)' }}>{subPrefs.opacity} %</span>
                           </div>
                           <div style={{ width: '100%', height: 24, display: 'flex', alignItems: 'center', position: 'relative' }}>
                             <div style={{ width: '100%', height: 1, backgroundColor: 'rgba(237,232,220,0.1)' }} />
-                            <div style={{ position: 'absolute', left: 0, height: 1, width: `${subPrefs.opacity}%`, backgroundColor: '#BF8F3C', pointerEvents: 'none' }} />
-                            <div style={{ position: 'absolute', left: `${subPrefs.opacity}%`, width: 2, height: 12, backgroundColor: '#EDE8DC', transform: 'translate(-50%)', boxShadow: '0 0 5px rgba(237,232,220,0.5)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', left: 0, height: 1, width: `${subPrefs.opacity}%`, backgroundColor: 'var(--gold)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', left: `${subPrefs.opacity}%`, width: 2, height: 12, backgroundColor: 'var(--film)', transform: 'translate(-50%)', boxShadow: '0 0 5px rgba(237,232,220,0.5)', pointerEvents: 'none' }} />
                             <input 
                               type="range" min="0" max="100" value={subPrefs.opacity} 
                               onChange={(e) => setSubPrefs(prev => ({ ...prev, opacity: Number(e.target.value) }))}
@@ -357,7 +357,7 @@ export default function Settings() {
 
                       {/* Cores */}
                       <div>
-                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 24 }}>// PIGMENTAÇÃO DA FONTE</div>
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 24 }}>// PIGMENTAÇÃO DA FONTE</div>
                         <div style={{ display: 'flex', gap: 16 }}>
                           {[ '#FFFFFF', '#FACC15', '#22D3EE' ].map((hex) => {
                             const isActive = subPrefs.color === hex;
@@ -368,7 +368,7 @@ export default function Settings() {
                                 whileHover={{ y: -4 }} whileTap={{ scale: 0.95 }}
                                 style={{ 
                                   width: 40, height: 40, backgroundColor: hex, 
-                                  border: isActive ? `2px solid #BF8F3C` : '1px solid rgba(237,232,220,0.2)',
+                                  border: isActive ? `2px solid var(--gold)` : '1px solid rgba(237,232,220,0.2)',
                                   cursor: 'pointer', boxShadow: isActive ? '0 0 10px rgba(191,143,60,0.3)' : 'none'
                                 }}
                               />
@@ -384,20 +384,20 @@ export default function Settings() {
                 {activeTab === "Aparência" && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-                      <Palette style={{ width: 24, height: 24, color: '#BF8F3C' }} />
-                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>Calibração Visual</h2>
+                      <Palette style={{ width: 24, height: 24, color: 'var(--gold)' }} />
+                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: 'var(--film)' }}>Calibração Visual</h2>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 64 }}>
                       <div>
-                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: 24 }}>// ESPECTRO DE COR (DESTAQUE)</div>
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', marginBottom: 24 }}>// ESPECTRO DE COR (DESTAQUE)</div>
                         <div style={{ display: 'flex', gap: 24 }}>
-                          {[ { name: 'OURO CINEMA', hex: '#BF8F3C', active: true }, { name: 'MONOCROMÁTICO', hex: '#EDE8DC', active: false }, { name: 'PÚRPURA NOIR', hex: '#6366f1', active: false } ].map(color => (
+                          {[ { name: 'OURO CINEMA', hex: 'var(--gold)', active: true }, { name: 'MONOCROMÁTICO', hex: 'var(--film)', active: false }, { name: 'PÚRPURA NOIR', hex: '#6366f1', active: false } ].map(color => (
                             <motion.button key={color.name} whileHover={{ y: -4 }} whileTap={{ scale: 0.95 }} style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                              <div style={{ width: 48, height: 48, backgroundColor: color.hex, border: color.active ? `2px solid #EDE8DC` : '1px solid rgba(237,232,220,0.1)', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <div style={{ width: 48, height: 48, backgroundColor: color.hex, border: color.active ? `2px solid var(--film)` : '1px solid rgba(237,232,220,0.1)', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <div style={{ width: '100%', height: '100%', border: `1px solid rgba(0,0,0,0.2)` }} />
                               </div>
-                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: color.active ? '#EDE8DC' : '#565450', letterSpacing: '0.1em' }}>{color.name}</span>
+                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: color.active ? 'var(--film)' : 'var(--m3)', letterSpacing: '0.1em' }}>{color.name}</span>
                             </motion.button>
                           ))}
                         </div>
@@ -405,14 +405,14 @@ export default function Settings() {
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 24, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                         <div>
-                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#EDE8DC', marginBottom: 8 }}>Efeitos Cinematográficos</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.1em' }}>HABILITA RUÍDO DE FILME, VIGNETTES E TRANSIÇÕES DE DESFOQUE NOS FUNDOS.</div>
+                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>Efeitos Cinematográficos</div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em' }}>HABILITA RUÍDO DE FILME, VIGNETTES E TRANSIÇÕES DE DESFOQUE NOS FUNDOS.</div>
                         </div>
                         <motion.button 
                           onClick={() => handleToggle('fxCinematic')}
                           whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                          animate={{ color: toggles.fxCinematic ? '#BF8F3C' : '#565450', borderColor: toggles.fxCinematic ? '#BF8F3C' : '#565450' }}
-                          style={{ background: 'transparent', border: '1px solid #BF8F3C', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}
+                          animate={{ color: toggles.fxCinematic ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.fxCinematic ? 'var(--gold)' : 'var(--m3)' }}
+                          style={{ background: 'transparent', border: '1px solid var(--gold)', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}
                         >
                           [ {toggles.fxCinematic ? 'ON' : 'OFF'} ]
                         </motion.button>
@@ -425,8 +425,8 @@ export default function Settings() {
                 {activeTab === "API Keys" && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-                      <Key style={{ width: 24, height: 24, color: '#BF8F3C' }} />
-                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>Autenticação</h2>
+                      <Key style={{ width: 24, height: 24, color: 'var(--gold)' }} />
+                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: 'var(--film)' }}>Autenticação</h2>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
@@ -437,8 +437,8 @@ export default function Settings() {
                       ].map(api => (
                         <div key={api.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 24, paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                           <div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', marginBottom: 12 }}>// {api.name}</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '14px', color: '#EDE8DC', letterSpacing: '0.1em' }}>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', marginBottom: 12 }}>// {api.name}</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '14px', color: 'var(--film)', letterSpacing: '0.1em' }}>
                               {api.prefix}••••••••••••••••••••••••
                             </div>
                           </div>
@@ -446,15 +446,15 @@ export default function Settings() {
                           <div style={{ display: 'flex', gap: 16 }}>
                             <motion.button 
                               onClick={() => copyToClipboard(api.id)}
-                              whileHover={{ color: '#BF8F3C', borderColor: '#BF8F3C' }} whileTap={{ scale: 0.95 }}
-                              style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', color: copiedKey === api.id ? '#10b981' : '#8C8880', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8 }}
+                              whileHover={{ color: 'var(--gold)', borderColor: 'var(--gold)' }} whileTap={{ scale: 0.95 }}
+                              style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', color: copiedKey === api.id ? '#10b981' : 'var(--m2)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8 }}
                             >
                               {copiedKey === api.id ? <Check style={{ width: 12, height: 12 }} /> : <Copy style={{ width: 12, height: 12 }} />}
                               [{copiedKey === api.id ? 'COPIADO' : 'COPIAR'}]
                             </motion.button>
                             <motion.button 
-                              whileHover={{ color: '#040402', backgroundColor: '#BF8F3C', borderColor: '#BF8F3C' }} whileTap={{ scale: 0.95 }}
-                              style={{ background: 'transparent', border: '1px solid rgba(191,143,60,0.4)', color: '#BF8F3C', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', transition: 'all 0.2s' }}
+                              whileHover={{ color: 'var(--void)', backgroundColor: 'var(--gold)', borderColor: 'var(--gold)' }} whileTap={{ scale: 0.95 }}
+                              style={{ background: 'transparent', border: '1px solid rgba(191,143,60,0.4)', color: 'var(--gold)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', transition: 'all 0.2s' }}
                             >
                               [ REGERAR ]
                             </motion.button>
@@ -469,27 +469,27 @@ export default function Settings() {
                 {activeTab === "Privacidade" && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-                      <Shield style={{ width: 24, height: 24, color: '#BF8F3C' }} />
-                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>Privacidade & Dados</h2>
+                      <Shield style={{ width: 24, height: 24, color: 'var(--gold)' }} />
+                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: 'var(--film)' }}>Privacidade & Dados</h2>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                         <div>
-                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#EDE8DC', marginBottom: 8 }}>Sincronização Trakt.tv (Scrobbling)</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.1em', maxWidth: 600, lineHeight: 1.6 }}>MARCA AUTOMATICAMENTE FILMES E SÉRIES COMO ASSISTIDOS NO SEU PERFIL DO TRAKT.TV.</div>
+                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>Sincronização Trakt.tv (Scrobbling)</div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em', maxWidth: 600, lineHeight: 1.6 }}>MARCA AUTOMATICAMENTE FILMES E SÉRIES COMO ASSISTIDOS NO SEU PERFIL DO TRAKT.TV.</div>
                         </div>
-                        <motion.button onClick={() => handleToggle('scrobbleTrakt')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.scrobbleTrakt ? '#BF8F3C' : '#565450', borderColor: toggles.scrobbleTrakt ? '#BF8F3C' : '#565450' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
+                        <motion.button onClick={() => handleToggle('scrobbleTrakt')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.scrobbleTrakt ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.scrobbleTrakt ? 'var(--gold)' : 'var(--m3)' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
                           [ {toggles.scrobbleTrakt ? 'ON' : 'OFF'} ]
                         </motion.button>
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                         <div>
-                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#EDE8DC', marginBottom: 8 }}>Telemetria Anônima</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.1em', maxWidth: 600, lineHeight: 1.6 }}>ENVIA RELATÓRIOS DE CRASH E ESTATÍSTICAS DE DESEMPENHO DOS REPRODUTORES PARA MELHORIA DA PLATAFORMA.</div>
+                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>Telemetria Anônima</div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em', maxWidth: 600, lineHeight: 1.6 }}>ENVIA RELATÓRIOS DE CRASH E ESTATÍSTICAS DE DESEMPENHO DOS REPRODUTORES PARA MELHORIA DA PLATAFORMA.</div>
                         </div>
-                        <motion.button onClick={() => handleToggle('telemetry')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.telemetry ? '#BF8F3C' : '#565450', borderColor: toggles.telemetry ? '#BF8F3C' : '#565450' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
+                        <motion.button onClick={() => handleToggle('telemetry')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.telemetry ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.telemetry ? 'var(--gold)' : 'var(--m3)' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
                           [ {toggles.telemetry ? 'ON' : 'OFF'} ]
                         </motion.button>
                       </div>
@@ -501,27 +501,27 @@ export default function Settings() {
                 {activeTab === "Notificações" && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-                      <Bell style={{ width: 24, height: 24, color: '#BF8F3C' }} />
-                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>Sistema de Alertas</h2>
+                      <Bell style={{ width: 24, height: 24, color: 'var(--gold)' }} />
+                      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: 'var(--film)' }}>Sistema de Alertas</h2>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                         <div>
-                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#EDE8DC', marginBottom: 8 }}>Integridade do Download</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.1em' }}>NOTIFICA QUANDO UM CACHE NO REAL-DEBRID FOR CONCLUÍDO.</div>
+                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>Integridade do Download</div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em' }}>NOTIFICA QUANDO UM CACHE NO REAL-DEBRID FOR CONCLUÍDO.</div>
                         </div>
-                        <motion.button onClick={() => handleToggle('notifDownload')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.notifDownload ? '#BF8F3C' : '#565450', borderColor: toggles.notifDownload ? '#BF8F3C' : '#565450' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
+                        <motion.button onClick={() => handleToggle('notifDownload')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.notifDownload ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.notifDownload ? 'var(--gold)' : 'var(--m3)' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
                           [ {toggles.notifDownload ? 'ON' : 'OFF'} ]
                         </motion.button>
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                         <div>
-                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: '#EDE8DC', marginBottom: 8 }}>Falhas de Comunicação</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.1em' }}>ALERTAS SOBRE INDISPONIBILIDADE DA API DO TMDB OU TIMEOUTS DE NÓS.</div>
+                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>Falhas de Comunicação</div>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em' }}>ALERTAS SOBRE INDISPONIBILIDADE DA API DO TMDB OU TIMEOUTS DE NÓS.</div>
                         </div>
-                        <motion.button onClick={() => handleToggle('notifError')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.notifError ? '#BF8F3C' : '#565450', borderColor: toggles.notifError ? '#BF8F3C' : '#565450' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
+                        <motion.button onClick={() => handleToggle('notifError')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.notifError ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.notifError ? 'var(--gold)' : 'var(--m3)' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
                           [ {toggles.notifError ? 'ON' : 'OFF'} ]
                         </motion.button>
                       </div>
@@ -534,13 +534,13 @@ export default function Settings() {
                   <div>
                     {activeTab === "Conexões" ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-                        <Server style={{ width: 24, height: 24, color: '#BF8F3C' }} />
-                        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>Servidor de Mídia</h2>
+                        <Server style={{ width: 24, height: 24, color: 'var(--gold)' }} />
+                        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: 'var(--film)' }}>Servidor de Mídia</h2>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-                        <DownloadCloud style={{ width: 24, height: 24, color: '#BF8F3C' }} />
-                        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: '#EDE8DC' }}>Integrações</h2>
+                        <DownloadCloud style={{ width: 24, height: 24, color: 'var(--gold)' }} />
+                        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: 'var(--film)' }}>Integrações</h2>
                       </div>
                     )}
 
@@ -566,18 +566,18 @@ export default function Settings() {
                           }}
                         >
                           <div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: '#EDE8DC', letterSpacing: '0.15em', marginBottom: 6 }}>{item.label}</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#565450', letterSpacing: '0.1em' }}>{item.detail}</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: 'var(--film)', letterSpacing: '0.15em', marginBottom: 6 }}>{item.label}</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>{item.detail}</div>
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                            {item.status === 'success' && <Check style={{ width: 12, height: 12, color: '#BF8F3C' }} />}
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: item.status === 'success' ? '#BF8F3C' : item.status === 'none' ? '#565450' : '#8C8880' }}>
+                            {item.status === 'success' && <Check style={{ width: 12, height: 12, color: 'var(--gold)' }} />}
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: item.status === 'success' ? 'var(--gold)' : item.status === 'none' ? 'var(--m3)' : 'var(--m2)' }}>
                               [{item.value}]
                             </span>
                           </div>
 
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', color: '#565450' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', color: 'var(--m3)' }}>
                             <ArrowRight style={{ width: 16, height: 16 }} />
                           </div>
                         </motion.button>

@@ -46,8 +46,8 @@ export function ScreenLayout({ children }: ScreenLayoutProps) {
   return (
     <div
       style={{
-        background: '#080806',
-        color: '#EDE8DC',
+        background: 'var(--bg)',
+        color: 'var(--film)',
         minHeight: '100dvh',
         display: 'flex',
         position: 'relative',

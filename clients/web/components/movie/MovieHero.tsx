@@ -20,8 +20,8 @@ export const MovieHero = ({ ytId, backgroundUrl }: { ytId: string | null, backgr
           style={{ width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'luminosity', filter: 'grayscale(100%) contrast(125%)' }} alt=""
         />
       )}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #080806 0%, rgba(8,8,6,0.8) 40%, transparent 100%)' }} />
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #080806 0%, rgba(8,8,6,0.5) 40%, transparent 100%)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--bg) 0%, rgba(8,8,6,0.8) 40%, transparent 100%)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--bg) 0%, rgba(8,8,6,0.5) 40%, transparent 100%)' }} />
     </div>
   );
 };

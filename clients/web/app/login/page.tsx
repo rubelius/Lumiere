@@ -55,7 +55,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', backgroundColor: '#060606' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', backgroundColor: 'var(--void)' }}>
       
       {/* ── BACKGROUND ESPACIAL E CINEMÁTICO ── */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
@@ -82,9 +82,9 @@ export default function LoginPage() {
         {bootSequence && (
           <motion.div 
             initial={{ opacity: 1 }} exit={{ opacity: 0, filter: 'blur(10px)', scale: 1.1 }} transition={{ duration: 0.8, ease: FINE_ART_EASE }}
-            style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#060606' }}
+            style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--void)' }}
           >
-            <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1, repeat: Infinity }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '12px', color: '#BF8F3C', letterSpacing: '0.3em' }}>
+            <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1, repeat: Infinity }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '12px', color: 'var(--gold)', letterSpacing: '0.3em' }}>
               INICIALIZANDO LENTES ÓPTICAS...
             </motion.div>
           </motion.div>
@@ -101,20 +101,20 @@ export default function LoginPage() {
         <div style={{ position: 'relative', padding: '56px 48px', border: '1px solid rgba(237,232,220,0.08)', backgroundColor: 'rgba(6,6,6,0.6)', backdropFilter: 'blur(20px)', boxShadow: '0 30px 100px -20px rgba(0,0,0,1)' }}>
           
           {/* Bordas decorativas (Câmera de formato médio) */}
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 24, height: 1, backgroundColor: '#BF8F3C' }} />
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 1, height: 24, backgroundColor: '#BF8F3C' }} />
-          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 1, backgroundColor: '#BF8F3C' }} />
-          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 24, backgroundColor: '#BF8F3C' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 24, height: 1, backgroundColor: 'var(--gold)' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 1, height: 24, backgroundColor: 'var(--gold)' }} />
+          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 1, backgroundColor: 'var(--gold)' }} />
+          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 24, backgroundColor: 'var(--gold)' }} />
 
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <motion.div 
               initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 1, delay: 0.8, ease: FINE_ART_EASE }}
-              style={{ width: '40px', height: '1px', backgroundColor: '#BF8F3C', margin: '0 auto 24px', transformOrigin: 'center' }}
+              style={{ width: '40px', height: '1px', backgroundColor: 'var(--gold)', margin: '0 auto 24px', transformOrigin: 'center' }}
             />
-            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', fontWeight: 300, color: '#EDE8DC', margin: 0, lineHeight: 1, letterSpacing: '-0.02em' }}>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', fontWeight: 300, color: 'var(--film)', margin: 0, lineHeight: 1, letterSpacing: '-0.02em' }}>
               Lumière.
             </h1>
-            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#8C8880', letterSpacing: '0.4em', textTransform: 'uppercase', marginTop: 16 }}>
+            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m2)', letterSpacing: '0.4em', textTransform: 'uppercase', marginTop: 16 }}>
               Terminal de Acesso
             </p>
           </div>
@@ -123,7 +123,7 @@ export default function LoginPage() {
             
             {/* Campo: Usuário */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }} className="group">
-              <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: focusedInput === 'username' ? '#BF8F3C' : '#565450', letterSpacing: '0.2em', transition: 'color 0.3s', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: focusedInput === 'username' ? 'var(--gold)' : 'var(--m3)', letterSpacing: '0.2em', transition: 'color 0.3s', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ScanFace style={{ width: 12, height: 12 }} /> IDENTIFICAÇÃO
               </label>
               <input
@@ -136,7 +136,7 @@ export default function LoginPage() {
                 placeholder="Insira seu código operário..."
                 style={{ 
                   background: 'transparent', border: 'none', borderBottom: '1px solid rgba(237,232,220,0.1)',
-                  color: '#EDE8DC', fontFamily: "'Cormorant Garamond', serif", fontSize: '1.5rem', padding: '8px 0',
+                  color: 'var(--film)', fontFamily: "'Cormorant Garamond', serif", fontSize: '1.5rem', padding: '8px 0',
                   outline: 'none', transition: 'border-color 0.3s', fontStyle: 'italic'
                 }}
               />
@@ -144,13 +144,13 @@ export default function LoginPage() {
                 initial={false}
                 animate={{ width: focusedInput === 'username' ? '100%' : '0%', opacity: focusedInput === 'username' ? 1 : 0 }}
                 transition={{ duration: 0.4, ease: FINE_ART_EASE }}
-                style={{ position: 'absolute', bottom: 0, left: 0, height: '1px', backgroundColor: '#BF8F3C', boxShadow: '0 0 10px rgba(191,143,60,0.5)' }}
+                style={{ position: 'absolute', bottom: 0, left: 0, height: '1px', backgroundColor: 'var(--gold)', boxShadow: '0 0 10px rgba(191,143,60,0.5)' }}
               />
             </div>
 
             {/* Campo: Senha */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }} className="group">
-              <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: focusedInput === 'password' ? '#BF8F3C' : '#565450', letterSpacing: '0.2em', transition: 'color 0.3s', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: focusedInput === 'password' ? 'var(--gold)' : 'var(--m3)', letterSpacing: '0.2em', transition: 'color 0.3s', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Lock style={{ width: 12, height: 12 }} /> CHAVE CRIPTOGRÁFICA
               </label>
               <input
@@ -163,7 +163,7 @@ export default function LoginPage() {
                 placeholder="••••••••••••"
                 style={{ 
                   background: 'transparent', border: 'none', borderBottom: '1px solid rgba(237,232,220,0.1)',
-                  color: '#EDE8DC', fontFamily: "'DM Mono', monospace", fontSize: '1.2rem', padding: '8px 0',
+                  color: 'var(--film)', fontFamily: "'DM Mono', monospace", fontSize: '1.2rem', padding: '8px 0',
                   outline: 'none', transition: 'border-color 0.3s', letterSpacing: '0.3em'
                 }}
               />
@@ -171,13 +171,13 @@ export default function LoginPage() {
                 initial={false}
                 animate={{ width: focusedInput === 'password' ? '100%' : '0%', opacity: focusedInput === 'password' ? 1 : 0 }}
                 transition={{ duration: 0.4, ease: FINE_ART_EASE }}
-                style={{ position: 'absolute', bottom: 0, left: 0, height: '1px', backgroundColor: '#BF8F3C', boxShadow: '0 0 10px rgba(191,143,60,0.5)' }}
+                style={{ position: 'absolute', bottom: 0, left: 0, height: '1px', backgroundColor: 'var(--gold)', boxShadow: '0 0 10px rgba(191,143,60,0.5)' }}
               />
             </div>
 
             <AnimatePresence>
               {error && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#B05050', letterSpacing: '0.1em', textAlign: 'center', padding: '12px', border: '1px solid rgba(176,80,80,0.3)', backgroundColor: 'rgba(176,80,80,0.05)' }}>
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--danger)', letterSpacing: '0.1em', textAlign: 'center', padding: '12px', border: '1px solid rgba(176,80,80,0.3)', backgroundColor: 'rgba(176,80,80,0.05)' }}>
                   {error}
                 </motion.div>
               )}
@@ -190,7 +190,7 @@ export default function LoginPage() {
               whileTap={!isLoading ? { scale: 0.98 } : {}}
               style={{
                 marginTop: 24, background: 'transparent', border: '1px solid rgba(191,143,60,0.4)',
-                color: isLoading ? '#8C8880' : '#BF8F3C', padding: '20px', cursor: isLoading ? 'wait' : 'pointer',
+                color: isLoading ? 'var(--m2)' : 'var(--gold)', padding: '20px', cursor: isLoading ? 'wait' : 'pointer',
                 fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', transition: 'all 0.4s ease',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', overflow: 'hidden'
               }}

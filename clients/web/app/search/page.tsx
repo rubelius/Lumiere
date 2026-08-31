@@ -85,11 +85,11 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
         style={{ borderBottom: '1px solid rgba(237,232,220,0.03)', overflow: 'hidden', position: 'relative' }}
       >
         <motion.div initial={false} animate={{ opacity: isExpanded ? 1 : isHovered ? 0.10 : 0, width: isExpanded ? '100%' : isHovered ? '50%' : '0%' }} transition={{ duration: 0.85, ease: FINE_ART_EASE }} style={{ position: 'absolute', top: 0, bottom: 0, right: 0, overflow: 'hidden', zIndex: -1, filter: 'grayscale(100%)', transformOrigin: 'right' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #080806 0%, transparent 100%)', zIndex: 1 }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--bg) 0%, transparent 100%)', zIndex: 1 }} />
           <img src={film.img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
         </motion.div>
 
-        <motion.div animate={{ color: isHovered ? '#BF8F3C' : '#302E2A' }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
+        <motion.div animate={{ color: isHovered ? 'var(--gold)' : 'var(--m4)' }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
           {film.number}
         </motion.div>
 
@@ -102,7 +102,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
         </AnimatePresence>
 
         <motion.h3
-          animate={{ scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1, color: isExpanded ? '#FFFFFF' : isHovered ? '#EDE8DC' : '#8C8880', y: isExpanded ? '30vh' : isHovered ? 12 : 0, x: isExpanded ? '10vw' : 0 }}
+          animate={{ scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1, color: isExpanded ? '#FFFFFF' : isHovered ? 'var(--film)' : 'var(--m2)', y: isExpanded ? '30vh' : isHovered ? 12 : 0, x: isExpanded ? '10vw' : 0 }}
           transition={{ duration: 0.85, ease: FINE_ART_EASE }}
           style={{ position: 'absolute', left: 240, top: 22, fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', fontWeight: 400, margin: 0, lineHeight: 1, letterSpacing: '-0.01em', transformOrigin: 'left top', zIndex: 10 }}
         >
@@ -114,7 +114,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
             <div style={{ position: 'absolute', left: 240, top: 100, display: 'flex', gap: 24, maxWidth: 720 }}>
               <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} exit={{ scaleY: 0 }} transition={{ duration: 0.9, delay: 0.1, ease: FINE_ART_EASE }} style={{ width: 1, backgroundColor: 'rgba(191,143,60,0.3)', transformOrigin: 'top' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden', paddingBottom: 10 }}>
-                <motion.div initial={{ y: '100%' }} animate={{ y: '0%' }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#7A5A20', textTransform: 'uppercase' }}>
+                <motion.div initial={{ y: '100%' }} animate={{ y: '0%' }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold-deep)', textTransform: 'uppercase' }}>
                   {film.director} // {film.year}
                 </motion.div>
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', lineHeight: 1.6, color: 'rgba(237,232,220,0.55)', fontStyle: 'italic', margin: 0 }}>
@@ -127,7 +127,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
 
         <AnimatePresence>
           {!isHovered && !isExpanded && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'absolute', right: 40, top: 28, display: 'flex', gap: 40, color: '#302E2A', fontFamily: "'DM Mono', monospace", fontSize: '10px', textTransform: 'uppercase' }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'absolute', right: 40, top: 28, display: 'flex', gap: 40, color: 'var(--m4)', fontFamily: "'DM Mono', monospace", fontSize: '10px', textTransform: 'uppercase' }}>
               <span>{film.director}</span>
               <span>{film.year}</span>
               <span>{film.runtime}</span>
@@ -150,25 +150,25 @@ function FilmGridCard({ film, router, setExpandedId, onHover }: any) {
       initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1, ease: FINE_ART_EASE }}
       style={{ cursor: 'crosshair', display: 'flex', flexDirection: 'column', position: 'relative', contentVisibility: 'auto', containIntrinsicSize: '400px' }}
     >
-      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: isHovered ? '#BF8F3C' : '#302E2A', letterSpacing: '0.2em', marginBottom: 12, transition: 'color 0.4s ease' }}>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: isHovered ? 'var(--gold)' : 'var(--m4)', letterSpacing: '0.2em', marginBottom: 12, transition: 'color 0.4s ease' }}>
         [{film.number}]
       </div>
-      <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden', backgroundColor: '#040402', border: isHovered ? '1px solid rgba(191,143,60,0.3)' : '1px solid rgba(237,232,220,0.05)', transition: 'border-color 0.6s ease' }}>
+      <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden', backgroundColor: 'var(--void)', border: isHovered ? '1px solid rgba(191,143,60,0.3)' : '1px solid rgba(237,232,220,0.05)', transition: 'border-color 0.6s ease' }}>
         <motion.img src={film.img} animate={{ scale: isHovered ? 1.05 : 1, filter: isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)' }} transition={{ duration: 0.8, ease: FINE_ART_EASE }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-        <motion.div animate={{ opacity: isHovered ? 1 : 0 }} transition={{ duration: 0.6, ease: FINE_ART_EASE }} style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #080806 0%, rgba(8,8,6,0.9) 35%, transparent 100%)', pointerEvents: 'none' }} />
+        <motion.div animate={{ opacity: isHovered ? 1 : 0 }} transition={{ duration: 0.6, ease: FINE_ART_EASE }} style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--bg) 0%, rgba(8,8,6,0.9) 35%, transparent 100%)', pointerEvents: 'none' }} />
         <motion.div initial={false} animate={{ y: isHovered ? 0 : 20, opacity: isHovered ? 1 : 0 }} transition={{ duration: 0.6, ease: FINE_ART_EASE }} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {film.qualities.map((q: string) => (
-              <span key={q} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', padding: '4px 8px', border: '1px solid rgba(191,143,60,0.4)', color: '#BF8F3C', backgroundColor: 'rgba(8,8,6,0.6)' }}>{q}</span>
+              <span key={q} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', padding: '4px 8px', border: '1px solid rgba(191,143,60,0.4)', color: 'var(--gold)', backgroundColor: 'rgba(8,8,6,0.6)' }}>{q}</span>
             ))}
           </div>
-          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.25rem', color: '#EDE8DC', fontStyle: 'italic', margin: 0, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{film.synopsis}</p>
+          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.25rem', color: 'var(--film)', fontStyle: 'italic', margin: 0, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{film.synopsis}</p>
         </motion.div>
       </div>
       <div style={{ marginTop: 24 }}>
-        <motion.div animate={{ color: isHovered ? '#FFFFFF' : '#EDE8DC' }} transition={{ duration: 0.4 }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', lineHeight: 1.1, marginBottom: 8, letterSpacing: '-0.01em' }}>{film.title}</motion.div>
-        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: '#565450', textTransform: 'uppercase' }}>
-          {film.director} // <span style={{ color: isHovered ? '#BF8F3C' : '#302E2A', transition: 'color 0.4s' }}>{film.year}</span>
+        <motion.div animate={{ color: isHovered ? '#FFFFFF' : 'var(--film)' }} transition={{ duration: 0.4 }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', lineHeight: 1.1, marginBottom: 8, letterSpacing: '-0.01em' }}>{film.title}</motion.div>
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: 'var(--m3)', textTransform: 'uppercase' }}>
+          {film.director} // <span style={{ color: isHovered ? 'var(--gold)' : 'var(--m4)', transition: 'color 0.4s' }}>{film.year}</span>
         </div>
       </div>
     </motion.div>
@@ -295,7 +295,7 @@ export default function GlobalSearch() {
   const hoveredMovie = allMovies.find(m => m.id === hoveredId);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#080806', color: '#EDE8DC', paddingBottom: 80, position: 'relative' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', color: 'var(--film)', paddingBottom: 80, position: 'relative' }}>
       
       {/* ── ECO VISUAL (A "Alma" da Tela) ── */}
       <AnimatePresence>
@@ -327,16 +327,16 @@ export default function GlobalSearch() {
       {/* ── HEADER DA BUSCA GLOBAL (Com Telemetria) ── */}
       <header style={{ padding: '40px 72px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Globe style={{ width: 14, height: 14, color: '#BF8F3C' }} />
-          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#BF8F3C', textTransform: 'uppercase' }}>
-            [ VARREDURA GLOBAL ] <span style={{ color: '#565450', marginLeft: 16 }}>{timeStr}</span>
+          <Globe style={{ width: 14, height: 14, color: 'var(--gold)' }} />
+          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase' }}>
+            [ VARREDURA GLOBAL ] <span style={{ color: 'var(--m3)', marginLeft: 16 }}>{timeStr}</span>
           </span>
         </div>
         <button 
           onClick={() => router.back()}
-          style={{ background: 'transparent', border: 'none', color: '#565450', cursor: 'pointer', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', transition: 'color 0.3s' }}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#EDE8DC'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#565450'}
+          style={{ background: 'transparent', border: 'none', color: 'var(--m3)', cursor: 'pointer', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', transition: 'color 0.3s' }}
+          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--film)'}
+          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--m3)'}
         >
           Retornar ao Index (Esc) ✕
         </button>
@@ -358,7 +358,7 @@ export default function GlobalSearch() {
                 style={{
                   position: 'absolute', top: 0, left: 0, pointerEvents: 'none',
                   fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 8vw, 7rem)', fontWeight: 400,
-                  color: '#EDE8DC', letterSpacing: '-0.02em',
+                  color: 'var(--film)', letterSpacing: '-0.02em',
                 }}
               >
                 {SEARCH_SUGGESTIONS[placeholderIndex]}
@@ -374,9 +374,9 @@ export default function GlobalSearch() {
             style={{
               width: '100%', background: 'transparent', border: 'none', outline: 'none',
               fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 8vw, 7rem)', fontWeight: 400,
-              color: '#EDE8DC', letterSpacing: '-0.02em', paddingBottom: 24,
+              color: 'var(--film)', letterSpacing: '-0.02em', paddingBottom: 24,
               borderBottom: '1px solid rgba(237,232,220,0.05)', transition: 'border-color 0.4s',
-              caretColor: searchQuery ? '#BF8F3C' : 'transparent' // Cursor só aparece quando tem texto
+              caretColor: searchQuery ? 'var(--gold)' : 'transparent' // Cursor só aparece quando tem texto
             }}
             onFocus={(e) => e.target.style.borderBottom = '1px solid rgba(191,143,60,0.5)'}
             onBlur={(e) => e.target.style.borderBottom = '1px solid rgba(237,232,220,0.05)'}
@@ -388,13 +388,13 @@ export default function GlobalSearch() {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.8 }}
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, paddingBottom: 40 }}
         >
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: '#565450', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: 'var(--m3)', textTransform: 'uppercase' }}>
             {isLoading && debouncedSearch ? (
-              <span style={{ color: '#BF8F3C', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Loader2 className="animate-spin" size={12} /> Consultando rastreadores...
               </span>
             ) : debouncedSearch && allMovies.length > 0 ? (
-              <span style={{ color: '#EDE8DC' }}>{data?.count || 0} Registros localizados na rede.</span>
+              <span style={{ color: 'var(--film)' }}>{data?.count || 0} Registros localizados na rede.</span>
             ) : debouncedSearch && allMovies.length === 0 && !isLoading ? (
               <span style={{ color: '#8C3A3A' }}>Sinal não encontrado. Refine os parâmetros da busca.</span>
             ) : (
@@ -403,10 +403,10 @@ export default function GlobalSearch() {
           </div>
 
           <div style={{ display: 'flex', gap: 16, fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-            <button onClick={() => setViewMode("grid")} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: viewMode === 'grid' ? '#EDE8DC' : '#565450', transition: 'color 0.3s' }}>
+            <button onClick={() => setViewMode("grid")} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: viewMode === 'grid' ? 'var(--film)' : 'var(--m3)', transition: 'color 0.3s' }}>
               [ GRADE ]
             </button>
-            <button onClick={() => setViewMode("list")} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: viewMode === 'list' ? '#EDE8DC' : '#565450', transition: 'color 0.3s' }}>
+            <button onClick={() => setViewMode("list")} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: viewMode === 'list' ? 'var(--film)' : 'var(--m3)', transition: 'color 0.3s' }}>
               [ LISTA ]
             </button>
           </div>
@@ -443,7 +443,7 @@ export default function GlobalSearch() {
         <div ref={loadMoreRef} style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '40px' }}>
           {debouncedSearch && isFetching && page > 1 && (
             <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
-              <Loader2 style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+              <Loader2 style={{ width: 24, height: 24, color: 'var(--gold)' }} />
             </motion.div>
           )}
         </div>

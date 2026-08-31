@@ -27,7 +27,7 @@ interface HeroProps {
 
 export function HeroProgramme({
   title, subtitle, director, year, country, runtime, synopsis, programmeNumber, 
-  backgroundSrc, posterSrc, qualities, href, trailerUrl, accentColor = '#BF8F3C',
+  backgroundSrc, posterSrc, qualities, href, trailerUrl, accentColor = 'var(--gold)',
   logoUrl, cinematographer, onNext, onPrev
 }: HeroProps) {
   
@@ -66,7 +66,7 @@ export function HeroProgramme({
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
         >
           {/* ── BACKGROUND AMBIENTE & KINETIC ── */}
-          <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden', backgroundColor: '#040402' }}>
+          <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden', backgroundColor: 'var(--void)' }}>
             
             <motion.img
               initial={{ scale: 1.05, opacity: isFallback ? 0.3 : 0.2 }} 
@@ -103,8 +103,8 @@ export function HeroProgramme({
               </motion.div>
             )}
             
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #080806 15%, transparent 100%)' }} />
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #080806 5%, rgba(8,8,6,0.5) 40%, transparent 100%)' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--bg) 15%, transparent 100%)' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--bg) 5%, rgba(8,8,6,0.5) 40%, transparent 100%)' }} />
           </div>
 
           {/* ── FOREGROUND CONTENT ──────────────────────────────────────────── */}
@@ -114,7 +114,7 @@ export function HeroProgramme({
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.2, ease }} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
                 <motion.div animate={{ backgroundColor: accentColor }} transition={{ duration: 2 }} style={{ width: 40, height: 1 }} />
                 <motion.span animate={{ color: accentColor }} transition={{ duration: 2 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Prog Nº {programmeNumber}</motion.span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#8C8880' }}>{country} // {year}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--m2)' }}>{country} // {year}</span>
               </motion.div>
 
               <div style={{ overflow: 'hidden', paddingBottom: 24, marginBottom: -16, minHeight: '120px', display: 'flex', alignItems: 'flex-end' }}>
@@ -125,7 +125,7 @@ export function HeroProgramme({
                     style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', objectPosition: 'left bottom', filter: 'drop-shadow(0px 10px 20px rgba(0,0,0,0.8))' }}
                   />
                 ) : (
-                  <motion.h1 initial={{ y: '100%' }} animate={{ y: '0%' }} transition={{ duration: 1.2, delay: 0.3, ease }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 10vw, 9rem)', fontWeight: 400, lineHeight: 0.85, letterSpacing: '-0.02em', color: '#EDE8DC', margin: 0 }}>
+                  <motion.h1 initial={{ y: '100%' }} animate={{ y: '0%' }} transition={{ duration: 1.2, delay: 0.3, ease }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 10vw, 9rem)', fontWeight: 400, lineHeight: 0.85, letterSpacing: '-0.02em', color: 'var(--film)', margin: 0 }}>
                     {title}
                   </motion.h1>
                 )}
@@ -133,19 +133,19 @@ export function HeroProgramme({
 
               {subtitle && subtitle !== title && (
                 <div style={{ overflow: 'hidden', paddingBottom: 24, marginBottom: 16, marginTop: 16 }}>
-                  <motion.h2 initial={{ y: '100%' }} animate={{ y: '0%' }} transition={{ duration: 1.2, delay: 0.4, ease }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(1.5rem, 3vw, 3rem)', fontWeight: 300, fontStyle: 'italic', color: '#8C8880', margin: 0, lineHeight: 1 }}>
+                  <motion.h2 initial={{ y: '100%' }} animate={{ y: '0%' }} transition={{ duration: 1.2, delay: 0.4, ease }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(1.5rem, 3vw, 3rem)', fontWeight: 300, fontStyle: 'italic', color: 'var(--m2)', margin: 0, lineHeight: 1 }}>
                     {subtitle}
                   </motion.h2>
                 </div>
               )}
 
               <motion.div initial={{ opacity: 0, filter: 'blur(4px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 1, delay: 0.6, ease }} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#EDE8DC' }}>{director}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--film)' }}>{director}</span>
                 
                 {cinematographer && (
                   <>
                     <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(237,232,220,0.15)' }} />
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', color: '#8C8880', textTransform: 'uppercase' }}>DP: {cinematographer}</span>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', color: 'var(--m2)', textTransform: 'uppercase' }}>DP: {cinematographer}</span>
                   </>
                 )}
 
@@ -154,7 +154,7 @@ export function HeroProgramme({
                 <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(237,232,220,0.15)' }} />
                 <div style={{ display: 'flex', gap: 8 }}>
                   {qualities.map(q => (
-                    <span key={q} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8.5px', letterSpacing: '0.1em', padding: '3px 6px', border: '1px solid rgba(237,232,220,0.1)', borderRadius: 2, color: '#EDE8DC', textTransform: 'uppercase' }}>{q}</span>
+                    <span key={q} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8.5px', letterSpacing: '0.1em', padding: '3px 6px', border: '1px solid rgba(237,232,220,0.1)', borderRadius: 2, color: 'var(--film)', textTransform: 'uppercase' }}>{q}</span>
                   ))}
                 </div>
               </motion.div>
@@ -170,14 +170,14 @@ export function HeroProgramme({
                 <Link href={`/player?id=${movieId}`}>
                   <motion.div 
                     animate={{ backgroundColor: accentColor }} transition={{ duration: 2 }}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 12, height: 44, padding: '0 24px', color: '#080806', borderRadius: 1, fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', fontWeight: 600, textTransform: 'uppercase' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 12, height: 44, padding: '0 24px', color: 'var(--bg)', borderRadius: 1, fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', fontWeight: 600, textTransform: 'uppercase' }}
                   >
                     <svg viewBox="0 0 12 12" fill="currentColor" style={{ width: 10, height: 10 }}><path d="M2 1.5L10 6L2 10.5V1.5Z" /></svg> Projetar
                   </motion.div>
                 </Link>
 
                 {/* Botão Secundário: Vai para a página do Filme em si */}
-                <Link href={href} style={{ display: 'inline-flex', alignItems: 'center', height: 44, padding: '0 24px', border: '1px solid rgba(237,232,220,0.1)', color: '#EDE8DC', textDecoration: 'none', borderRadius: 1, fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                <Link href={href} style={{ display: 'inline-flex', alignItems: 'center', height: 44, padding: '0 24px', border: '1px solid rgba(237,232,220,0.1)', color: 'var(--film)', textDecoration: 'none', borderRadius: 1, fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
                   Analisar Detalhes da Obra
                 </Link>
                 
@@ -223,7 +223,7 @@ export function HeroProgramme({
 
       <div style={{ position: 'absolute', bottom: 0, left: '6vw', right: '6vw', height: 1, background: 'rgba(237,232,220,0.05)', zIndex: 20 }} />
       <div style={{ position: 'absolute', bottom: 0, left: '6vw', display: 'flex', gap: 4, transform: 'translateY(50%)', zIndex: 20 }}>
-        {[0,1,2].map(i => <div key={i} style={{ width: 4, height: 4, background: '#080806', border: '1px solid rgba(237,232,220,0.15)', borderRadius: '50%' }} />)}
+        {[0,1,2].map(i => <div key={i} style={{ width: 4, height: 4, background: 'var(--bg)', border: '1px solid rgba(237,232,220,0.15)', borderRadius: '50%' }} />)}
       </div>
     </section>
   )

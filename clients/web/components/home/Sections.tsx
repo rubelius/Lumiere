@@ -29,7 +29,7 @@ export function NowProjecting({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        background: '#080806', // Fundo um pouco mais profundo
+        background: 'var(--bg)', // Fundo um pouco mais profundo
         borderTop: '1px solid rgba(237,232,220,0.03)',
         borderBottom: '1px solid rgba(237,232,220,0.03)',
         padding: '80px 72px',
@@ -57,7 +57,7 @@ export function NowProjecting({
                 key={i}
                 animate={{
                   backgroundColor: i < filledDots
-                    ? (isHovered ? '#BF8F3C' : 'rgba(191,143,60,0.6)')
+                    ? (isHovered ? 'var(--gold)' : 'rgba(191,143,60,0.6)')
                     : 'rgba(237,232,220,0.04)'
                 }}
                 transition={{ duration: 0.8, ease: FINE_ART_EASE }}
@@ -77,7 +77,7 @@ export function NowProjecting({
               position: 'relative',
               overflow: 'hidden',
               aspectRatio: '2.39/1',
-              background: '#040402',
+              background: 'var(--void)',
               border: '1px solid',
               borderRadius: 2
             }}
@@ -129,7 +129,7 @@ export function NowProjecting({
               style={{
                 position: 'absolute', bottom: 16, right: 16,
                 fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em',
-                color: '#BF8F3C', background: 'rgba(4,4,2,0.8)',
+                color: 'var(--gold)', background: 'rgba(4,4,2,0.8)',
                 padding: '4px 10px', border: '1px solid rgba(191,143,60,0.2)'
               }}
             >
@@ -139,10 +139,10 @@ export function NowProjecting({
 
           {/* Dados do Rolo (Inferior) */}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, paddingLeft: 4, paddingRight: 4 }}>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', color: '#565450', textTransform: 'uppercase' }}>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', color: 'var(--m3)', textTransform: 'uppercase' }}>
               Rolo 01 / 35MM
             </span>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', color: '#565450' }}>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', color: 'var(--m3)' }}>
               FRAME {Math.round((progress / 100) * 168000).toLocaleString('pt-BR')} / 168.000
             </span>
           </div>
@@ -150,12 +150,12 @@ export function NowProjecting({
 
         {/* ── DIREITA: DADOS DO FILME E CTA ── */}
         <div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#7A5A20', textTransform: 'uppercase', marginBottom: 16 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold-deep)', textTransform: 'uppercase', marginBottom: 16 }}>
             {director} // {year}
           </div>
 
           <motion.h3
-            animate={{ color: isHovered ? '#FFFFFF' : '#EDE8DC' }}
+            animate={{ color: isHovered ? '#FFFFFF' : 'var(--film)' }}
             transition={{ duration: 0.8 }}
             style={{
               fontFamily: "'Cormorant Garamond', serif", fontSize: '2.8rem', fontWeight: 400,
@@ -166,8 +166,8 @@ export function NowProjecting({
           </motion.h3>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: '#565450', textTransform: 'uppercase' }}>Restante</span>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: '#BF8F3C' }}>{remainingTime}</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: 'var(--m3)', textTransform: 'uppercase' }}>Restante</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: 'var(--gold)' }}>{remainingTime}</span>
           </div>
 
           {/* Barra de Progresso Contínua */}
@@ -177,7 +177,7 @@ export function NowProjecting({
               whileInView={{ width: `${progress}%` }}
               viewport={{ once: true }}
               transition={{ duration: 1.5, delay: 0.2, ease: FINE_ART_EASE }}
-              style={{ position: 'absolute', top: 0, left: 0, height: '100%', background: isHovered ? '#BF8F3C' : 'rgba(191,143,60,0.5)' }}
+              style={{ position: 'absolute', top: 0, left: 0, height: '100%', background: isHovered ? 'var(--gold)' : 'rgba(191,143,60,0.5)' }}
             />
           </div>
 
@@ -189,7 +189,7 @@ export function NowProjecting({
               display: 'inline-flex', alignItems: 'center', gap: 12, height: 48, padding: '0 32px',
               background: isHovered ? 'rgba(191,143,60,0.05)' : 'transparent',
               border: `1px solid ${isHovered ? 'rgba(191,143,60,0.4)' : 'rgba(237,232,220,0.1)'}`,
-              color: isHovered ? '#BF8F3C' : '#8C8880',
+              color: isHovered ? 'var(--gold)' : 'var(--m2)',
               fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em',
               textTransform: 'uppercase', textDecoration: 'none', transition: 'all 0.4s ease',
             }}
@@ -241,7 +241,7 @@ export function AdmitOne({
         style={{
           display: 'block',
           textDecoration: 'none',
-          background: '#080806',
+          background: 'var(--bg)',
           position: 'relative',
           overflow: 'hidden',
           cursor: 'pointer',
@@ -304,14 +304,14 @@ export function AdmitOne({
 
             {/* Bloco da Esquerda: O Carimbo */}
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#565450', textTransform: 'uppercase' }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--m3)', textTransform: 'uppercase' }}>
                 Lumière Personal Archive // Curadoria Especial
               </div>
 
               <div style={{ margin: '16px 0' }}>
                 <motion.div
                   animate={{
-                    color: isHovered ? '#EDE8DC' : '#B4AFA4',
+                    color: isHovered ? 'var(--film)' : '#B4AFA4',
                     letterSpacing: isHovered ? '0.08em' : '0.06em'
                   }}
                   transition={{ duration: 1, ease: FINE_ART_EASE }}
@@ -322,17 +322,17 @@ export function AdmitOne({
                 >
                   ADMIT ONE
                 </motion.div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', fontWeight: 300, fontStyle: 'italic', color: '#BF8F3C', lineHeight: 1 }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', fontWeight: 300, fontStyle: 'italic', color: 'var(--gold)', lineHeight: 1 }}>
                   {sessionTitle}
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{filmCount} títulos</span>
-                <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#1C1B18' }} />
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{totalDuration}</span>
-                <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#1C1B18' }} />
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{date}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{filmCount} títulos</span>
+                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--m5)' }} />
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{totalDuration}</span>
+                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--m5)' }} />
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{date}</span>
               </div>
             </div>
 
@@ -343,7 +343,7 @@ export function AdmitOne({
                   <motion.div
                     key={index}
                     animate={{ 
-                      color: isHovered ? '#EDE8DC' : '#565450',
+                      color: isHovered ? 'var(--film)' : 'var(--m3)',
                       x: isHovered ? 0 : 4 // Efeito cascata para a esquerda
                     }}
                     transition={{ duration: 0.6, ease: FINE_ART_EASE, delay: index * 0.05 }}
@@ -352,7 +352,7 @@ export function AdmitOne({
                       lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: 12
                     }}
                   >
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#BF8F3C', fontStyle: 'normal', letterSpacing: '0.15em' }}>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--gold)', fontStyle: 'normal', letterSpacing: '0.15em' }}>
                       {String(index + 1).padStart(2, '0')} //
                     </span>
                     {film}
@@ -380,7 +380,7 @@ export function AdmitOne({
               {sessionNumber}
             </motion.div>
             
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: isHovered ? '#BF8F3C' : '#302E2A', textAlign: 'center', zIndex: 1, transition: 'color 0.4s' }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: isHovered ? 'var(--gold)' : 'var(--m4)', textAlign: 'center', zIndex: 1, transition: 'color 0.4s' }}>
               [ VALIDAR_ENTRADA ]
             </div>
             
@@ -388,7 +388,7 @@ export function AdmitOne({
               animate={{ y: isHovered ? [0, -4, 0] : 0 }}
               transition={{ repeat: isHovered ? Infinity : 0, duration: 2 }}
               viewBox="0 0 16 16" fill="none" 
-              style={{ width: 14, height: 14, color: isHovered ? '#BF8F3C' : '#302E2A', zIndex: 1, transition: 'color 0.4s' }}
+              style={{ width: 14, height: 14, color: isHovered ? 'var(--gold)' : 'var(--m4)', zIndex: 1, transition: 'color 0.4s' }}
             >
               <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
             </motion.svg>
@@ -444,7 +444,7 @@ export function SessionRow({ session, isHovered, isDimmed, onHover }: any) {
           }}
         >
           {/* Gradiente para garantir a leitura do texto */}
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #080806 0%, rgba(8,8,6,0.8) 40%, transparent 100%)', zIndex: 1 }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, var(--bg) 0%, rgba(8,8,6,0.8) 40%, transparent 100%)', zIndex: 1 }} />
           
           {/* Se você tiver uma imagem no objeto session, ela aparece aqui */}
           {session.image && (
@@ -469,7 +469,7 @@ export function SessionRow({ session, isHovered, isDimmed, onHover }: any) {
           {/* 1. NÚMERO DA SESSÃO */}
           <motion.div 
             animate={{ 
-              color: isHovered ? '#BF8F3C' : '#302E2A',
+              color: isHovered ? 'var(--gold)' : 'var(--m4)',
               scale: isHovered ? 1.2 : 1,
               x: isHovered ? 12 : 0
             }}
@@ -485,7 +485,7 @@ export function SessionRow({ session, isHovered, isDimmed, onHover }: any) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <motion.h3
               animate={{ 
-                color: isHovered ? '#FFFFFF' : '#8C8880',
+                color: isHovered ? '#FFFFFF' : 'var(--m2)',
                 y: isHovered ? -4 : 0
               }}
               transition={{ duration: 0.85, ease: FINE_ART_EASE }}
@@ -495,7 +495,7 @@ export function SessionRow({ session, isHovered, isDimmed, onHover }: any) {
             </motion.h3>
             
             <motion.div 
-              animate={{ color: isHovered ? '#B4AFA4' : '#565450' }}
+              animate={{ color: isHovered ? '#B4AFA4' : 'var(--m3)' }}
               style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase' }}
             >
               {session.films} FILMES // {session.duration}
@@ -506,7 +506,7 @@ export function SessionRow({ session, isHovered, isDimmed, onHover }: any) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 24, paddingRight: 40 }}>
             <motion.span
               animate={{ 
-                color: isHovered ? '#BF8F3C' : '#565450',
+                color: isHovered ? 'var(--gold)' : 'var(--m3)',
                 y: isHovered ? -2 : 0
               }}
               style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' }}
@@ -523,14 +523,14 @@ export function SessionRow({ session, isHovered, isDimmed, onHover }: any) {
                 }}
                 transition={{ duration: 0.6, ease: FINE_ART_EASE }}
                 style={{ 
-                  fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', color: '#BF8F3C', textTransform: 'uppercase', marginRight: 12
+                  fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase', marginRight: 12
                 }}
               >
                  RESERVAR 
               </motion.div>
               <motion.svg
                 animate={{ 
-                  color: isHovered ? '#BF8F3C' : '#302E2A',
+                  color: isHovered ? 'var(--gold)' : 'var(--m4)',
                   opacity: isHovered ? 1 : 0.3
                 }}
                 viewBox="0 0 16 16" fill="none" style={{ width: 16, height: 16 }}
@@ -577,7 +577,7 @@ export function LibraryCount({ count = 0 }: { count: number }) {
     <section 
       style={{ 
         padding: '120px 72px', 
-        background: '#040402',
+        background: 'var(--void)',
         borderTop: '1px solid rgba(237,232,220,0.05)' 
       }}
     >
@@ -585,20 +585,20 @@ export function LibraryCount({ count = 0 }: { count: number }) {
         
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-            <div style={{ width: 40, height: 1, background: '#BF8F3C' }} />
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#BF8F3C' }}>
+            <div style={{ width: 40, height: 1, background: 'var(--gold)' }} />
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)' }}>
               Relatório do Sistema
             </span>
           </div>
           <motion.h2 
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1 }}
-            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(2rem, 3.5vw, 3rem)', fontWeight: 400, color: '#EDE8DC', margin: 0, lineHeight: 1.1, letterSpacing: '-0.01em' }}
+            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(2rem, 3.5vw, 3rem)', fontWeight: 400, color: 'var(--film)', margin: 0, lineHeight: 1.1, letterSpacing: '-0.01em' }}
           >
             O Diário do<br />Arquivista.
           </motion.h2>
           <motion.p
              initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 1, delay: 0.2 }}
-             style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', color: '#8C8880', fontStyle: 'italic', marginTop: 24, maxWidth: 300 }}
+             style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', color: 'var(--m2)', fontStyle: 'italic', marginTop: 24, maxWidth: 300 }}
           >
             Métricas em tempo real da preservação do patrimônio cinematográfico mundial.
           </motion.p>
@@ -607,29 +607,29 @@ export function LibraryCount({ count = 0 }: { count: number }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 40 }}>
           
           <div style={{ borderLeft: '1px solid rgba(191,143,60,0.3)', paddingLeft: 32 }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
               Obras Indexadas
             </div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(3rem, 5vw, 4.5rem)', color: '#EDE8DC', lineHeight: 1, letterSpacing: '-0.02em' }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(3rem, 5vw, 4.5rem)', color: 'var(--film)', lineHeight: 1, letterSpacing: '-0.02em' }}>
               <AnimatedCounter to={count} />
             </div>
           </div>
 
           <div style={{ borderLeft: '1px solid rgba(237,232,220,0.1)', paddingLeft: 32 }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
               Horas de Projeção
             </div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(3rem, 5vw, 4.5rem)', color: '#8C8880', lineHeight: 1, letterSpacing: '-0.02em' }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(3rem, 5vw, 4.5rem)', color: 'var(--m2)', lineHeight: 1, letterSpacing: '-0.02em' }}>
               <AnimatedCounter to={estimatedHours} duration={3.5} />
             </div>
           </div>
 
           {/* O RETORNO DOS PAÍSES! */}
           <div style={{ borderLeft: '1px solid rgba(237,232,220,0.1)', paddingLeft: 32 }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 16 }}>
               Países Representados
             </div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(3rem, 5vw, 4.5rem)', color: '#8C8880', lineHeight: 1, letterSpacing: '-0.02em' }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(3rem, 5vw, 4.5rem)', color: 'var(--m2)', lineHeight: 1, letterSpacing: '-0.02em' }}>
               <AnimatedCounter to={countries} duration={4} />
             </div>
           </div>

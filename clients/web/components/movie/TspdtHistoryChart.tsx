@@ -84,13 +84,13 @@ export const TspdtHistoryChart = ({ history }: { history: any }) => {
   dFill += ` Z`; 
 
   return (
-    <div style={{ border: '1px solid rgba(86,84,80,0.3)', backgroundColor: '#040402', padding: '32px 48px', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ border: '1px solid rgba(86,84,80,0.3)', backgroundColor: 'var(--void)', padding: '32px 48px', position: 'relative', overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px', position: 'relative', zIndex: 10 }}>
         <div>
-          <h4 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: '#EDE8DC', margin: '0 0 8px 0' }}>Evolução de Relevância Artística</h4>
-          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#8C8880', letterSpacing: '0.1em', margin: 0, textTransform: 'uppercase' }}>Histórico Dinâmico They Shoot Pictures, Don't They?</p>
+          <h4 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: 'var(--film)', margin: '0 0 8px 0' }}>Evolução de Relevância Artística</h4>
+          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m2)', letterSpacing: '0.1em', margin: 0, textTransform: 'uppercase' }}>Histórico Dinâmico They Shoot Pictures, Don't They?</p>
         </div>
-        <TrendingUp style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+        <TrendingUp style={{ width: 24, height: 24, color: 'var(--gold)' }} />
       </div>
       
       <div style={{ position: 'relative', height: 180, width: '100%', borderBottom: '1px solid rgba(237,232,220,0.2)', marginBottom: '40px' }}>
@@ -111,13 +111,13 @@ export const TspdtHistoryChart = ({ history }: { history: any }) => {
           
           {/* EIXO Y (Linhas e numeração) */}
           <line x1="0" y1="30" x2="1000" y2="30" stroke="rgba(237,232,220,0.05)" strokeWidth="1" strokeDasharray="4 4" />
-          <text x="0" y="25" fill="#565450" fontSize="10" fontFamily="monospace">#1</text>
+          <text x="0" y="25" fill="var(--m3)" fontSize="10" fontFamily="monospace">#1</text>
           
           <line x1="0" y1="90" x2="1000" y2="90" stroke="rgba(237,232,220,0.05)" strokeWidth="1" strokeDasharray="4 4" />
-          <text x="0" y="85" fill="#565450" fontSize="10" fontFamily="monospace">#500</text>
+          <text x="0" y="85" fill="var(--m3)" fontSize="10" fontFamily="monospace">#500</text>
           
           <line x1="0" y1="150" x2="1000" y2="150" stroke="rgba(237,232,220,0.05)" strokeWidth="1" strokeDasharray="4 4" />
-          <text x="0" y="145" fill="#565450" fontSize="10" fontFamily="monospace">#1000</text>
+          <text x="0" y="145" fill="var(--m3)" fontSize="10" fontFamily="monospace">#1000</text>
 
           <motion.path 
               initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ duration: 2, ease: FINE_ART_EASE }}
@@ -125,7 +125,7 @@ export const TspdtHistoryChart = ({ history }: { history: any }) => {
           />
           <motion.path 
               initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 2, ease: FINE_ART_EASE }}
-              d={dStroke} fill="none" stroke="#BF8F3C" strokeWidth="4" strokeLinecap="round" 
+              d={dStroke} fill="none" stroke="var(--gold)" strokeWidth="4" strokeLinecap="round" 
               style={{ filter: 'drop-shadow(0 0 8px rgba(191,143,60,0.6))', ...({filter: 'url(#gaussian-glow)'} as any) }}
           />
         </svg>
@@ -134,7 +134,7 @@ export const TspdtHistoryChart = ({ history }: { history: any }) => {
           {yearLabels.map((pt) => (
             <motion.div key={pt.year} whileHover="hover" initial="rest" animate="rest" style={{ position: 'absolute', left: pt.x, bottom: -24, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'crosshair', transform: 'translateX(-50%)' }}>
               <motion.span 
-                variants={{ rest: { color: '#8C8880', scale: 1 }, hover: { color: '#BF8F3C', scale: 1.3 } }}
+                variants={{ rest: { color: 'var(--m2)', scale: 1 }, hover: { color: 'var(--gold)', scale: 1.3 } }}
                 transition={{ duration: 0.2 }}
                 style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em' }}
               >

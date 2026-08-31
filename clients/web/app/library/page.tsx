@@ -141,7 +141,7 @@ export default function Library() {
   const hoveredMovie = allMovies.find(m => m.id === hoveredId);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#080806', color: '#EDE8DC', paddingBottom: 80, position: 'relative' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', color: 'var(--film)', paddingBottom: 80, position: 'relative' }}>
       
       {/* ECO VISUAL */}
       <AnimatePresence>
@@ -167,10 +167,10 @@ export default function Library() {
         {showScrollTop && (
           <motion.button
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-            onClick={scrollToTop} whileHover={{ scale: 1.1, backgroundColor: '#BF8F3C', color: '#040402' }} whileTap={{ scale: 0.9 }}
+            onClick={scrollToTop} whileHover={{ scale: 1.1, backgroundColor: 'var(--gold)', color: 'var(--void)' }} whileTap={{ scale: 0.9 }}
             style={{ 
               position: 'fixed', bottom: 40, right: 40, zIndex: 9999, width: 56, height: 56, borderRadius: '50%', backgroundColor: 'rgba(4,4,2,0.8)', 
-              border: '1px solid rgba(191,143,60,0.5)', color: '#BF8F3C', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              border: '1px solid rgba(191,143,60,0.5)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', 
               cursor: 'pointer', backdropFilter: 'blur(8px)', transition: 'all 0.3s'
             }}
           >
@@ -185,7 +185,7 @@ export default function Library() {
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 48, paddingBottom: 24, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
           <div>
             <div style={{ overflow: 'hidden', marginBottom: 12 }}>
-              <motion.div initial={{ y: '100%' }} animate={{ y: '0%' }} transition={{ duration: 1, ease: FINE_ART_EASE }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#BF8F3C', textTransform: 'uppercase' }}>
+              <motion.div initial={{ y: '100%' }} animate={{ y: '0%' }} transition={{ duration: 1, ease: FINE_ART_EASE }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase' }}>
                 [ DIRETÓRIO RAIZ ]
               </motion.div>
             </div>
@@ -196,7 +196,7 @@ export default function Library() {
             </div>
           </div>
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 1 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#565450', textTransform: 'uppercase' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 1 }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--m3)', textTransform: 'uppercase' }}>
             {isLoading && page === 1 ? "CONECTANDO..." : `${data?.count || 0} OBRAS PRESERVADAS // STATUS: ONLINE`}
           </motion.div>
         </div>
@@ -211,20 +211,20 @@ export default function Library() {
 
         {/* TRATAMENTO DE ESTADOS GERAIS */}
         {isLoading && page === 1 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '80px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#BF8F3C', letterSpacing: '0.2em', textAlign: 'center' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '80px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.2em', textAlign: 'center' }}>
             ACESSANDO DIRETÓRIO...
           </motion.div>
         )}
 
         {error && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '80px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#B05050', letterSpacing: '0.2em', textAlign: 'center' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '80px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--danger)', letterSpacing: '0.2em', textAlign: 'center' }}>
             FALHA NA CONEXÃO. VERIFIQUE O SERVIDOR CENTRAL.
           </motion.div>
         )}
 
         {/* GRADE / LISTA DE OBRAS */}
         {!isLoading && allMovies.length === 0 && (
-           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '80px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#565450', letterSpacing: '0.2em', textAlign: 'center', textTransform: 'uppercase' }}>
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '80px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)', letterSpacing: '0.2em', textAlign: 'center', textTransform: 'uppercase' }}>
              Nenhum registro encontrado para os parâmetros selecionados.
            </motion.div>
         )}
@@ -257,7 +257,7 @@ export default function Library() {
         <div ref={loadMoreRef} style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '40px' }}>
           {isFetching && page > 1 && (
             <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
-              <Loader2 style={{ width: 24, height: 24, color: '#BF8F3C' }} />
+              <Loader2 style={{ width: 24, height: 24, color: 'var(--gold)' }} />
             </motion.div>
           )}
         </div>

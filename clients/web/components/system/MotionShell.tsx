@@ -61,15 +61,15 @@ function NavStrip({ pathname }: { pathname: string }) {
       {/* Brand */}
       <div style={{ height: 64, display: 'flex', alignItems: 'center', paddingLeft: 18, gap: 14, flexShrink: 0 }}>
         <motion.svg animate={{ opacity: [0.7, 1, 0.7] }} transition={{ duration: 4, repeat: Infinity }} viewBox="0 0 20 20" fill="none" style={{ width: 16, height: 16, flexShrink: 0, filter: 'drop-shadow(0 0 6px rgba(191,143,60,0.4))' }}>
-          <rect x="3" y="2" width="2.2" height="16" fill="#BF8F3C" />
-          <rect x="3" y="15.8" width="9.5" height="2.2" fill="#BF8F3C" />
+          <rect x="3" y="2" width="2.2" height="16" fill="var(--gold)" />
+          <rect x="3" y="15.8" width="9.5" height="2.2" fill="var(--gold)" />
         </motion.svg>
         <AnimatePresence>
           {open && (
             <motion.span
               initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.15rem', fontWeight: 500, letterSpacing: '0.12em', color: '#EDE8DC', whiteSpace: 'nowrap' }}
+              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.15rem', fontWeight: 500, letterSpacing: '0.12em', color: 'var(--film)', whiteSpace: 'nowrap' }}
             >
               LUMIÈRE
             </motion.span>
@@ -117,23 +117,23 @@ function NavStrip({ pathname }: { pathname: string }) {
                   layoutId="nav-bar"
                   animate={{ opacity: [1, 0.7, 1] }}
                   transition={{ opacity: { duration: 3, repeat: Infinity }, type: 'spring', stiffness: 360, damping: 28 }}
-                  style={{ position: 'absolute', left: 0, top: 8, bottom: 8, width: 2, background: '#BF8F3C', borderRadius: 2, boxShadow: '0 0 12px rgba(191,143,60,0.6)' }}
+                  style={{ position: 'absolute', left: 0, top: 8, bottom: 8, width: 2, background: 'var(--gold)', borderRadius: 2, boxShadow: '0 0 12px rgba(191,143,60,0.6)' }}
                 />
               )}
               
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: active ? '#BF8F3C' : '#4A4844', width: 16, textAlign: 'right', flexShrink: 0, zIndex: 1, transition: 'color 0.3s' }}>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: active ? 'var(--gold)' : '#4A4844', width: 16, textAlign: 'right', flexShrink: 0, zIndex: 1, transition: 'color 0.3s' }}>
                 {item.code}
               </span>
               
               <AnimatePresence mode="wait">
                 {open ? (
                   <motion.span key="full" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: active ? '#EDE8DC' : '#7A7874', whiteSpace: 'nowrap', zIndex: 1, transition: 'color 0.3s' }}>
+                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: active ? 'var(--film)' : '#7A7874', whiteSpace: 'nowrap', zIndex: 1, transition: 'color 0.3s' }}>
                     {item.label}
                   </motion.span>
                 ) : (
                   <motion.span key="abbr" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.08em', color: active ? '#BF8F3C' : '#3A3836', zIndex: 1 }}>
+                    style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.08em', color: active ? 'var(--gold)' : '#3A3836', zIndex: 1 }}>
                     {item.abbr}
                   </motion.span>
                 )}
@@ -164,11 +164,11 @@ function NavStrip({ pathname }: { pathname: string }) {
       {/* Footer dot */}
       <div style={{ height: 56, display: 'flex', alignItems: 'center', paddingLeft: 18, gap: 12, flexShrink: 0 }}>
         <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 4, repeat: Infinity }}
-          style={{ width: 6, height: 6, borderRadius: '50%', background: '#BF8F3C', flexShrink: 0, boxShadow: '0 0 12px rgba(191,143,60,0.8)' }} />
+          style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', flexShrink: 0, boxShadow: '0 0 12px rgba(191,143,60,0.8)' }} />
         <AnimatePresence>
           {open && (
             <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#565450', whiteSpace: 'nowrap' }}>
+              style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--m3)', whiteSpace: 'nowrap' }}>
               Personal Cinema · v1
             </motion.span>
           )}
@@ -190,11 +190,14 @@ function GrainCanvas() {
 
     const c = ref.current; if (!c) return
     const ctx = c.getContext('2d'); if (!ctx) return
-    const resize = () => { c.width = window.innerWidth; c.height = window.innerHeight }
+    // innerWidth/Height podem ser 0 (aba em background, layout ainda nao resolvido)
+    const resize = () => { c.width = Math.max(1, window.innerWidth); c.height = Math.max(1, window.innerHeight) }
     resize()
     window.addEventListener('resize', resize)
     const draw = () => {
       const { width, height } = c
+      // createImageData lanca IndexSizeError com dimensao zero
+      if (!width || !height) { frame.current = requestAnimationFrame(draw); return }
       const img = ctx.createImageData(width, height)
       const d = img.data
       const op = 6 + Math.sin(t.current * 1.1) * 2 + Math.sin(t.current * 2.2) * 1.2
@@ -236,14 +239,14 @@ export function MotionShell({ children }: { children: ReactNode }) {
   const isLoginPage = pathname === '/login';
 
   return (
-    <div style={{ background: '#080806', color: '#EDE8DC', minHeight: '100dvh', display: 'flex' }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--film)', minHeight: '100dvh', display: 'flex' }}>
       {/* Layer 0: breathing warm bloom */}
       <motion.div aria-hidden="true"
         animate={{ opacity: [0.03, 0.06, 0.03] }}
         transition={{ duration: 12, repeat: Infinity }}
         style={{
           position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse 55% 50% at 50% 50%, #BF8F3C 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse 55% 50% at 50% 50%, var(--gold) 0%, transparent 70%)',
           filter: 'blur(60px)',
         }}
       />

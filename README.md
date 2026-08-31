@@ -1,84 +1,118 @@
-# Lumière.
-> The ultimate AI-powered personal cinema platform. Where world-class curation meets machine learning, automated high-fidelity retrieval, and editorial design.
+Lumière.
 
-![Lumière Hero Image](link-to-your-hero-image-or-gif)
+    The ultimate AI-powered personal cinema platform. Where world-class curation meets machine learning, automated high-fidelity retrieval, and editorial design.
 
-## 🎬 The Manifesto
+🎬 The Manifesto
 
-**Lumière** is not another streaming clone. It is a highly opinionated, automated personal cinemateque. Built for cinephiles who demand the highest audio-visual fidelity (4K Remux, Dolby Atmos) and intelligent curation. 
+Lumière is not another streaming clone. It is a highly opinionated, automated personal cinemateque. Built for cinephiles who demand the highest audio-visual fidelity (4K REMUX, Dolby Vision, TrueHD Atmos) and intelligent curation.
 
-It bridges the gap between static lists (TSPDT), behavioral viewing history (Letterboxd), and the physical home theater ecosystem (Plex + Real-Debrid), all wrapped in a TV-first, "Fine Art" editorial user interface.
-
----
-
-## 🧠 Core Architecture & Systems
+It bridges the gap between static lists (TSPDT), behavioral viewing history (Letterboxd), and the physical home theater ecosystem (Jellyfin/Plex + Real-Debrid), all orchestrated by a Headless Django backend serving multiple bespoke clients.
+🧠 Core Architecture & Systems
 
 Lumière is a full-stack orchestration of four distinct engines working in harmony.
+1. The Headless Orchestrator (Backend)
 
-### 1. The Neural Core (Machine Learning)
-Lumière doesn't just recommend movies; it understands *why* you like them.
-* **Taste Profiling:** Scrapes Letterboxd viewing history to generate a 768-dimensional user embedding via `sentence-transformers/all-MiniLM-L6-v2`.
-* **Hybrid Recommender:** Combines Content-Based filtering (pgvector cosine similarity), Collaborative filtering, and Behavioral Pattern detection (e.g., Arthouse preference, Subtitle affinity).
-* **AI Session Generator:** Uses natural language processing to curate themed film sessions (e.g., *"melancholic autumn evening films"*).
+Lumière's brain is agnostic. It processes data and serves APIs, unaware of what screen is rendering it.
 
-### 2. The Projection Room (Automation & Retrieval)
+    Taste Profiling: Scrapes Letterboxd viewing history to generate user embeddings via sentence-transformers/all-MiniLM-L6-v2.
+
+    Telemetry Engine: Custom mathematical aggregations (via PostgreSQL) generating real-time analytics on viewing habits, directors, genres, and geographic distributions.
+
+    The Library (Jellyfin/Plex): Bi-directional sync with local media servers to monitor watch states, extract media info, and trigger direct-play streaming.
+
+2. The Projection Room (Automation & Retrieval)
+
 A zero-touch pipeline for acquiring the highest quality cinematic releases.
-* **Quality Scoring Engine:** Custom Prowlarr integration with a strict regex-based scoring algorithm prioritizing REMUX, HDR/Dolby Vision, and lossless audio (Atmos/TrueHD).
-* **Cloud Orchestration:** Deep Real-Debrid API integration for instant-availability checks, cached torrent streaming, and automated background downloading.
-* **The Library (Plex):** Bi-directional sync with Plex Media Server to monitor watch states, extract media info, and trigger library updates.
 
-### 3. The Canvas (TV-First Frontend)
-A "Lithographic UI" inspired by classic cinema programmes and editorial design.
-* **Spatial Navigation:** Custom `useTVNavigation` hook managing 10-foot UI constraints, D-pad focus management, and fluid layout morphing.
-* **Kinetic Typography:** Strict contrast between elegant serif headers (`Cormorant Garamond`) and mechanical monospace metadata (`DM Mono`).
-* **Optical Polish:** GPU-accelerated framer-motion animations, simulated projector flicker, and depth-of-field blurring to guide user focus.
+    Quality Scoring Engine: Custom Prowlarr integration with a strict regex-based scoring algorithm prioritizing REMUX, HDR/Dolby Vision, and lossless audio.
 
----
+    Cloud Orchestration: Deep Real-Debrid API integration for instant-availability checks, cached torrent streaming, and automated background downloading.
 
-## ⚙️ Technology Stack
+3. The Trinity of Streaming (Playback Architecture)
 
-**Frontend (The Canvas)**
-* **Framework:** Next.js 14+ (App Router, RSC)
-* **Language:** TypeScript 5.4+
-* **State & Data:** Zustand (Client) + TanStack Query v5 (Server)
-* **Motion & UI:** Framer Motion 11, Tailwind CSS, shadcn/ui
+Lumière adapts its playback strategy based on the hardware it is running on, ensuring zero bottlenecks:
 
-**Backend (The Engine)**
-* **Framework:** FastAPI (Python 3.11+)
-* **Database:** PostgreSQL 15+ with `pgvector`
-* **ORM:** SQLAlchemy 2.0 (Async)
-* **Machine Learning:** PyTorch, scikit-learn, sentence-transformers
-* **Task Queue:** Celery + Redis
+    The Web Canvas (HTML5): Fallback player for browsers (Laptops/Tablets) with custom React UI, handling Web-DLs and HDR10.
 
-**Infrastructure & DevOps**
-* **Deployment:** Docker & Docker Compose
-* **Proxy & SSL:** Traefik 3.0 with Let's Encrypt
-* **Monitoring:** Prometheus, Grafana, Loki
+    Smart Handoff (Local Engine): Deep-links directly to native Jellyfin/Plex apps on Android TV to bypass browser restrictions and utilize hardware decoders.
 
----
+    The Purist Cast (Direct Play): Extracts raw Real-Debrid URLs and casts them via API to external enthusiast hardware (Nvidia Shield/Kodi) for uncompressed Dolby Vision Profile 7 and Passthrough Lossless Audio.
 
-## 🗄️ Database Schema & Vector Search
+4. The Canvas (Multi-Client Frontend)
 
-The backbone of Lumière is a highly relational PostgreSQL database optimized for vector similarity search.
+A "Lithographic UI" inspired by classic cinema programmes and editorial design, split into a Monorepo.
 
-* **`movies`**: Enriched with TSPDT rankings, TMDB metadata, and 768-dim embeddings. Full-text search enabled via GIN indexes.
-* **`user_taste_profiles`**: Stores behavioral configurations and calculated quality sensitivities.
-* **`cinema_sessions`**: Manages the state machine of a planned viewing (planning → preparing → ready → completed), tracking asynchronous download statuses.
-* **`torrent_releases`**: Logs and scores Prowlarr indices based on complex audio/video bitrates and release groups.
+    clients/web: A dashboard and curation portal built in Next.js. Features True Glassmorphism, kinetic typography (Cormorant Garamond + DM Mono), and complex data visualization.
 
----
+    clients/tv: A 10-foot UI native Android TV application. Built to interface directly with hardware decoders (ExoPlayer) for uncompromised playback fluidity.
 
-## 🚀 Getting Started (Production Deployment)
+⚙️ Technology Stack
 
-Lumière is containerized for seamless deployment via Docker Compose.
+Frontend (The Canvas - Monorepo)
 
-```bash
+    Web Client: Next.js 14+ (App Router), TypeScript, Framer Motion 11, Tailwind CSS.
+
+    TV Client: Kotlin, Jetpack Compose for TV, ExoPlayer (Android Native).
+
+    State & Data: Zustand + TanStack Query v5.
+
+Backend (The Engine)
+
+    Framework: Django 5.0+ & Django Rest Framework (DRF)
+
+    Database: PostgreSQL 15+ with pgvector
+
+    Machine Learning: PyTorch, scikit-learn, sentence-transformers
+
+    Task Queue: Celery + Redis
+
+Infrastructure & DevOps
+
+    Deployment: Docker & Docker Compose
+
+    Proxy & SSL: Traefik 3.0 with Let's Encrypt
+
+🗄️ Monorepo Structure
+Plaintext
+
+lumiere/
+│
+├── backend/                  # The Brain (Django, Celery, Postgres)
+│   ├── config/               # Settings, Routing
+│   └── apps/                 # users, movies, tasks, integrations
+│
+├── clients/                  # The Interfaces
+│   │
+│   ├── web/                  # Lumiere Web (Next.js - Curation & Admin)
+│   │   ├── app/
+│   │   └── components/
+│   │
+│   └── tv/                   # Lumiere Android TV (Kotlin - Living Room)
+│       └── src/main/java/
+│
+└── docker-compose.yml
+
+🚀 Getting Started (Development)
+
+Lumière relies on a local environment setup via Docker for its services.
+Bash
+
 # Clone the repository
-git clone [https://github.com/your-username/lumiere.git](https://github.com/your-username/lumiere.git)
+git clone https://github.com/your-username/lumiere.git
 cd lumiere
 
-# Configure environment variables
-cp .env.example .env.production
+# 1. Boot the Backend Services (Postgres, Redis)
+docker compose -f docker-compose.dev.yml up -d db redis
 
-# Boot the orchestrator (Traefik, Postgres, Redis, Celery, FastAPI, Next.js)
-docker compose -f docker-compose.prod.yml up -d
+# 2. Start the Django Headless Server
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python3 manage.py migrate
+python3 manage.py runserver
+
+# 3. Start the Web Client
+cd ../clients/web
+npm install
+npm run dev

@@ -34,7 +34,7 @@ function TelemetryStep({ step, index }: any) {
         {/* Nó Conector (LED Quadrado) */}
         <motion.div
           animate={
-            isActive ? { backgroundColor: ['#BF8F3C', 'rgba(191,143,60,0.2)', '#BF8F3C'], scale: [1, 1.2, 1] } :
+            isActive ? { backgroundColor: ['var(--gold)', 'rgba(191,143,60,0.2)', 'var(--gold)'], scale: [1, 1.2, 1] } :
             isDone ? { backgroundColor: 'rgba(191,143,60,0.5)' } :
             { backgroundColor: 'rgba(237,232,220,0.1)' }
           }
@@ -46,7 +46,7 @@ function TelemetryStep({ step, index }: any) {
         <div style={{ position: 'relative', height: 1, flex: 1, backgroundColor: 'rgba(237,232,220,0.05)', overflow: 'hidden' }}>
           {/* Base fixa dourada para os concluídos */}
           {isDone && (
-            <div style={{ width: '100%', height: '100%', backgroundColor: '#BF8F3C', opacity: 0.3 }} />
+            <div style={{ width: '100%', height: '100%', backgroundColor: 'var(--gold)', opacity: 0.3 }} />
           )}
           
           {/* O Feixe de luz forte do ativo */}
@@ -54,7 +54,7 @@ function TelemetryStep({ step, index }: any) {
             <motion.div
               animate={{ x: ['-100%', '200%'] }}
               transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
-              style={{ position: 'absolute', top: 0, left: 0, width: '40%', height: '100%', background: 'linear-gradient(90deg, transparent, #BF8F3C, transparent)', boxShadow: '0 0 8px rgba(191,143,60,0.8)' }}
+              style={{ position: 'absolute', top: 0, left: 0, width: '40%', height: '100%', background: 'linear-gradient(90deg, transparent, var(--gold), transparent)', boxShadow: '0 0 8px rgba(191,143,60,0.8)' }}
             />
           )}
           
@@ -72,9 +72,9 @@ function TelemetryStep({ step, index }: any) {
       {/* 2. CABEÇALHO DO PASSO */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
         <motion.div
-           animate={isActive ? { textShadow: ['0 0 0px #BF8F3C', '0 0 8px rgba(191,143,60,0.5)', '0 0 0px #BF8F3C'] } : {}}
+           animate={isActive ? { textShadow: ['0 0 0px var(--gold)', '0 0 8px rgba(191,143,60,0.5)', '0 0 0px var(--gold)'] } : {}}
            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-           style={{ color: isActive ? '#BF8F3C' : isDone ? '#EDE8DC' : '#565450' }}
+           style={{ color: isActive ? 'var(--gold)' : isDone ? 'var(--film)' : 'var(--m3)' }}
         >
           <span style={{ opacity: 0.5, marginRight: 8 }}>0{index + 1}</span>
           {step.label}
@@ -84,7 +84,7 @@ function TelemetryStep({ step, index }: any) {
         <motion.div
            animate={isActive ? { opacity: [0.4, 1, 0.4] } : {}}
            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-           style={{ color: isActive ? '#BF8F3C' : '#565450' }}
+           style={{ color: isActive ? 'var(--gold)' : 'var(--m3)' }}
         >
            {step.time}
         </motion.div>
@@ -92,7 +92,7 @@ function TelemetryStep({ step, index }: any) {
 
       {/* 3. STATUS E TELEMETRIA */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em' }}>
-        <div style={{ color: isActive ? '#BF8F3C' : '#565450', display: 'flex', alignItems: 'center', height: 10 }}>
+        <div style={{ color: isActive ? 'var(--gold)' : 'var(--m3)', display: 'flex', alignItems: 'center', height: 10 }}>
           {isDone ? 'CONCLUÍDO' : isActive ? (
             <>
               EM ANDAMENTO
@@ -100,7 +100,7 @@ function TelemetryStep({ step, index }: any) {
               <motion.span
                 animate={{ opacity: [1, 1, 0, 0, 1] }}
                 transition={{ repeat: Infinity, duration: 0.8, ease: "linear", times: [0, 0.49, 0.5, 0.99, 1] }}
-                style={{ display: 'inline-block', width: 4, height: 9, backgroundColor: '#BF8F3C', marginLeft: 6 }}
+                style={{ display: 'inline-block', width: 4, height: 9, backgroundColor: 'var(--gold)', marginLeft: 6 }}
               />
             </>
           ) : 'AGUARDANDO'}
@@ -108,7 +108,7 @@ function TelemetryStep({ step, index }: any) {
         
         {/* A Mágica: Hex Code mudando insanamente rápido */}
         {isActive && (
-          <div style={{ color: '#8C8880', opacity: 0.7 }}>
+          <div style={{ color: 'var(--m2)', opacity: 0.7 }}>
             {telemetry}
           </div>
         )}
@@ -152,14 +152,14 @@ function SessionMovieRow({ movie, index, router }: any) {
       }}
     >
       {/* 1. Número */}
-      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#565450' }}>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)' }}>
         {String(index + 1).padStart(3, '0')}
       </div>
       
       {/* 2. Pôster Geométrico */}
       <motion.div 
         animate={{ scale: isHovered ? 1.05 : 1 }} transition={{ duration: 0.6, ease: FINE_ART_EASE }}
-        style={{ aspectRatio: '2/3', overflow: 'hidden', backgroundColor: '#040402', border: '1px solid rgba(237,232,220,0.05)' }}
+        style={{ aspectRatio: '2/3', overflow: 'hidden', backgroundColor: 'var(--void)', border: '1px solid rgba(237,232,220,0.05)' }}
       >
         <motion.img 
           src={movie.poster} alt={movie.title} 
@@ -172,13 +172,13 @@ function SessionMovieRow({ movie, index, router }: any) {
       <div style={{ display: 'flex', flexDirection: 'column', paddingRight: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16 }}>
           <motion.h3 
-            animate={{ color: isHovered ? '#FFFFFF' : movie.status === 'pending' ? '#565450' : '#EDE8DC', x: isHovered ? 4 : 0 }}
+            animate={{ color: isHovered ? '#FFFFFF' : movie.status === 'pending' ? 'var(--m3)' : 'var(--film)', x: isHovered ? 4 : 0 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
             style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', margin: 0, lineHeight: 1 }}
           >
             {movie.title}
           </motion.h3>
-          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.15em' }}>
+          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em' }}>
             {movie.size}
           </span>
         </div>
@@ -189,7 +189,7 @@ function SessionMovieRow({ movie, index, router }: any) {
             initial={{ width: 0 }} animate={{ width: `${movie.progress}%` }} transition={{ duration: 1.5, ease: FINE_ART_EASE }}
             style={{ 
               position: 'absolute', top: 0, left: 0, height: 1, 
-              backgroundColor: movie.status === 'ready' ? '#EDE8DC' : '#BF8F3C',
+              backgroundColor: movie.status === 'ready' ? 'var(--film)' : 'var(--gold)',
               boxShadow: movie.status === 'downloading' ? '0 0 10px rgba(191,143,60,0.5)' : 'none'
             }} 
           />
@@ -213,8 +213,8 @@ function SessionMovieRow({ movie, index, router }: any) {
                 display: 'flex', flexDirection: 'column', gap: 8,
                 fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em'
               }}>
-                <span style={{ color: '#8C8880' }}>[STREAM_DATA] {movie.specs}</span>
-                <span style={{ color: '#BF8F3C' }}>[DIRETÓRIO] //SRV/MEDIA/CINEMA/{movie.title.replace(/\s/g, '_').toUpperCase()}</span>
+                <span style={{ color: 'var(--m2)' }}>[STREAM_DATA] {movie.specs}</span>
+                <span style={{ color: 'var(--gold)' }}>[DIRETÓRIO] //SRV/MEDIA/CINEMA/{movie.title.replace(/\s/g, '_').toUpperCase()}</span>
               </div>
             </motion.div>
           )}
@@ -226,14 +226,14 @@ function SessionMovieRow({ movie, index, router }: any) {
         <motion.span 
           animate={movie.status === 'downloading' ? { opacity: [1, 0.5, 1] } : { opacity: 1 }}
           transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: movie.status === 'ready' ? '#EDE8DC' : movie.status === 'downloading' ? '#BF8F3C' : '#565450', textTransform: 'uppercase', textAlign: 'right' }}
+          style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: movie.status === 'ready' ? 'var(--film)' : movie.status === 'downloading' ? 'var(--gold)' : 'var(--m3)', textTransform: 'uppercase', textAlign: 'right' }}
         >
           {movie.status === 'ready' ? 'INTEGRIDADE VERIFICADA' : movie.status === 'downloading' ? `AQUISIÇÃO... ${movie.progress}%` : 'AGUARDANDO'}
         </motion.span>
         
         {/* A Mágica do Speed: O número flutua no HTML! */}
         {movie.status === 'downloading' && (
-          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: '#8C8880', letterSpacing: '0.2em' }}>
+          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m2)', letterSpacing: '0.2em' }}>
             {currentSpeed.toFixed(1)} MB/S
           </span>
         )}
@@ -241,10 +241,10 @@ function SessionMovieRow({ movie, index, router }: any) {
         {movie.status === 'ready' && (
           <motion.button 
             onClick={() => router.push(`/player?id=${movie.id}`)}
-            whileHover={{ backgroundColor: '#EDE8DC', color: '#080806', scale: 1.05 }}
+            whileHover={{ backgroundColor: 'var(--film)', color: 'var(--bg)', scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             style={{ 
-              background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', color: '#EDE8DC', 
+              background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', color: 'var(--film)', 
               padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
               fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em',
             }}
@@ -275,7 +275,7 @@ export default function Session() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#080806', color: '#EDE8DC', paddingBottom: 120 }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', color: 'var(--film)', paddingBottom: 120 }}>
       {/* Ruído Cinematográfico */}
       <div className="fixed inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none z-50" />
       
@@ -290,20 +290,20 @@ export default function Session() {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid rgba(237,232,220,0.05)', paddingBottom: 32 }}>
             <div>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 16 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 16 }}>
                 [ MANIFESTO DA SESSÃO ]
               </div>
               <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 6vw, 5.5rem)', fontWeight: 400, margin: 0, lineHeight: 1, letterSpacing: '-0.02em' }}>
                 Noite Atmosférica.
               </h1>
             </div>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.15em', textTransform: 'uppercase', textAlign: 'right' }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', textTransform: 'uppercase', textAlign: 'right' }}>
               <div>PROJEÇÃO AGENDADA</div>
-              <div style={{ color: '#EDE8DC', marginTop: 4 }}>HOJE, 19:45</div>
+              <div style={{ color: 'var(--film)', marginTop: 4 }}>HOJE, 19:45</div>
             </div>
           </div>
           
-          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#8C8880', fontStyle: 'italic', margin: '32px 0 0 0', maxWidth: 800 }}>
+          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: 'var(--m2)', fontStyle: 'italic', margin: '32px 0 0 0', maxWidth: 800 }}>
             Uma jornada por filmes contemplativos e visualmente impressionantes.
           </p>
         </motion.div>
@@ -317,7 +317,7 @@ export default function Session() {
           }}
           style={{ marginBottom: 100 }}
         >
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 24 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 24 }}>
             [ PROGRESSO DA ORQUESTRAÇÃO ]
           </div>
           
@@ -333,7 +333,7 @@ export default function Session() {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 1, ease: FINE_ART_EASE }}
           style={{ marginBottom: 80 }}
         >
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#565450', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 24, borderBottom: '1px solid rgba(237,232,220,0.05)', paddingBottom: 16 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 24, borderBottom: '1px solid rgba(237,232,220,0.05)', paddingBottom: 16 }}>
             [ FILA DE EXIBIÇÃO ]
           </div>
           
@@ -362,7 +362,7 @@ export default function Session() {
             whileHover={{ scale: 1.02, backgroundColor: '#d4a34b' }}
             whileTap={{ scale: 0.98 }}
             style={{ 
-              backgroundColor: '#BF8F3C', color: '#080806', border: 'none', padding: '16px 32px', cursor: 'pointer',
+              backgroundColor: 'var(--gold)', color: 'var(--bg)', border: 'none', padding: '16px 32px', cursor: 'pointer',
               fontFamily: "'DM Mono', monospace", fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase',
               display: 'flex', alignItems: 'center', gap: 12
             }}
@@ -376,10 +376,10 @@ export default function Session() {
           {/* Configurações de Sistema (Com hover sutil de escala e cor) */}
           <div style={{ display: 'flex', gap: 32 }}>
             <motion.button 
-              whileHover={{ color: '#EDE8DC', y: -2 }}
+              whileHover={{ color: 'var(--film)', y: -2 }}
               whileTap={{ scale: 0.95 }}
               style={{ 
-                background: 'transparent', border: 'none', color: '#565450', cursor: 'pointer',
+                background: 'transparent', border: 'none', color: 'var(--m3)', cursor: 'pointer',
                 fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase',
                 display: 'flex', alignItems: 'center', gap: 8
               }}
@@ -387,10 +387,10 @@ export default function Session() {
               <Cast style={{ width: 12, height: 12 }} /> CAST DE TELA
             </motion.button>
             <motion.button 
-              whileHover={{ color: '#EDE8DC', y: -2 }}
+              whileHover={{ color: 'var(--film)', y: -2 }}
               whileTap={{ scale: 0.95 }}
               style={{ 
-                background: 'transparent', border: 'none', color: '#565450', cursor: 'pointer',
+                background: 'transparent', border: 'none', color: 'var(--m3)', cursor: 'pointer',
                 fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase',
                 display: 'flex', alignItems: 'center', gap: 8
               }}
@@ -398,10 +398,10 @@ export default function Session() {
               <SlidersHorizontal style={{ width: 12, height: 12 }} /> AUTO-QUALITY
             </motion.button>
             <motion.button 
-              whileHover={{ color: '#EDE8DC', y: -2 }}
+              whileHover={{ color: 'var(--film)', y: -2 }}
               whileTap={{ scale: 0.95 }}
               style={{ 
-                background: 'transparent', border: 'none', color: '#565450', cursor: 'pointer',
+                background: 'transparent', border: 'none', color: 'var(--m3)', cursor: 'pointer',
                 fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase'
               }}
             >

@@ -33,14 +33,14 @@ interface HomeMovie {
 }
 
 const getCinematicColor = (genres: string[]) => {
-  if (!genres || genres.length === 0) return '#BF8F3C'; 
+  if (!genres || genres.length === 0) return 'var(--gold)'; 
   const genreList = genres.join(',').toLowerCase();
   
   if (genreList.includes('ficção') || genreList.includes('sci-fi')) return '#4A7A8C'; 
   if (genreList.includes('terror') || genreList.includes('horror')) return '#8C3A3A'; 
   if (genreList.includes('romance')) return '#A87A8C'; 
   if (genreList.includes('mistério') || genreList.includes('thriller')) return '#5E8872'; 
-  return '#BF8F3C'; 
+  return 'var(--gold)'; 
 };
 
 export default function HomePage() {
@@ -117,12 +117,12 @@ export default function HomePage() {
   // ── NOVO LOADING CINEMATOGRÁFICO ──
   if (isLoading || randomHeroMovies.length === 0) {
     return (
-      <div style={{ background: '#080806', minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+      <div style={{ background: 'var(--bg)', minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
         <motion.svg animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }} viewBox="0 0 20 20" fill="none" style={{ width: 24, height: 24 }}>
-          <rect x="3" y="2" width="2.2" height="16" fill="#BF8F3C" />
-          <rect x="3" y="15.8" width="9.5" height="2.2" fill="#BF8F3C" />
+          <rect x="3" y="2" width="2.2" height="16" fill="var(--gold)" />
+          <rect x="3" y="15.8" width="9.5" height="2.2" fill="var(--gold)" />
         </motion.svg>
-        <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#BF8F3C', letterSpacing: '0.2em' }}>
+        <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.2em' }}>
           MONTANDO PROGRAMAÇÃO...
         </motion.div>
       </div>
@@ -191,7 +191,7 @@ export default function HomePage() {
   const hoveredFeaturedFilm = FEATURED_FILMS.find(f => f.id === String(hoveredFeaturedId));
 
   return (
-    <div style={{ background: '#080806', color: '#EDE8DC', minHeight: '100dvh', display: 'flex' }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--film)', minHeight: '100dvh', display: 'flex' }}>
       <main style={{ flex: 1, minWidth: 0, marginLeft: 0 }}>
         
         {heroMovie && (
@@ -269,16 +269,16 @@ export default function HomePage() {
             <div style={{ overflow: 'hidden' }}>
               <motion.h2
                 initial={{ y: '100%' }} whileInView={{ y: '0%' }} viewport={{ once: true }} transition={{ duration: 1.2, ease: FINE_ART_EASE }}
-                style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(2rem, 3vw, 2.8rem)', fontWeight: 400, color: '#EDE8DC', lineHeight: 1, letterSpacing: '-0.01em', margin: 0 }}
+                style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(2rem, 3vw, 2.8rem)', fontWeight: 400, color: 'var(--film)', lineHeight: 1, letterSpacing: '-0.01em', margin: 0 }}
               >
                 Próximas Projeções
               </motion.h2>
             </div>
             
             <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 1, delay: 0.3 }}>
-              <Link href="/library" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#565450', textDecoration: 'none', borderBottom: '1px solid rgba(237,232,220,0.07)', paddingBottom: 2, transition: 'color 0.2s, border-color 0.2s' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#BF8F3C'; e.currentTarget.style.borderColor = 'rgba(191,143,60,0.3)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = '#565450'; e.currentTarget.style.borderColor = 'rgba(237,232,220,0.07)' }}
+              <Link href="/library" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--m3)', textDecoration: 'none', borderBottom: '1px solid rgba(237,232,220,0.07)', paddingBottom: 2, transition: 'color 0.2s, border-color 0.2s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'rgba(191,143,60,0.3)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--m3)'; e.currentTarget.style.borderColor = 'rgba(237,232,220,0.07)' }}
               >
                 Explorar Arquivo →
               </Link>
@@ -308,30 +308,30 @@ export default function HomePage() {
 
         <LibraryCount count={data?.count || 0} />
 
-        <footer style={{ padding: '120px 72px 40px', background: '#040402', borderTop: '1px solid rgba(237,232,220,0.05)', position: 'relative', overflow: 'hidden' }}>
+        <footer style={{ padding: '120px 72px 40px', background: 'var(--void)', borderTop: '1px solid rgba(237,232,220,0.05)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 64, borderBottom: '1px solid rgba(237,232,220,0.05)', paddingBottom: 64, marginBottom: 32, alignItems: 'end' }}>
             <div>
-              <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1, ease: FINE_ART_EASE }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 8vw, 7rem)', color: '#EDE8DC', margin: 0, lineHeight: 0.85, letterSpacing: '-0.02em' }}>
+              <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1, ease: FINE_ART_EASE }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 8vw, 7rem)', color: 'var(--film)', margin: 0, lineHeight: 0.85, letterSpacing: '-0.02em' }}>
                 Lumière.
               </motion.h2>
-              <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 1, delay: 0.3, ease: FINE_ART_EASE }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', color: '#8C8880', fontStyle: 'italic', marginTop: 24, margin: '24px 0 0 0' }}>
+              <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 1, delay: 0.3, ease: FINE_ART_EASE }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', color: 'var(--m2)', fontStyle: 'italic', marginTop: 24, margin: '24px 0 0 0' }}>
                 A preservação da memória através da luz e do tempo.
               </motion.p>
             </div>
 
             <div style={{ display: 'flex', gap: 80 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>[ Diretório ]</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>[ Diretório ]</span>
                 {['Arquivo Completo', 'Sessões Programadas', 'O Manifesto'].map((item) => (
-                  <Link key={item} href="/library" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#565450', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none', transition: 'color 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EDE8DC'} onMouseLeave={(e) => e.currentTarget.style.color = '#565450'}>
+                  <Link key={item} href="/library" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none', transition: 'color 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--film)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--m3)'}>
                     {item}
                   </Link>
                 ))}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: '#BF8F3C', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>[ Sistema ]</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 8 }}>[ Sistema ]</span>
                 {['Acessar Terminal', 'Configurações', 'Diagnóstico'].map((item) => (
-                  <Link key={item} href="#" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#565450', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none', transition: 'color 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#EDE8DC'} onMouseLeave={(e) => e.currentTarget.style.color = '#565450'}>
+                  <Link key={item} href="#" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none', transition: 'color 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--film)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--m3)'}>
                     {item}
                   </Link>
                 ))}
@@ -341,9 +341,9 @@ export default function HomePage() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#4A4844' }}>
             <span>© 2026 Lumière Personal Cinema</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>Desenvolvido por Edwin G. David <span style={{ color: '#BF8F3C' }}>//</span> Porto Alegre, RS</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>Desenvolvido por Edwin G. David <span style={{ color: 'var(--gold)' }}>//</span> Porto Alegre, RS</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <motion.span animate={{ opacity: [1, 0.2, 1] }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }} style={{ width: 4, height: 4, backgroundColor: '#BF8F3C', borderRadius: '50%', display: 'inline-block' }} /> Status: Operacional
+              <motion.span animate={{ opacity: [1, 0.2, 1] }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }} style={{ width: 4, height: 4, backgroundColor: 'var(--gold)', borderRadius: '50%', display: 'inline-block' }} /> Status: Operacional
             </span>
           </div>
         </footer>

@@ -2,71 +2,112 @@
 @import "tw-animate-css";
 
 /* ─────────────────────────────────────────────────────────────
-   LUMIÈRE — CINEMATIC DESIGN SYSTEM
-   Inspired by: siena.film, A24, FIGUREFILM, Danik Bartolini
-   Philosophy: Theatrical darkness, warm film-stock whites,
-               editorial typography, architectural precision.
+   LUMIÈRE — FINE ART DESIGN SYSTEM
+   Estética: A24 / Criterion / MUBI. Escuridão teatral, brancos
+   de película, tipografia editorial, precisão arquitetônica.
+
+   ── FONTE ÚNICA DA VERDADE ──
+   A paleta vive em :root, NÃO em @theme. Motivo: o Tailwind v4
+   faz tree-shaking dos tokens de @theme que nenhum utilitário
+   consome (medido: 8 de 23 sobreviviam ao build). Como este
+   projeto escreve cor majoritariamente via `style` inline,
+   um var(--color-x) de @theme resolveria para nada.
+   :root é sempre emitido — seguro para style inline, SVG e CSS.
+
+   Convenção de alpha: color-mix(in srgb, var(--film) 7%, transparent)
+   em vez de rgba() com canal hardcoded.
    ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── VOIDS & SURFACES — pretos de cinema, nunca azulados ── */
+  --void: #040402;   /* preto abissal — fundo do player */
+  --bg:   #080806;   /* fundo base da aplicação */
+  --s1:   #0C0C0A;   /* superfície */
+  --s2:   #121210;   /* superfície elevada */
+  --s3:   #1A1A17;   /* elevação */
+  --s4:   #22221E;   /* elevação alta */
+  --s5:   #2C2C27;   /* topo da pilha */
+
+  /* ── FILM & MUTED — escala de cinzas quentes ── */
+  --film: #EDE8DC;   /* off-white / papiro envelhecido — texto primário */
+  --m1:   #A3A098;   /* texto secundário forte */
+  --m2:   #8C8880;   /* texto secundário */
+  --m3:   #565450;   /* texto terciário / inativo */
+  --m4:   #302E2A;   /* bordas, divisores */
+  --m5:   #1C1B18;   /* borda mais profunda */
+
+  /* ── GOLD — a ÚNICA cor quente de acento ── */
+  --gold:       #BF8F3C;   /* ouro envelhecido / bronze */
+  --gold-deep:  #7A5A20;   /* ouro em sombra */
+  --gold-light: color-mix(in srgb, var(--gold) 65%, var(--film));
+
+  /* ── QUALIDADE — dessaturadas, fílmicas ── */
+  --sage:   #6B9E84;   /* REMUX */
+  --terra:  #B87B5E;   /* HDR */
+  --violet: #8E7FA8;   /* ATMOS */
+  --steel:  #6B8EA8;   /* DOLBY VISION */
+  --teal:   #7A9E9E;   /* IMAX */
+  --gray:   #6B6B6B;   /* WEB-DL */
+  --danger: #B05050;
+
+  /* ── TIPOGRAFIA — pesos limitados aos carregados em layout.tsx ──
+     Cormorant Garamond 300/400/600 · DM Mono 300/400/500 · DM Sans 300/400 */
+  --font-display: 'Cormorant Garamond', Georgia, ui-serif, serif;  /* títulos, pôsteres */
+  --font-ui:      'DM Sans', system-ui, sans-serif;                /* textos de interface */
+  --font-data:    'DM Mono', ui-monospace, monospace;              /* dados técnicos, ar analógico */
+}
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* ── NEUTRALS — True cinema blacks, not navy ── */
-  --color-ink-950:  #060606;   /* void — deepest background */
-  --color-ink-900:  #0A0A0A;   /* base background */
-  --color-ink-800:  #111111;   /* surface */
-  --color-ink-700:  #181818;   /* surface raised */
-  --color-ink-600:  #222222;   /* elevated surface */
-  --color-ink-500:  #2C2C2C;   /* borders, dividers */
-  --color-ink-400:  #3D3D3D;   /* inactive elements */
-  --color-ink-300:  #555550;   /* tertiary text */
-  --color-ink-200:  #88887E;   /* secondary text (warm tint) */
-  --color-ink-100:  #C2BDB4;   /* muted primary text */
-  --color-ink-50:   #E8E2D8;   /* secondary text */
-  --color-ink-0:    #F5F0E8;   /* primary text — aged paper */
+  /* ── Superfícies ── */
+  --color-void: var(--void);
+  --color-bg:   var(--bg);
+  --color-s1:   var(--s1);
+  --color-s2:   var(--s2);
+  --color-s3:   var(--s3);
+  --color-s4:   var(--s4);
+  --color-s5:   var(--s5);
 
-  /* ── GOLD — The single warm accent, like film projector light ── */
-  --color-gold-900: #3A2B12;
-  --color-gold-800: #5C4220;
-  --color-gold-700: #7A5A2E;
-  --color-gold-600: #9A7240;
-  --color-gold-500: #B8894E;   /* base gold */
-  --color-gold-400: #C9A96E;   /* primary accent */
-  --color-gold-300: #D9C090;
-  --color-gold-200: #E8D5B0;   /* light champagne */
-  --color-gold-100: #F2E8D0;
+  /* ── Texto ── */
+  --color-film: var(--film);
+  --color-m1:   var(--m1);
+  --color-m2:   var(--m2);
+  --color-m3:   var(--m3);
+  --color-m4:   var(--m4);
+  --color-m5:   var(--m5);
 
-  /* ── QUALITY INDICATORS — Desaturated, filmic ── */
-  --color-quality-remux:  #6B9E84;   /* sage green */
-  --color-quality-atmos:  #8E7FA8;   /* dusty violet */
-  --color-quality-4k:     #C9A96E;   /* same gold */
-  --color-quality-hdr:    #B87B5E;   /* warm terracotta */
-  --color-quality-dv:     #6B8EA8;   /* dusty steel blue */
-  --color-quality-imax:   #7A9E9E;   /* slate teal */
-  --color-quality-webdl:  #6B6B6B;   /* neutral gray */
+  /* ── Acento ── */
+  --color-gold:       var(--gold);
+  --color-gold-deep:  var(--gold-deep);
+  --color-gold-light: var(--gold-light);
 
-  /* ── SEMANTIC (Shadcn/Radix compat) ── */
-  --color-background:           var(--color-ink-900);
-  --color-foreground:           var(--color-ink-0);
-  --color-card:                 var(--color-ink-800);
-  --color-card-foreground:      var(--color-ink-0);
-  --color-popover:              var(--color-ink-700);
-  --color-popover-foreground:   var(--color-ink-0);
-  --color-primary:              var(--color-gold-400);
-  --color-primary-foreground:   var(--color-ink-900);
-  --color-secondary:            var(--color-ink-700);
-  --color-secondary-foreground: var(--color-ink-50);
-  --color-muted:                var(--color-ink-700);
-  --color-muted-foreground:     var(--color-ink-200);
-  --color-accent:               var(--color-ink-600);
-  --color-accent-foreground:    var(--color-ink-0);
-  --color-destructive:          #B05050;
-  --color-destructive-foreground: var(--color-ink-0);
-  --color-border:               rgba(245, 240, 232, 0.07);
-  --color-input:                var(--color-ink-700);
-  --color-ring:                 var(--color-gold-400);
+  /* ── Qualidade: NAO expostas aqui de proposito. --violet, --teal e
+     --gray colidiriam com a paleta padrao do Tailwind (violet-500,
+     teal-500, gray-900...). Sao consumidas via var() e pelas .badge-*. ── */
 
-  /* ── RADIUS — Minimal, architectural ── */
+  /* ── SEMÂNTICOS (compat shadcn/Radix — 86 usos no código) ── */
+  --color-background:           var(--bg);
+  --color-foreground:           var(--film);
+  --color-card:                 var(--s2);
+  --color-card-foreground:      var(--film);
+  --color-popover:              var(--s3);
+  --color-popover-foreground:   var(--film);
+  --color-primary:              var(--gold);
+  --color-primary-foreground:   var(--void);
+  --color-secondary:            var(--s3);
+  --color-secondary-foreground: var(--film);
+  --color-muted:                var(--s3);
+  --color-muted-foreground:     var(--m2);
+  --color-accent:               var(--s4);
+  --color-accent-foreground:    var(--film);
+  --color-destructive:          var(--danger);
+  --color-destructive-foreground: var(--film);
+  --color-border:               color-mix(in srgb, var(--film) 7%, transparent);
+  --color-input:                var(--s3);
+  --color-ring:                 var(--gold);
+
+  /* ── RADIUS — mínimo, arquitetônico ── */
   --radius-none: 0px;
   --radius-xs:   2px;
   --radius-sm:   3px;
@@ -75,13 +116,12 @@
   --radius-xl:   8px;
   --radius:      3px;
 
-  /* ── TYPOGRAPHY ── */
-  --font-sans:    'Inter', system-ui, sans-serif;
-  --font-serif:   'Playfair Display', 'Georgia', ui-serif, serif;
-  --font-mono:    'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-  --font-display: 'Playfair Display', 'Georgia', ui-serif, serif;
+  /* ── TIPOGRAFIA (utilitários font-sans / font-serif / font-mono) ── */
+  --font-sans:    var(--font-ui);
+  --font-serif:   var(--font-display);
+  --font-mono:    var(--font-data);
 
-  /* ── SPACING (tighter, more editorial) ── */
+  /* ── SPACING (editorial, mais apertado) ── */
   --space-px:  1px;
   --space-0:   0px;
   --space-1:   4px;
@@ -106,34 +146,34 @@
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
-    border-color: rgba(245, 240, 232, 0.07);
+    border-color: color-mix(in srgb, var(--film) 7%, transparent);
   }
 
   html {
-    background-color: #0A0A0A;
-    color: #F5F0E8;
-    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--bg);
+    color: var(--film);
+    font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
     text-rendering: optimizeLegibility;
     scrollbar-width: thin;
-    scrollbar-color: rgba(201, 169, 110, 0.2) transparent;
+    scrollbar-color: color-mix(in srgb, var(--gold) 20%, transparent) transparent;
   }
 
   html::-webkit-scrollbar { width: 6px; }
   html::-webkit-scrollbar-track { background: transparent; }
   html::-webkit-scrollbar-thumb {
-    background: rgba(201, 169, 110, 0.18);
+    background: color-mix(in srgb, var(--gold) 18%, transparent);
     border-radius: 0;
   }
   html::-webkit-scrollbar-thumb:hover {
-    background: rgba(201, 169, 110, 0.35);
+    background: color-mix(in srgb, var(--gold) 35%, transparent);
   }
 
   body {
-    background-color: #0A0A0A;
-    color: #F5F0E8;
+    background-color: var(--bg);
+    color: var(--film);
     min-height: 100dvh;
     position: relative;
     /* Film grain texture */
@@ -144,21 +184,21 @@
 
   /* Selection */
   ::selection {
-    background: rgba(201, 169, 110, 0.25);
-    color: #F5F0E8;
+    background: color-mix(in srgb, var(--gold) 25%, transparent);
+    color: var(--film);
   }
 
   /* Headlines — Playfair Display */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', 'Georgia', ui-serif, serif;
-    font-weight: 700;
-    color: #F5F0E8;
+    font-family: var(--font-display);
+    font-weight: 400;
+    color: var(--film);
     text-wrap: balance;
     letter-spacing: -0.01em;
   }
 
   p {
-    color: #C2BDB4;
+    color: var(--m1);
     line-height: 1.65;
   }
 
@@ -169,13 +209,13 @@
 
   input, textarea, select {
     background: var(--color-ink-700);
-    border: 1px solid rgba(245, 240, 232, 0.10);
-    color: #F5F0E8;
+    border: 1px solid color-mix(in srgb, var(--film) 10%, transparent);
+    color: var(--film);
     font-family: inherit;
   }
 
   input::placeholder, textarea::placeholder {
-    color: #55554E;
+    color: var(--m3);
   }
 }
 
@@ -210,72 +250,72 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: radial-gradient(ellipse at center, transparent 50%, rgba(6,6,6,0.8) 100%);
+    background: radial-gradient(ellipse at center, transparent 50%, color-mix(in srgb, var(--void) 80%, transparent) 100%);
   }
 
   /* ── Typography Utilities ── */
   .text-display {
-    font-family: 'Playfair Display', 'Georgia', ui-serif, serif;
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-weight: 400;
     letter-spacing: -0.02em;
     line-height: 1.1;
   }
 
   .text-label {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-ui);
     font-size: 0.65rem;
-    font-weight: 500;
+    font-weight: 400;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: #88887E;
+    color: var(--m2);
   }
 
   .text-label-gold {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-ui);
     font-size: 0.65rem;
-    font-weight: 500;
+    font-weight: 400;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: #C9A96E;
+    color: var(--gold);
   }
 
   .text-mono {
-    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    font-family: var(--font-data);
     font-size: 0.8rem;
     letter-spacing: 0.05em;
   }
 
   /* ── Gold text effect ── */
-  .text-gold { color: #C9A96E; }
-  .text-gold-light { color: #E8D5B0; }
-  .text-film { color: #F5F0E8; }
+  .text-gold { color: var(--gold); }
+  .text-gold-light { color: var(--gold-light); }
+  .text-film { color: var(--film); }
 
   /* ── Glow — Very restrained, warm only ── */
   .glow-gold {
-    text-shadow: 0 0 40px rgba(201, 169, 110, 0.3);
+    text-shadow: 0 0 40px color-mix(in srgb, var(--gold) 30%, transparent);
   }
 
   /* ── Border utilities ── */
-  .border-subtle { border-color: rgba(245, 240, 232, 0.06); }
-  .border-film   { border-color: rgba(245, 240, 232, 0.10); }
-  .border-strong { border-color: rgba(245, 240, 232, 0.18); }
-  .border-gold   { border-color: rgba(201, 169, 110, 0.30); }
+  .border-subtle { border-color: color-mix(in srgb, var(--film) 6%, transparent); }
+  .border-film   { border-color: color-mix(in srgb, var(--film) 10%, transparent); }
+  .border-strong { border-color: color-mix(in srgb, var(--film) 18%, transparent); }
+  .border-gold   { border-color: color-mix(in srgb, var(--gold) 30%, transparent); }
 
   /* ── Surface utilities ── */
-  .surface-0   { background-color: #060606; }
-  .surface-1   { background-color: #0A0A0A; }
-  .surface-2   { background-color: #111111; }
-  .surface-3   { background-color: #181818; }
-  .surface-4   { background-color: #222222; }
+  .surface-0   { background-color: var(--void); }
+  .surface-1   { background-color: var(--bg); }
+  .surface-2   { background-color: var(--s2); }
+  .surface-3   { background-color: var(--s3); }
+  .surface-4   { background-color: var(--s4); }
 
   /* ── Quality Badge Colors ── */
-  .badge-remux  { color: #6B9E84; background: rgba(107,158,132,0.08); border-color: rgba(107,158,132,0.25); }
-  .badge-atmos  { color: #8E7FA8; background: rgba(142,127,168,0.08); border-color: rgba(142,127,168,0.25); }
-  .badge-4k     { color: #C9A96E; background: rgba(201,169,110,0.08); border-color: rgba(201,169,110,0.25); }
-  .badge-hdr    { color: #B87B5E; background: rgba(184,123,94,0.08);  border-color: rgba(184,123,94,0.25);  }
-  .badge-dv     { color: #6B8EA8; background: rgba(107,142,168,0.08); border-color: rgba(107,142,168,0.25); }
-  .badge-imax   { color: #7A9E9E; background: rgba(122,158,158,0.08); border-color: rgba(122,158,158,0.25); }
-  .badge-webdl  { color: #6B6B6B; background: rgba(107,107,107,0.08); border-color: rgba(107,107,107,0.25); }
+  .badge-remux  { color: var(--sage); background: color-mix(in srgb, var(--sage) 8%, transparent); border-color: color-mix(in srgb, var(--sage) 25%, transparent); }
+  .badge-atmos  { color: var(--violet); background: color-mix(in srgb, var(--violet) 8%, transparent); border-color: color-mix(in srgb, var(--violet) 25%, transparent); }
+  .badge-4k     { color: var(--gold); background: color-mix(in srgb, var(--gold) 8%, transparent); border-color: color-mix(in srgb, var(--gold) 25%, transparent); }
+  .badge-hdr    { color: var(--terra); background: color-mix(in srgb, var(--terra) 8%, transparent);  border-color: color-mix(in srgb, var(--terra) 25%, transparent);  }
+  .badge-dv     { color: var(--steel); background: color-mix(in srgb, var(--steel) 8%, transparent); border-color: color-mix(in srgb, var(--steel) 25%, transparent); }
+  .badge-imax   { color: var(--teal); background: color-mix(in srgb, var(--teal) 8%, transparent); border-color: color-mix(in srgb, var(--teal) 25%, transparent); }
+  .badge-webdl  { color: var(--gray); background: color-mix(in srgb, var(--gray) 8%, transparent); border-color: color-mix(in srgb, var(--gray) 25%, transparent); }
 
   /* ── Scrollbar hidden ── */
   .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -289,7 +329,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    color: #55554E;
+    color: var(--m3);
     font-size: 0.65rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -298,13 +338,13 @@
     content: '';
     flex: 1;
     height: 1px;
-    background: rgba(245, 240, 232, 0.07);
+    background: color-mix(in srgb, var(--film) 7%, transparent);
   }
 
   /* ── Focus ring — Gold, architectural ── */
   .focus-film:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 1px rgba(201, 169, 110, 0.6);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 60%, transparent);
   }
 
   /* ── Hover link underline — filmic ── */
@@ -318,7 +358,7 @@
     left: 0;
     width: 0;
     height: 1px;
-    background: #C9A96E;
+    background: var(--gold);
     transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
   .hover-underline:hover::after { width: 100%; }
@@ -334,11 +374,11 @@
 
   /* ── Number / Index style ── */
   .index-number {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-ui);
     font-size: 0.65rem;
     font-weight: 400;
     letter-spacing: 0.1em;
-    color: #3D3D3D;
+    color: var(--m4);
   }
 
   /* ── Marquee animation ── */
@@ -387,7 +427,7 @@
     transition: box-shadow 0.2s, opacity 0.2s;
   }
   .tv-focus:focus-visible {
-    box-shadow: 0 0 0 1px rgba(201, 169, 110, 0.5), inset 0 0 0 1px rgba(201, 169, 110, 0.15);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 50%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--gold) 15%, transparent);
   }
   .tv-focus:hover {
     opacity: 0.88;
@@ -404,7 +444,7 @@
 
   /* ── Ticket/stamp aesthetic ── */
   .ticket-border {
-    border: 1px solid rgba(245, 240, 232, 0.10);
+    border: 1px solid color-mix(in srgb, var(--film) 10%, transparent);
     position: relative;
   }
   .ticket-border::before {
@@ -414,7 +454,7 @@
     left: -1px;
     right: -1px;
     bottom: -1px;
-    border: 1px solid rgba(201, 169, 110, 0.08);
+    border: 1px solid color-mix(in srgb, var(--gold) 8%, transparent);
     pointer-events: none;
   }
 }
@@ -429,8 +469,8 @@
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(201, 169, 110, 0.4) 30%,
-    rgba(201, 169, 110, 0.4) 70%,
+    color-mix(in srgb, var(--gold) 40%, transparent) 30%,
+    color-mix(in srgb, var(--gold) 40%, transparent) 70%,
     transparent 100%
   );
 }
@@ -445,13 +485,13 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: rgba(245, 240, 232, 0.06);
+  background: color-mix(in srgb, var(--film) 6%, transparent);
 }
 
 /* Progress bar — film-like */
 .progress-film {
   height: 2px;
-  background: rgba(245, 240, 232, 0.06);
+  background: color-mix(in srgb, var(--film) 6%, transparent);
   position: relative;
   overflow: hidden;
 }
@@ -460,7 +500,7 @@
   top: 0;
   left: 0;
   height: 100%;
-  background: #C9A96E;
+  background: var(--gold);
   transition: width 0.6s ease;
 }
 
@@ -472,27 +512,27 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(245, 240, 232, 0.10);
-  font-family: 'Inter', system-ui, sans-serif;
+  border: 1px solid color-mix(in srgb, var(--film) 10%, transparent);
+  font-family: var(--font-ui);
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0;
-  color: #C9A96E;
+  color: var(--gold);
 }
 
 /* Interactive card — no scale, just opacity + border shift */
 .card-interactive {
-  border: 1px solid rgba(245, 240, 232, 0.07);
+  border: 1px solid color-mix(in srgb, var(--film) 7%, transparent);
   transition: border-color 0.3s ease, background-color 0.3s ease;
   cursor: pointer;
 }
 .card-interactive:hover {
-  border-color: rgba(245, 240, 232, 0.14);
-  background-color: rgba(245, 240, 232, 0.02);
+  border-color: color-mix(in srgb, var(--film) 14%, transparent);
+  background-color: color-mix(in srgb, var(--film) 2%, transparent);
 }
 .card-interactive:focus-visible {
   outline: none;
-  border-color: rgba(201, 169, 110, 0.4);
+  border-color: color-mix(in srgb, var(--gold) 40%, transparent);
 }
 
 /* Poster card hover */
@@ -516,8 +556,8 @@
   inset: 0;
   background: linear-gradient(
     to top,
-    rgba(6, 6, 6, 0.95) 0%,
-    rgba(6, 6, 6, 0.4) 40%,
+    color-mix(in srgb, var(--void) 95%, transparent) 0%,
+    color-mix(in srgb, var(--void) 40%, transparent) 40%,
     transparent 70%
   );
 }

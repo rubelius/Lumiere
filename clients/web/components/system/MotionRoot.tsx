@@ -126,8 +126,8 @@ function FilmStrip({ pathname }: { pathname: string }) {
       <div style={{ height: 56, display: 'flex', alignItems: 'center', paddingLeft: 14, gap: 12, flexShrink: 0, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
         <motion.div animate={{ rotate: [0, 0, 0] }} style={{ flexShrink: 0 }}>
           <svg viewBox="0 0 20 20" fill="none" style={{ width: 16, height: 16 }}>
-            <rect x="3" y="2" width="2.5" height="16" fill="#BF8F3C" />
-            <rect x="3" y="15.5" width="10" height="2.5" fill="#BF8F3C" />
+            <rect x="3" y="2" width="2.5" height="16" fill="var(--gold)" />
+            <rect x="3" y="15.5" width="10" height="2.5" fill="var(--gold)" />
           </svg>
         </motion.div>
         <AnimatePresence>
@@ -137,7 +137,7 @@ function FilmStrip({ pathname }: { pathname: string }) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.05rem', fontWeight: 500, letterSpacing: '0.10em', color: '#EDE8DC', whiteSpace: 'nowrap' }}
+              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.05rem', fontWeight: 500, letterSpacing: '0.10em', color: 'var(--film)', whiteSpace: 'nowrap' }}
             >
               LUMIÈRE
             </motion.span>
@@ -175,7 +175,7 @@ function FilmStrip({ pathname }: { pathname: string }) {
                   layoutId="nav-active-bar"
                   style={{
                     position: 'absolute', left: 0, top: 4, bottom: 4, width: 2,
-                    background: '#BF8F3C', borderRadius: 1,
+                    background: 'var(--gold)', borderRadius: 1,
                   }}
                   transition={{ type: 'spring', stiffness: 380, damping: 28 }}
                 />
@@ -197,7 +197,7 @@ function FilmStrip({ pathname }: { pathname: string }) {
               <span style={{
                 fontFamily: "'DM Mono', monospace",
                 fontSize: '8.5px', letterSpacing: '0.08em',
-                color: active ? '#BF8F3C' : '#1C1B18',
+                color: active ? 'var(--gold)' : 'var(--m5)',
                 width: 16, textAlign: 'right', flexShrink: 0, zIndex: 1,
                 transition: 'color 0.25s',
               }}>
@@ -215,7 +215,7 @@ function FilmStrip({ pathname }: { pathname: string }) {
                     style={{
                       fontFamily: "'DM Mono', monospace",
                       fontSize: '9.5px', letterSpacing: '0.16em', textTransform: 'uppercase',
-                      color: active ? '#EDE8DC' : '#565450',
+                      color: active ? 'var(--film)' : 'var(--m3)',
                       whiteSpace: 'nowrap', zIndex: 1,
                       transition: 'color 0.25s',
                     }}
@@ -232,7 +232,7 @@ function FilmStrip({ pathname }: { pathname: string }) {
                     style={{
                       fontFamily: "'DM Mono', monospace",
                       fontSize: '7.5px', letterSpacing: '0.06em',
-                      color: active ? '#7A5A20' : '#1C1B18',
+                      color: active ? 'var(--gold-deep)' : 'var(--m5)',
                       zIndex: 1,
                     }}
                   >
@@ -255,7 +255,7 @@ function FilmStrip({ pathname }: { pathname: string }) {
         <motion.div
           animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 3, repeat: Infinity }}
-          style={{ width: 5, height: 5, borderRadius: '50%', background: '#BF8F3C', flexShrink: 0 }}
+          style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)', flexShrink: 0 }}
         />
         <AnimatePresence>
           {hovered && (
@@ -340,7 +340,7 @@ function AmbientGlow() {
       style={{
         position: 'fixed', inset: 0, zIndex: 0,
         pointerEvents: 'none',
-        background: '#080806',
+        background: 'var(--bg)',
       }}
     >
       {/* Slow-moving warm bloom */}

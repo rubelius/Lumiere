@@ -54,8 +54,8 @@ export function CinemaMarquee() {
         position: 'relative',
       }}
     >
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 80, zIndex: 2, background: 'linear-gradient(to right, #080806, transparent)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, zIndex: 2, background: 'linear-gradient(to left, #080806, transparent)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 80, zIndex: 2, background: 'linear-gradient(to right, var(--bg), transparent)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, zIndex: 2, background: 'linear-gradient(to left, var(--bg), transparent)', pointerEvents: 'none' }} />
 
       <motion.div
         className="marquee-track"
@@ -63,10 +63,10 @@ export function CinemaMarquee() {
       >
         {items.map((film, i) => (
           <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 24, padding: '0 24px' }}>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 400, letterSpacing: '0.16em', textTransform: 'uppercase', color: i % 7 === 0 ? '#BF8F3C' : '#302E2A' }}>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', fontWeight: 400, letterSpacing: '0.16em', textTransform: 'uppercase', color: i % 7 === 0 ? 'var(--gold)' : 'var(--m4)' }}>
               {film}
             </span>
-            <span style={{ display: 'inline-block', width: 3, height: 3, background: '#1C1B18', transform: 'rotate(45deg)', flexShrink: 0 }} />
+            <span style={{ display: 'inline-block', width: 3, height: 3, background: 'var(--m5)', transform: 'rotate(45deg)', flexShrink: 0 }} />
           </span>
         ))}
       </motion.div>
@@ -96,7 +96,7 @@ export interface FilmEntry {
 
 function QualityDots({ qualities }: { qualities: string[] }) {
   const colorMap: Record<string, string> = {
-    '4K': '#BF8F3C', 'REMUX': '#5E8872', 'HDR': '#9E6858',
+    '4K': 'var(--gold)', 'REMUX': '#5E8872', 'HDR': '#9E6858',
     'ATMOS': '#7E6E9A', 'IMAX': '#5E8888', 'WEB-DL': '#607898', 'DV': '#607898',
   }
   return (
@@ -108,14 +108,14 @@ function QualityDots({ qualities }: { qualities: string[] }) {
             display: 'inline-flex',
             alignItems: 'center',
             padding: '1px 6px',
-            border: `1px solid ${colorMap[q] || '#302E2A'}33`,
-            background: `${colorMap[q] || '#302E2A'}0D`,
+            border: `1px solid ${colorMap[q] || 'var(--m4)'}33`,
+            background: `${colorMap[q] || 'var(--m4)'}0D`,
             fontFamily: "'DM Mono', monospace",
             fontSize: '8.5px',
             fontWeight: 400,
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
-            color: colorMap[q] || '#302E2A',
+            color: colorMap[q] || 'var(--m4)',
             borderRadius: 1,
           }}
         >
@@ -158,7 +158,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
           transition={{ duration: 0.85, ease: FINE_ART_EASE }}
           style={{ position: 'absolute', top: 0, bottom: 0, right: 0, overflow: 'hidden', zIndex: -1, filter: 'grayscale(100%)', willChange: 'width, opacity' }}
         >
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #080806 0%, transparent 100%)', zIndex: 1 }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--bg) 0%, transparent 100%)', zIndex: 1 }} />
           <img 
             src={finalBg} 
             style={{ 
@@ -170,7 +170,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
           />
         </motion.div>
 
-        <motion.div animate={{ color: isHovered ? '#BF8F3C' : '#565450' }} transition={{ duration: 0.8 }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
+        <motion.div animate={{ color: isHovered ? 'var(--gold)' : 'var(--m3)' }} transition={{ duration: 0.8 }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
           {film.number}
         </motion.div>
 
@@ -183,7 +183,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
         </AnimatePresence>
 
         <motion.h3
-          animate={{ scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1, color: isExpanded ? '#FFFFFF' : isHovered ? '#EDE8DC' : '#8C8880', y: isExpanded ? '30vh' : isHovered ? 12 : 0, x: isExpanded ? '10vw' : 0 }}
+          animate={{ scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1, color: isExpanded ? '#FFFFFF' : isHovered ? 'var(--film)' : 'var(--m2)', y: isExpanded ? '30vh' : isHovered ? 12 : 0, x: isExpanded ? '10vw' : 0 }}
           transition={{ duration: 0.85, ease: FINE_ART_EASE }}
           style={{ position: 'absolute', left: 240, top: 22, fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', fontWeight: 400, margin: 0, lineHeight: 1, letterSpacing: '-0.01em', transformOrigin: 'left top', willChange: 'transform, color', zIndex: 10 }}
         >
@@ -196,7 +196,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
               <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} exit={{ scaleY: 0 }} transition={{ duration: 0.9, delay: 0.1, ease: FINE_ART_EASE }} style={{ width: 1, backgroundColor: 'rgba(191,143,60,0.3)', transformOrigin: 'top' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden', paddingBottom: 10 }}>
                 <div style={{ overflow: 'hidden' }}>
-                  <motion.div initial={{ y: '100%', filter: 'blur(4px)' }} animate={{ y: '0%', filter: 'blur(0px)' }} exit={{ y: '100%', filter: 'blur(4px)' }} transition={{ duration: 0.8, delay: 0.15, ease: FINE_ART_EASE }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#7A5A20', textTransform: 'uppercase' }}>
+                  <motion.div initial={{ y: '100%', filter: 'blur(4px)' }} animate={{ y: '0%', filter: 'blur(0px)' }} exit={{ y: '100%', filter: 'blur(4px)' }} transition={{ duration: 0.8, delay: 0.15, ease: FINE_ART_EASE }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold-deep)', textTransform: 'uppercase' }}>
                     {film.director} // {film.year} // {film.runtime} // {film.genre}
                   </motion.div>
                 </div>
@@ -212,7 +212,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
 
         <AnimatePresence>
           {!isHovered && !isExpanded && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} style={{ position: 'absolute', right: 40, top: 28, display: 'flex', gap: 40, color: '#565450', fontFamily: "'DM Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} style={{ position: 'absolute', right: 40, top: 28, display: 'flex', gap: 40, color: 'var(--m3)', fontFamily: "'DM Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               <span>{film.director}</span>
               <span>{film.year}</span>
               <span style={{ width: 140, textAlign: 'right' }}>{film.runtime}</span>
@@ -248,7 +248,7 @@ export function FilmProgramme({ title, subtitle, films, onHover }: any) {
         <div>
           {subtitle && (
             <div style={{ overflow: 'hidden', marginBottom: 10 }}>
-              <motion.div initial={{ y: '100%' }} whileInView={{ y: '0%' }} viewport={{ once: true }} transition={{ duration: 1, ease: FINE_ART_EASE }} className="label-gold" style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#BF8F3C' }}>
+              <motion.div initial={{ y: '100%' }} whileInView={{ y: '0%' }} viewport={{ once: true }} transition={{ duration: 1, ease: FINE_ART_EASE }} className="label-gold" style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)' }}>
                 {subtitle}
               </motion.div>
             </div>
@@ -256,7 +256,7 @@ export function FilmProgramme({ title, subtitle, films, onHover }: any) {
           <div style={{ overflow: 'hidden', paddingBottom: 16 }}> 
             <motion.h2
               initial={{ y: '100%' }} whileInView={{ y: '0%' }} viewport={{ once: true }} transition={{ duration: 1.2, ease: FINE_ART_EASE }}
-              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(2rem, 3vw, 2.8rem)', fontWeight: 400, color: '#EDE8DC', lineHeight: 1.1, letterSpacing: '-0.01em', margin: 0 }}
+              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(2rem, 3vw, 2.8rem)', fontWeight: 400, color: 'var(--film)', lineHeight: 1.1, letterSpacing: '-0.01em', margin: 0 }}
             >
               {title}
             </motion.h2>
@@ -264,7 +264,7 @@ export function FilmProgramme({ title, subtitle, films, onHover }: any) {
         </div>
         
         <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 1, delay: 0.4 }}>
-          <Link href="/library" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: '#565450', textDecoration: 'none', borderBottom: '1px solid rgba(237,232,220,0.08)', paddingBottom: 2, transition: 'color 0.2s, border-color 0.2s' }}>
+          <Link href="/library" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--m3)', textDecoration: 'none', borderBottom: '1px solid rgba(237,232,220,0.08)', paddingBottom: 2, transition: 'color 0.2s, border-color 0.2s' }}>
             Arquivo completo →
           </Link>
         </motion.div>

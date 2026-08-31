@@ -121,8 +121,8 @@ export function FilmStripNav() {
             }}
           >
             <svg viewBox="0 0 20 20" fill="none" style={{ width: 18, height: 18 }}>
-              <rect x="3" y="2" width="2.5" height="16" fill="#BF8F3C" />
-              <rect x="3" y="15.5" width="11" height="2.5" fill="#BF8F3C" />
+              <rect x="3" y="2" width="2.5" height="16" fill="var(--gold)" />
+              <rect x="3" y="15.5" width="11" height="2.5" fill="var(--gold)" />
             </svg>
           </div>
 
@@ -141,7 +141,7 @@ export function FilmStripNav() {
                     fontSize: '1.15rem',
                     fontWeight: 500,
                     letterSpacing: '0.10em',
-                    color: '#EDE8DC',
+                    color: 'var(--film)',
                   }}
                 >
                   LUMIÈRE
@@ -213,7 +213,7 @@ export function FilmStripNav() {
                       top: 4,
                       bottom: 4,
                       width: 2,
-                      background: '#BF8F3C',
+                      background: 'var(--gold)',
                       borderRadius: 1,
                     }}
                   />
@@ -225,7 +225,7 @@ export function FilmStripNav() {
                     fontFamily: "'DM Mono', monospace",
                     fontSize: '9px',
                     letterSpacing: '0.08em',
-                    color: active ? '#BF8F3C' : '#302E2A',
+                    color: active ? 'var(--gold)' : 'var(--m4)',
                     flexShrink: 0,
                     width: 16,
                     textAlign: 'right',
@@ -262,7 +262,7 @@ export function FilmStripNav() {
                           fontWeight: 400,
                           letterSpacing: '0.16em',
                           textTransform: 'uppercase',
-                          color: active ? '#EDE8DC' : '#565450',
+                          color: active ? 'var(--film)' : 'var(--m3)',
                           whiteSpace: 'nowrap',
                           transition: 'color 0.25s',
                         }}
@@ -281,7 +281,7 @@ export function FilmStripNav() {
                           fontFamily: "'DM Mono', monospace",
                           fontSize: '8px',
                           letterSpacing: '0.06em',
-                          color: active ? '#BF8F3C' : '#302E2A',
+                          color: active ? 'var(--gold)' : 'var(--m4)',
                           whiteSpace: 'nowrap',
                         }}
                       >
@@ -325,7 +325,7 @@ export function FilmStripNav() {
               width: 6,
               height: 6,
               borderRadius: '50%',
-              background: '#BF8F3C',
+              background: 'var(--gold)',
               opacity: 0.6,
               flexShrink: 0,
             }}
@@ -341,7 +341,7 @@ export function FilmStripNav() {
                   fontFamily: "'DM Mono', monospace",
                   fontSize: '9px',
                   letterSpacing: '0.12em',
-                  color: '#302E2A',
+                  color: 'var(--m4)',
                   textTransform: 'uppercase',
                   whiteSpace: 'nowrap',
                 }}

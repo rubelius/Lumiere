@@ -54,11 +54,11 @@ export function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClic
           transition={{ duration: 0.85, ease: FINE_ART_EASE }}
           style={{ position: 'absolute', top: 0, bottom: 0, right: 0, overflow: 'hidden', zIndex: -1, filter: 'grayscale(100%)', transformOrigin: 'right' }}
         >
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #080806 0%, transparent 100%)', zIndex: 1 }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--bg) 0%, transparent 100%)', zIndex: 1 }} />
           <img src={film.img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
         </motion.div>
 
-        <motion.div animate={{ color: isHovered ? '#BF8F3C' : '#302E2A' }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
+        <motion.div animate={{ color: isHovered ? 'var(--gold)' : 'var(--m4)' }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
           {film.number}
         </motion.div>
 
@@ -76,7 +76,7 @@ export function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClic
         <motion.h3
           animate={{
             scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1,
-            color: isExpanded ? '#FFFFFF' : isHovered ? '#EDE8DC' : '#8C8880',
+            color: isExpanded ? '#FFFFFF' : isHovered ? 'var(--film)' : 'var(--m2)',
             y: isExpanded ? '30vh' : isHovered ? 12 : 0,
             x: isExpanded ? '10vw' : 0
           }}
@@ -91,7 +91,7 @@ export function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClic
             <div style={{ position: 'absolute', left: 240, top: 100, display: 'flex', gap: 24, maxWidth: 720 }}>
               <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} exit={{ scaleY: 0 }} transition={{ duration: 0.9, delay: 0.1, ease: FINE_ART_EASE }} style={{ width: 1, backgroundColor: 'rgba(191,143,60,0.3)', transformOrigin: 'top' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden', paddingBottom: 10 }}>
-                <motion.div initial={{ y: '100%' }} animate={{ y: '0%' }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: '#7A5A20', textTransform: 'uppercase' }}>
+                <motion.div initial={{ y: '100%' }} animate={{ y: '0%' }} style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold-deep)', textTransform: 'uppercase' }}>
                   {film.director} // {film.year}
                 </motion.div>
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', lineHeight: 1.6, color: 'rgba(237,232,220,0.55)', fontStyle: 'italic', margin: 0 }}>
@@ -106,7 +106,7 @@ export function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClic
           {!isHovered && !isExpanded && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ position: 'absolute', right: 40, top: 28, display: 'flex', gap: 40, color: '#302E2A', fontFamily: "'DM Mono', monospace", fontSize: '10px', textTransform: 'uppercase' }}
+              style={{ position: 'absolute', right: 40, top: 28, display: 'flex', gap: 40, color: 'var(--m4)', fontFamily: "'DM Mono', monospace", fontSize: '10px', textTransform: 'uppercase' }}
             >
               <span>{film.director}</span>
               <span>{film.year}</span>
@@ -142,11 +142,11 @@ export function FilmGridCard({ film, router, setExpandedId, onHover }: { film: M
         contentVisibility: 'auto', containIntrinsicSize: '400px'
       }}
     >
-      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: isHovered ? '#BF8F3C' : '#302E2A', letterSpacing: '0.2em', marginBottom: 12, transition: 'color 0.4s ease' }}>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: isHovered ? 'var(--gold)' : 'var(--m4)', letterSpacing: '0.2em', marginBottom: 12, transition: 'color 0.4s ease' }}>
         [{film.number}]
       </div>
 
-      <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden', backgroundColor: '#040402', border: isHovered ? '1px solid rgba(191,143,60,0.3)' : '1px solid rgba(237,232,220,0.05)', transition: 'border-color 0.6s ease' }}>
+      <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden', backgroundColor: 'var(--void)', border: isHovered ? '1px solid rgba(191,143,60,0.3)' : '1px solid rgba(237,232,220,0.05)', transition: 'border-color 0.6s ease' }}>
         <motion.img
           src={film.img}
           animate={{ scale: isHovered ? 1.05 : 1, filter: isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)' }}
@@ -158,7 +158,7 @@ export function FilmGridCard({ film, router, setExpandedId, onHover }: { film: M
         <motion.div
           animate={{ opacity: isHovered ? 1 : 0 }}
           transition={{ duration: 0.6, ease: FINE_ART_EASE }}
-          style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #080806 0%, rgba(8,8,6,0.9) 35%, transparent 100%)', pointerEvents: 'none' }}
+          style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--bg) 0%, rgba(8,8,6,0.9) 35%, transparent 100%)', pointerEvents: 'none' }}
         />
 
         <motion.div
@@ -169,23 +169,23 @@ export function FilmGridCard({ film, router, setExpandedId, onHover }: { film: M
         >
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {film.qualities.map((q) => (
-              <span key={q} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', padding: '4px 8px', border: '1px solid rgba(191,143,60,0.4)', color: '#BF8F3C', backgroundColor: 'rgba(8,8,6,0.6)' }}>
+              <span key={q} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', padding: '4px 8px', border: '1px solid rgba(191,143,60,0.4)', color: 'var(--gold)', backgroundColor: 'rgba(8,8,6,0.6)' }}>
                 {q}
               </span>
             ))}
           </div>
-          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.25rem', color: '#EDE8DC', fontStyle: 'italic', margin: 0, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.25rem', color: 'var(--film)', fontStyle: 'italic', margin: 0, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
             {film.synopsis}
           </p>
         </motion.div>
       </div>
 
       <div style={{ marginTop: 24 }}>
-        <motion.div animate={{ color: isHovered ? '#FFFFFF' : '#EDE8DC' }} transition={{ duration: 0.4 }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', lineHeight: 1.1, marginBottom: 8, letterSpacing: '-0.01em' }}>
+        <motion.div animate={{ color: isHovered ? '#FFFFFF' : 'var(--film)' }} transition={{ duration: 0.4 }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', lineHeight: 1.1, marginBottom: 8, letterSpacing: '-0.01em' }}>
           {film.title}
         </motion.div>
-        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: '#565450', textTransform: 'uppercase' }}>
-          {film.director} // <span style={{ color: isHovered ? '#BF8F3C' : '#302E2A', transition: 'color 0.4s' }}>{film.year}</span>
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: 'var(--m3)', textTransform: 'uppercase' }}>
+          {film.director} // <span style={{ color: isHovered ? 'var(--gold)' : 'var(--m4)', transition: 'color 0.4s' }}>{film.year}</span>
         </div>
       </div>
     </motion.div>
