@@ -1,8 +1,8 @@
 'use client';
 import { motion } from "framer-motion";
+import { FINE_ART_EASE } from '@/lib/motion';
 import { MotionImage } from '@/components/system/MotionImage';
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export const MovieHero = ({ ytId, backgroundUrl }: { ytId: string | null, backgroundUrl: string }) => {
   return (

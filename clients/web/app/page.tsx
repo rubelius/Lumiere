@@ -1,6 +1,7 @@
 'use client'
 
 import { HeroProgramme } from '@/components/home/HeroProgramme'
+import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { CinemaMarquee, FilmProgramme, FilmEntry } from '@/components/home/FilmProgramme'
 import { NowProjecting, AdmitOne, LibraryCount, SessionRow } from '@/components/home/Sections'
@@ -9,7 +10,6 @@ import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import { useMovies } from '@/features/movies/hooks/useMovies';
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]
 
 // ── TIPAGEM SEGURA PARA ACALMAR O TYPESCRIPT ──
 interface HomeMovie {

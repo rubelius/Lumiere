@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { FINE_ART_EASE } from '@/lib/motion';
 import { MotionImage } from '@/components/system/MotionImage';
 import Image from 'next/image';
 import Link from 'next/link'
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion'
 import { useEffect } from 'react'
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]
 
 interface NowProjectingProps {
   title: string

@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from "framer-motion";
+import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { ArrowUp, Loader2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
@@ -11,7 +12,6 @@ import { useMovies } from '@/features/movies/hooks/useMovies';
 import { LibraryFilters, FilterState } from "@/components/library/LibraryFilters";
 import { FilmRow, FilmGridCard } from "@/components/library/FilmCards";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export interface Movie {
   id: string | number;

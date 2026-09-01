@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { FINE_ART_EASE } from '@/lib/motion';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { Lock, ScanFace, ArrowRight, Loader2 } from 'lucide-react';
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');

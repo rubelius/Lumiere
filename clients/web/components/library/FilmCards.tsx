@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import { FINE_ART_EASE } from '@/lib/motion';
 import { MotionImage } from '@/components/system/MotionImage';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 // 1. Exportamos a Interface para o page.tsx poder usar também
 export interface Movie {

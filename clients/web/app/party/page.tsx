@@ -1,11 +1,11 @@
 'use client';
 import { motion, AnimatePresence } from "framer-motion";
+import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { Users, Link as LinkIcon, Play, CalendarPlus, X, Search, TerminalSquare, Radio, CheckCircle2, Activity, Settings2, Share2, SkipBack, SkipForward, Pause, Volume2, Subtitles, Maximize } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 const staggerContainer = {
   hidden: { opacity: 0 },

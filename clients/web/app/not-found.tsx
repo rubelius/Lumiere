@@ -1,10 +1,10 @@
 'use client';
 
 import Link from "next/link";
+import { FINE_ART_EASE } from '@/lib/motion';
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export default function NotFound() {
   return (

@@ -14,7 +14,19 @@
 // Named after their cinematic analogs
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * A curva assinatura do Lumière. Estava copiada em 19 arquivos com 123 usos —
+ * qualquer ajuste no ritmo do produto exigia editar todos.
+ *
+ * Tipada como tupla mutável (e não `as const`) porque é o que a prop
+ * `transition.ease` do Framer Motion aceita nos pontos de uso.
+ */
+export const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]
+
 export const ease = {
+  // "Fine Art" — a curva padrão do produto
+  fineArt: FINE_ART_EASE,
+
   // "Dolly In" — slow start, confident arrival
   // Use: element entries, page transitions
   dolly: [0.16, 1, 0.30, 1] as const,

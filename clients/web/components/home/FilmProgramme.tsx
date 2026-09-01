@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -127,7 +128,6 @@ function QualityDots({ qualities }: { qualities: string[] }) {
   )
 }
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]
 
 function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, router }: any) {
   

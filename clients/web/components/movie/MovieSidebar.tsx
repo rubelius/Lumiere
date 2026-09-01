@@ -1,12 +1,12 @@
 'use client';
 import { useState } from "react";
+import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, CheckCircle2, Bookmark, Plus, Heart, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FestivalLaurels } from "@/components/movie/FestivalLaurels";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie: any, posterUrl: string, ytId: string | null, onPlayTrailer: () => void }) => {
   const router = useRouter();
@@ -34,7 +34,7 @@ export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie:
         
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}> 
         <motion.button  
-          onClick={() => router.push('/player')} 
+          onClick={() => router.push(`/player?id=${movie.id}`)} 
           whileHover={{ backgroundColor: 'var(--gold)', color: 'var(--void)', scale: 1.02, boxShadow: '0 0 20px rgba(191,143,60,0.4)' }} whileTap={{ scale: 0.98 }}  
           style={{ width: '100%', padding: '16px 0', backgroundColor: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', cursor: 'pointer', transition: 'all 0.3s', position: 'relative' }} 
         > 

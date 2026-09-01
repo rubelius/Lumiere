@@ -1,13 +1,13 @@
 'use client';
 
 import { motion, AnimatePresence, Variants } from "framer-motion";
+import { FINE_ART_EASE } from '@/lib/motion';
 import { 
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, 
   Maximize, Minimize, Settings2, MessageSquare, Info, SignalHigh,
   ArrowLeft, Tv, MonitorPlay, Cast
 } from "lucide-react";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export const panelVariants: Variants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.6, ease: FINE_ART_EASE, staggerChildren: 0.08, delayChildren: 0.1 } }, exit: { opacity: 0, transition: { duration: 0.4, ease: FINE_ART_EASE } } };
 export const barVariants: Variants = { hidden: { y: -20, opacity: 0 }, visible: { y: 0, opacity: 1, transition: { duration: 0.8, ease: FINE_ART_EASE, staggerChildren: 0.1 } }, exit: { y: -10, opacity: 0, transition: { duration: 0.4, ease: FINE_ART_EASE } } };
@@ -16,7 +16,20 @@ export const itemVariants: Variants = { hidden: { y: 10, opacity: 0 }, visible: 
 export const settingsItemVariants: Variants = { hidden: { x: -10, opacity: 0 }, visible: { x: 0, opacity: 1, transition: { duration: 0.5, ease: FINE_ART_EASE } } };
 
 // ── 1. TOP BAR ──
-export function PlayerTopBar({ onBack, title, playbackMode }: any) {
+export interface PlayerTopBarProps {
+  onBack: () => void;
+  /** Título real da obra. */
+  title: string;
+  /** Ano de lançamento; ausente enquanto os dados não chegam. */
+  year?: number | null;
+  /** Melhor qualidade disponível no acervo. Vazio quando não há mídia. */
+  quality?: string;
+  /** Resolução medida no elemento de vídeo, ex.: "1920×1080". */
+  resolution?: string | null;
+  playbackMode: 'local' | 'jellyfin' | 'direct';
+}
+
+export function PlayerTopBar({ onBack, title, year, quality, resolution, playbackMode }: PlayerTopBarProps) {
   return (
     <motion.div initial="hidden" animate="visible" exit="exit" variants={barVariants} className="absolute top-0 left-0 right-0 p-12 flex items-start justify-between z-50" style={{ background: 'linear-gradient(to bottom, rgba(4,4,2,0.9) 0%, transparent 100%)', display: 'flex', gap: 24 }}>
       <motion.div variants={itemVariants} className="flex items-center gap-8">
@@ -26,15 +39,19 @@ export function PlayerTopBar({ onBack, title, playbackMode }: any) {
         <div>
           <motion.h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', fontWeight: 400, margin: '0 0 8px 0', lineHeight: 1 }}>{title}</motion.h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '9px', letterSpacing: '0.15em', color: 'var(--m2)' }}>
-            <span style={{ color: 'var(--gold)', border: '1px solid rgba(191,143,60,0.4)', padding: '2px 6px', background: 'rgba(191,143,60,0.1)' }}>{playbackMode === "local" ? "WEB-DL 4K" : "4K HDR REMUX"}</span>
-            <span>2026</span>
+            <span style={{ color: quality ? 'var(--gold)' : 'var(--m3)', border: `1px solid ${quality ? 'rgba(191,143,60,0.4)' : 'rgba(86,84,80,0.4)'}`, padding: '2px 6px', background: quality ? 'rgba(191,143,60,0.1)' : 'transparent' }}>
+              {quality || 'SEM MÍDIA'}
+            </span>
+            {year && <span>{year}</span>}
             <span>ARQUIVO LUMIÈRE</span>
           </div>
         </div>
       </motion.div>
       <motion.div variants={itemVariants} className="flex items-center gap-6">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 16px', border: '1px solid rgba(237,232,220,0.1)', background: 'rgba(4,4,2,0.6)', fontSize: '9px', letterSpacing: '0.1em' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--gold)' }}><SignalHigh style={{ width: 12, height: 12 }} /> 145 MBPS</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: resolution ? 'var(--gold)' : 'var(--m3)' }}>
+            <SignalHigh style={{ width: 12, height: 12 }} /> {resolution || 'AGUARDANDO SINAL'}
+          </div>
           <div style={{ width: 1, height: 12, backgroundColor: 'rgba(237,232,220,0.2)' }} />
           <span style={{ color: 'var(--m2)' }}>{playbackMode === "local" ? "HTML5 DECODE" : "DIRECT PLAY"}</span>
         </div>

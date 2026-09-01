@@ -1,5 +1,6 @@
 'use client'; 
 import { useState } from "react"; 
+import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion"; 
 
@@ -17,7 +18,6 @@ import { MovieHero } from "@/components/movie/MovieHero";
 import { MovieSidebar } from "@/components/movie/MovieSidebar";
 import { FestivalLaurels } from "@/components/movie/FestivalLaurels";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number]; 
 
 const staggerContainer = { 
   hidden: { opacity: 0 }, 

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, Suspense } from "react";
+import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,16 +8,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Tv, MonitorPlay } from "lucide-react";
 
 import { PlayerTopBar, PlayerBottomControls, PlayerDiagnosticPanel } from "@/components/player/PlayerUI";
+import { useMovie } from "@/features/movies/hooks/useMovies";
 
-// URL Segura de teste
-const TEST_STREAM_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
+// PLACEHOLDER. O backend ainda não expõe URL de stream: não há integração
+// Jellyfin (só apps/integrations/plex.py, que cobre biblioteca e playlist) nem
+// endpoint de playback. Quando existir, é este o único ponto a trocar.
+const PLACEHOLDER_STREAM_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 function PlayerExperience() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const movieId = searchParams.get('id') || '001';
+  const movieId = searchParams.get('id') || '';
+  const { data: movie } = useMovie(movieId);
   
   const [mounted, setMounted] = useState(false);
   const [isExiting, setIsExiting] = useState(false); 
@@ -38,6 +42,8 @@ function PlayerExperience() {
   const [activeMenu, setActiveMenu] = useState<"settings" | "subs" | "cast" | null>(null);
   const [activeTab, setActiveTab] = useState<"video" | "audio" | "sub">("video"); 
   const [playbackMode, setPlaybackMode] = useState<"local" | "jellyfin" | "direct">("local");
+  // Resolução medida no próprio elemento, em vez do "145 MBPS" que era fixo.
+  const [resolution, setResolution] = useState<string | null>(null);
 
   // 1. 👇 CICLO DE VIDA BLINDADO
   useEffect(() => {
@@ -176,7 +182,7 @@ function PlayerExperience() {
         <div className="absolute inset-0">
           <video 
             ref={videoRef}
-            src={TEST_STREAM_URL}
+            src={PLACEHOLDER_STREAM_URL}
             playsInline
             className="w-full h-full object-cover"
             style={{
@@ -189,7 +195,11 @@ function PlayerExperience() {
             onTimeUpdate={handleTimeUpdate}
             onProgress={handleProgress}
             onLoadedMetadata={() => {
-              if (videoRef.current) setTotalTime(videoRef.current.duration);
+              if (videoRef.current) {
+                setTotalTime(videoRef.current.duration);
+                const { videoWidth: w, videoHeight: h } = videoRef.current;
+                if (w && h) setResolution(`${w}×${h}`);
+              }
               setIsWaiting(false);
             }}
             onWaiting={() => setIsWaiting(true)}
@@ -226,7 +236,14 @@ function PlayerExperience() {
 
       <AnimatePresence>
         {showControls && (
-          <PlayerTopBar onBack={handleBack} title={`Sessão #${movieId}`} playbackMode={playbackMode} />
+          <PlayerTopBar
+            onBack={handleBack}
+            title={movie?.title || 'Carregando…'}
+            year={movie?.year}
+            quality={movie?.best_quality_available || undefined}
+            resolution={resolution}
+            playbackMode={playbackMode}
+          />
         )}
       </AnimatePresence>
 

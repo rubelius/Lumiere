@@ -1,9 +1,9 @@
 'use client';
 import { motion } from "framer-motion";
+import { FINE_ART_EASE } from '@/lib/motion';
 import { TrendingUp } from "lucide-react";
 import { MissingData } from "./MissingData";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export const TspdtHistoryChart = ({ history }: { history: any }) => {
   let parsedHistory: any = {};

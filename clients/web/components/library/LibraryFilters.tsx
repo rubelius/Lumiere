@@ -1,9 +1,9 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { FINE_ART_EASE } from '@/lib/motion';
 import { Search, Filter, Check } from "lucide-react";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export interface FilterState {
   category: string;

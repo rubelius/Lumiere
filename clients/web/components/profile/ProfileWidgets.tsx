@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
+import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -9,7 +10,6 @@ import {
 } from "lucide-react";
 import { ProfileData } from "@/features/profile/hooks/useProfile";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export const itemVariants = {
   hidden: { y: 20, opacity: 0 },

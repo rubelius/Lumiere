@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from "framer-motion";
+import { FINE_ART_EASE } from '@/lib/motion';
 import { MotionImage } from '@/components/system/MotionImage';
 import Image from 'next/image';
 import { ArrowUp, Loader2, Globe } from "lucide-react";
@@ -9,7 +10,6 @@ import { useState, useEffect, useRef } from "react";
 import { useMovies } from '@/features/movies/hooks/useMovies';
 import Link from 'next/link';
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 // 1. Interface
 interface Movie {

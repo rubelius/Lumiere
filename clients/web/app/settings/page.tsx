@@ -1,10 +1,10 @@
 'use client';
 import { motion, AnimatePresence } from "framer-motion";
+import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { Server, DownloadCloud, Tv, Key, Shield, Bell, Type, Palette, ArrowRight, Check, Copy, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("Reprodução"); // Começando em Reprodução para você testar

@@ -1,12 +1,12 @@
 'use client';
 
 import { AnimatePresence, motion } from "framer-motion";
+import { FINE_ART_EASE } from '@/lib/motion';
 import { MotionImage } from '@/components/system/MotionImage';
 import { Play, Cast, SlidersHorizontal, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 function TelemetryStep({ step, index }: any) {
   const isActive = step.status === 'active';
