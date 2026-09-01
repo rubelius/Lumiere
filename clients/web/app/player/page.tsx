@@ -19,6 +19,9 @@ function PlayerExperience() {
   // Real-Debrid > Jellyfin > Plex, resolvido no backend.
   const { data: fonte, isLoading: resolvendoFonte } = usePlayback(movieId);
   const { data: legendas } = useSubtitles(movieId);
+  // Índice da faixa ativa; null = desligada. O acervo é de cinema estrangeiro,
+  // então a primeira (pt-BR, por causa da ordem pedida na busca) entra ligada.
+  const [legendaAtiva, setLegendaAtiva] = useState<number | null>(0);
   
   const [mounted, setMounted] = useState(false);
   const [isExiting, setIsExiting] = useState(false); 
@@ -104,6 +107,33 @@ function PlayerExperience() {
       videoRef.current.muted = isMuted;
     }
   }, [volume, isMuted]);
+
+  // O <track> nasce com mode 'disabled'; quem manda de fato é a TextTrack API.
+  // Fazer isso aqui (e não pelo atributo `default`) mantém uma única fonte de
+  // verdade para qual legenda está ligada.
+  useEffect(() => {
+    const faixas = videoRef.current?.textTracks;
+    if (!faixas) return;
+
+    const aplicar = () => {
+      for (let i = 0; i < faixas.length; i++) {
+        const desejado = i === legendaAtiva ? 'showing' : 'disabled';
+        // Só escreve quando difere: atribuir dispara 'change' e entraria em laço.
+        if (faixas[i].mode !== desejado) faixas[i].mode = desejado;
+      }
+    };
+
+    aplicar();
+    // O navegador liga uma faixa por conta própria quando as cues terminam de
+    // carregar, o que sobrepunha duas legendas na tela. Reaplicar nesses
+    // eventos garante uma única ativa.
+    faixas.addEventListener('addtrack', aplicar);
+    faixas.addEventListener('change', aplicar);
+    return () => {
+      faixas.removeEventListener('addtrack', aplicar);
+      faixas.removeEventListener('change', aplicar);
+    };
+  }, [legendaAtiva, legendas]);
 
   useEffect(() => {
     const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -207,14 +237,13 @@ function PlayerExperience() {
             {/* Servidas pela mesma origem (rota do Next): uma <track> de outra
                 origem exigiria crossOrigin no <video>, e isso quebraria o
                 stream do Real-Debrid, cuja CDN não devolve cabeçalhos CORS. */}
-            {(legendas || []).map((leg, i) => (
+            {(legendas || []).map((leg) => (
               <track
                 key={leg.file_id}
                 kind="subtitles"
                 src={`/api/subtitles/${leg.file_id}/vtt`}
                 srcLang={leg.idioma}
                 label={`${leg.idioma}${leg.hearing_impaired ? ' (SDH)' : ''}`}
-                default={i === 0}
               />
             ))}
           </video>
@@ -305,6 +334,9 @@ function PlayerExperience() {
           <PlayerDiagnosticPanel 
             activeMenu={activeMenu} activeTab={activeTab} setActiveTab={setActiveTab} 
             playbackMode={playbackMode} setPlaybackMode={setPlaybackMode} onClose={() => setActiveMenu(null)}
+            legendas={legendas || []}
+            legendaAtiva={legendaAtiva}
+            onSelecionarLegenda={setLegendaAtiva}
           />
         )}
       </AnimatePresence>

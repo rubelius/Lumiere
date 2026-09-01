@@ -168,8 +168,19 @@ export function PlayerBottomControls(props: any) {
 }
 
 // ── 3. PAINEL DE DIAGNÓSTICO (Orquestrado) ──
+export interface FaixaDeLegenda {
+  file_id: number;
+  idioma: string;
+  nome: string;
+  hearing_impaired: boolean;
+  downloads: number;
+}
+
 export function PlayerDiagnosticPanel(props: any) {
-  const { activeMenu, activeTab, setActiveTab, playbackMode, setPlaybackMode, onClose } = props;
+  const {
+    activeMenu, activeTab, setActiveTab, playbackMode, setPlaybackMode, onClose,
+    legendas = [] as FaixaDeLegenda[], legendaAtiva = null, onSelecionarLegenda,
+  } = props;
 
   return (
     <motion.div initial="hidden" animate="visible" exit="exit" variants={panelVariants} className="absolute bottom-40 right-12 z-50" style={{ width: 400, background: 'rgba(4,4,2,0.98)', border: '1px solid rgba(237,232,220,0.1)', padding: 32 }}>
@@ -217,9 +228,47 @@ export function PlayerDiagnosticPanel(props: any) {
       )}
 
       {activeMenu === "subs" && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-           <div style={{ fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em', marginBottom: 8 }}>[ TRILHAS DE LEGENDA ]</div>
-           <div style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>Em breve: Track loader nativo (VTT/SRT) e controle de offset de sincronia.</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em', marginBottom: 12 }}>[ TRILHAS DE LEGENDA ]</div>
+
+          {legendas.length === 0 ? (
+            <div style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em', lineHeight: 2 }}>
+              NENHUMA LEGENDA ENCONTRADA.<br />
+              CONFIGURE O OPENSUBTITLES EM AJUSTES › PROVEDORES.
+            </div>
+          ) : (
+            <>
+              {[null, ...legendas.keys()].map((indice: number | null) => {
+                const leg = indice === null ? null : legendas[indice];
+                const ativa = legendaAtiva === indice;
+                return (
+                  <motion.button
+                    key={indice ?? 'desligado'}
+                    variants={settingsItemVariants}
+                    onClick={() => onSelecionarLegenda?.(indice)}
+                    whileHover={{ x: 4 }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      padding: '10px 0', textAlign: 'left',
+                      borderBottom: '1px solid rgba(237,232,220,0.05)',
+                      color: ativa ? 'var(--gold)' : 'var(--m2)',
+                      fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em',
+                    }}
+                  >
+                    <span>
+                      {leg === null ? 'DESLIGADO' : leg.idioma.toUpperCase()}
+                      {leg?.hearing_impaired && <span style={{ color: 'var(--m3)' }}> · SDH</span>}
+                    </span>
+                    {ativa && <span style={{ color: 'var(--gold)' }}>●</span>}
+                  </motion.button>
+                );
+              })}
+              <div style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em', marginTop: 12 }}>
+                VIA OPENSUBTITLES
+              </div>
+            </>
+          )}
         </div>
       )}
     </motion.div>
