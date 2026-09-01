@@ -26,10 +26,12 @@ export interface PlayerTopBarProps {
   quality?: string;
   /** Resolução medida no elemento de vídeo, ex.: "1920×1080". */
   resolution?: string | null;
+  /** Rótulo da fonte resolvida, ex.: "JELLYFIN DIRECT". */
+  sourceLabel?: string;
   playbackMode: 'local' | 'jellyfin' | 'direct';
 }
 
-export function PlayerTopBar({ onBack, title, year, quality, resolution, playbackMode }: PlayerTopBarProps) {
+export function PlayerTopBar({ onBack, title, year, quality, resolution, sourceLabel, playbackMode }: PlayerTopBarProps) {
   return (
     <motion.div initial="hidden" animate="visible" exit="exit" variants={barVariants} className="absolute top-0 left-0 right-0 p-12 flex items-start justify-between z-50" style={{ background: 'linear-gradient(to bottom, rgba(4,4,2,0.9) 0%, transparent 100%)', display: 'flex', gap: 24 }}>
       <motion.div variants={itemVariants} className="flex items-center gap-8">
@@ -53,7 +55,7 @@ export function PlayerTopBar({ onBack, title, year, quality, resolution, playbac
             <SignalHigh style={{ width: 12, height: 12 }} /> {resolution || 'AGUARDANDO SINAL'}
           </div>
           <div style={{ width: 1, height: 12, backgroundColor: 'rgba(237,232,220,0.2)' }} />
-          <span style={{ color: 'var(--m2)' }}>{playbackMode === "local" ? "HTML5 DECODE" : "DIRECT PLAY"}</span>
+          <span style={{ color: 'var(--m2)' }}>{sourceLabel || (playbackMode === "local" ? "SEM FONTE" : "DIRECT PLAY")}</span>
         </div>
         <button style={{ background: 'transparent', border: 'none', color: 'var(--m3)', cursor: 'pointer' }}><Info style={{ width: 16, height: 16 }} /></button>
       </motion.div>

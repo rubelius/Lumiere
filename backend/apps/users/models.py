@@ -19,6 +19,10 @@ class User(AbstractUser):
     plex_token = models.CharField(max_length=255, blank=True)
     plex_server_url = models.URLField(blank=True)
     plex_last_sync = models.DateTimeField(null=True, blank=True)
+    # Jellyfin
+    jellyfin_server_url = models.URLField(blank=True)
+    jellyfin_token = models.CharField(max_length=255, blank=True)
+    jellyfin_user_id = models.CharField(max_length=64, blank=True)
     # Real-Debrid
     realdebrid_api_key = models.CharField(max_length=255, blank=True)
     # Prowlarr

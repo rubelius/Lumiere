@@ -1,3 +1,6 @@
+from dataclasses import asdict
+
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,12 +12,13 @@ from django.contrib.postgres.search import TrigramSimilarity
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.utils import timezone
-from asgiref.sync import sync_to_async
+from asgiref.sync import async_to_sync, sync_to_async
 
 from apps.core.core_cache import CacheManager
 from apps.core.throttling import ExpensiveOperationThrottle
 from apps.integrations.prowlarr import ProwlarrClient
 from apps.integrations.realdebrid import RealDebridClient
+from apps.movies.playback import resolve_playback
 from apps.movies.utils import calculate_quality_score, parse_quality_from_title
 from apps.ml.models import MovieSimilarity
 
@@ -24,6 +28,7 @@ from .serializers import (
     MovieDetailSerializer, 
     MovieListSerializer,
     MovieSerializer,
+    PlaybackSourceSerializer,
     TorrentReleaseSerializer
 )
 
@@ -151,6 +156,31 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
         CacheManager.set_movie(movie_id, data, timeout=3600)
         return Response(data)
     
+    @extend_schema(
+        responses={
+            200: PlaybackSourceSerializer,
+            404: OpenApiResponse(description='Nenhuma fonte tem este filme.'),
+        },
+        description=(
+            'Resolve onde tocar o filme, na ordem Real-Debrid > Jellyfin > Plex. '
+            'Devolve a primeira fonte que responder.'
+        ),
+    )
+    @action(detail=True, methods=['get'])
+    def playback(self, request, pk=None):
+        # Ação síncrona de propósito: o dispatch desta ViewSet é síncrono
+        # (list/retrieve são sync), então uma action `async def` devolveria a
+        # corrotina sem ninguém aguardá-la.
+        movie = self.get_object()
+        fonte = async_to_sync(resolve_playback)(movie, request.user)
+
+        if not fonte:
+            return Response(
+                {'detail': 'Nenhuma fonte disponível para este filme.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(asdict(fonte))
+
     @action(detail=False, methods=['get'])
     def top_rated(self, request):
         movies = self.queryset.filter(ranking_current__isnull=False).order_by('ranking_current')[:100]

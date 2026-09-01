@@ -150,6 +150,9 @@ class PlexClient:
             for media in video.findall('.//Media'):
                 for part in media.findall('.//Part'):
                     media_parts.append({
+                        # 'key' e o caminho de streaming da Part; sem ele nao
+                        # da para montar a URL de direct play.
+                        'key': part.get('key'),
                         'file': part.get('file'),
                         'size': int(part.get('size', 0)),
                         'container': part.get('container'),

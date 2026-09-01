@@ -55,6 +55,16 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class PlaybackSourceSerializer(serializers.Serializer):
+    """Fonte de reprodução resolvida na ordem Real-Debrid > Jellyfin > Plex."""
+
+    source = serializers.ChoiceField(choices=['realdebrid', 'jellyfin', 'plex'])
+    stream_url = serializers.URLField()
+    label = serializers.CharField()
+    container = serializers.CharField(allow_null=True)
+    quality = serializers.CharField(allow_blank=True)
+
+
 class SimilarMovieSerializer(serializers.Serializer):
     """Forma de cada item de MovieDetailSerializer.similar_movies."""
     movie = MovieListSerializer(read_only=True)

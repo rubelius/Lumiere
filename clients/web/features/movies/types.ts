@@ -50,6 +50,7 @@ export type MovieDetail = Omit<
   festivals: unknown;
 }
 
+export type PlaybackSource = components['schemas']['PlaybackSource']
 export type SimilarMovie = components['schemas']['SimilarMovie']
 export type TorrentRelease = components['schemas']['TorrentRelease']
 

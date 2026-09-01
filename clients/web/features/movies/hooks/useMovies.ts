@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { http } from '@/services/http/client';
 import { moviesApi } from '../api/moviesApi';
 import { PaginatedResponse, MovieListItem, MovieDetail } from '../types';
+import { APIError } from '@/services/http/errors';
 
 export const movieKeys = {
   all: ['movies'] as const,
@@ -12,6 +13,7 @@ export const movieKeys = {
   details: () => [...movieKeys.all, 'detail'] as const,
   detail: (id: string) => [...movieKeys.details(), id] as const,
   topRated: () => [...movieKeys.all, 'topRated'] as const,
+  playback: (id: string) => [...movieKeys.all, 'playback', id] as const,
 } as const;
 
 // 👇 1. CRIAMOS A INTERFACE BLINDADA
@@ -76,5 +78,19 @@ export function useMovie(id: string) {
       return res;
     },
     enabled: !!id, 
+  });
+}
+/**
+ * Onde tocar o filme. O backend tenta Real-Debrid, depois Jellyfin, depois
+ * Plex. Um 404 é resposta legítima — quer dizer que nenhuma fonte tem a obra —
+ * então não vale repetir a requisição.
+ */
+export function usePlayback(id: string) {
+  return useQuery({
+    queryKey: movieKeys.playback(id),
+    queryFn: () => moviesApi.playback(id),
+    enabled: !!id,
+    retry: (falhas, erro) => !(erro instanceof APIError) && falhas < 2,
+    staleTime: 60_000,
   });
 }

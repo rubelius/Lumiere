@@ -149,6 +149,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/{id}/playback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Resolve onde tocar o filme, na ordem Real-Debrid > Jellyfin > Plex. Devolve a primeira fonte que responder. */
+        get: operations["movies_playback_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/{id}/recommendations/": {
         parameters: {
             query?: never;
@@ -1038,6 +1055,15 @@ export interface components {
              */
             readonly date_joined?: string;
         };
+        /** @description Fonte de reprodução resolvida na ordem Real-Debrid > Jellyfin > Plex. */
+        PlaybackSource: {
+            source: components["schemas"]["SourceEnum"];
+            /** Format: uri */
+            stream_url: string;
+            label: string;
+            container: string | null;
+            quality: string;
+        };
         /** @description Serializer para filmes dentro de uma sessão */
         SessionMovie: {
             /** Format: uuid */
@@ -1075,6 +1101,13 @@ export interface components {
             readonly similarity: number;
             readonly type: string;
         };
+        /**
+         * @description * `realdebrid` - realdebrid
+         *     * `jellyfin` - jellyfin
+         *     * `plex` - plex
+         * @enum {string}
+         */
+        SourceEnum: "realdebrid" | "jellyfin" | "plex";
         /**
          * @description * `planning` - Planning
          *     * `preparing` - Preparing
@@ -1390,6 +1423,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MovieDetail"];
                 };
+            };
+        };
+    };
+    movies_playback_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaybackSource"];
+                };
+            };
+            /** @description Nenhuma fonte tem este filme. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -38,6 +38,7 @@ implemented but have not been run yet.
 | Taste embeddings and recommender | Built, not run | 0 embeddings, 0 similarities stored |
 | Acquisition (Prowlarr + Real-Debrid) | Built, not run | 0 releases stored |
 | Cinema sessions and watch parties | Built, not run | 0 sessions stored |
+| Playback resolution (Real-Debrid > Jellyfin > Plex) | **Live** | Chain verified end to end; no sources configured yet |
 | Android TV client | **Not started** | `clients/tv/` holds only a README |
 
 ## Architecture
@@ -76,6 +77,31 @@ for instant-availability checks and cached streaming.
 **4. The Neural Core.** Letterboxd history becomes a user embedding via
 `sentence-transformers/all-MiniLM-L6-v2`, and pgvector cosine similarity powers
 content-based recommendations.
+
+### Playback resolution
+
+`GET /api/movies/{id}/playback/` answers one question: where does this film
+actually play? It walks three sources in a fixed order and returns the first
+that has it.
+
+1. **Real-Debrid** — a release from the archive already cached there. Highest
+   fidelity (the quality scorer favours REMUX/HDR/Atmos) and it does not need
+   the home server to be awake.
+2. **Jellyfin** — the local library.
+3. **Plex** — the legacy library.
+
+Each step is isolated: a Jellyfin that is down cannot stop the fall through to
+Plex. A step with no credentials configured is skipped rather than attempted.
+When no source has the film the endpoint answers `404`, and the player says so
+instead of pretending to play something.
+
+Credentials live per user, following the existing Plex pattern:
+`jellyfin_server_url`, `jellyfin_token`, `jellyfin_user_id` on the user record.
+Real-Debrid falls back to the global `REAL_DEBRID_API_KEY` when the user has
+none of their own.
+
+The order is business logic, not an implementation detail — it is asserted in
+`backend/apps/movies/test_playback.py` so a reorder fails the suite.
 
 ### Authentication
 
@@ -244,6 +270,7 @@ run over ~26k films takes hours.
 | `GET /api/movies/` | Paginated catalogue; filters for search, genres, decades, qualities |
 | `GET /api/movies/{id}/` | Full film record — cached in Redis for one hour |
 | `GET /api/movies/top_rated/` | Highest-ranked films |
+| `GET /api/movies/{id}/playback/` | Resolve where to play — Real-Debrid, then Jellyfin, then Plex |
 | `POST /api/movies/{id}/search_torrents/` | Prowlarr search plus quality scoring |
 | `/api/releases/`, `/api/sessions/`, `/api/themes/`, `/api/users/` | Resource routers |
 | `POST /api/auth/token/`, `/refresh/`, `/verify/` | JWT lifecycle |

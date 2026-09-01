@@ -1,7 +1,7 @@
 // src/features/movies/api/moviesApi.ts
 
 import { http } from '@/services/http/client';
-import type { MovieDetail, MovieListItem, PaginatedResponse } from '../types';
+import type { MovieDetail, MovieListItem, PaginatedResponse, PlaybackSource } from '../types';
 
 export const moviesApi = {
   // Busca a lista principal paginada
@@ -12,4 +12,8 @@ export const moviesApi = {
   
   // Busca os detalhes de um único filme
   detail: (id: string) => http.get<MovieDetail>(`/api/movies/${id}/`),
+
+  // Resolve a fonte de reprodução: Real-Debrid > Jellyfin > Plex.
+  // 404 quando nenhuma tem o filme.
+  playback: (id: string) => http.get<PlaybackSource>(`/api/movies/${id}/playback/`),
 };

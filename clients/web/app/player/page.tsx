@@ -8,12 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Tv, MonitorPlay } from "lucide-react";
 
 import { PlayerTopBar, PlayerBottomControls, PlayerDiagnosticPanel } from "@/components/player/PlayerUI";
-import { useMovie } from "@/features/movies/hooks/useMovies";
-
-// PLACEHOLDER. O backend ainda não expõe URL de stream: não há integração
-// Jellyfin (só apps/integrations/plex.py, que cobre biblioteca e playlist) nem
-// endpoint de playback. Quando existir, é este o único ponto a trocar.
-const PLACEHOLDER_STREAM_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
+import { useMovie, usePlayback } from "@/features/movies/hooks/useMovies";
 
 
 function PlayerExperience() {
@@ -21,6 +16,8 @@ function PlayerExperience() {
   const searchParams = useSearchParams();
   const movieId = searchParams.get('id') || '';
   const { data: movie } = useMovie(movieId);
+  // Real-Debrid > Jellyfin > Plex, resolvido no backend.
+  const { data: fonte, isLoading: resolvendoFonte } = usePlayback(movieId);
   
   const [mounted, setMounted] = useState(false);
   const [isExiting, setIsExiting] = useState(false); 
@@ -182,7 +179,7 @@ function PlayerExperience() {
         <div className="absolute inset-0">
           <video 
             ref={videoRef}
-            src={PLACEHOLDER_STREAM_URL}
+            src={fonte?.stream_url}
             playsInline
             className="w-full h-full object-cover"
             style={{
@@ -222,7 +219,21 @@ function PlayerExperience() {
         </div>
       )}
 
-      {isWaiting && playbackMode === "local" && (
+      {!resolvendoFonte && !fonte && playbackMode === "local" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-40" style={{ backgroundColor: 'var(--void)' }}>
+          <div style={{ width: 48, height: 48, border: '1px solid rgba(86,84,80,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MonitorPlay style={{ width: 20, height: 20, color: 'var(--m3)' }} />
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: 'var(--film)' }}>Sem fonte disponível.</div>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--m3)', textTransform: 'uppercase', marginTop: 12, lineHeight: 2 }}>
+              Nenhuma cópia em Real-Debrid, Jellyfin ou Plex
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isWaiting && fonte && playbackMode === "local" && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-6 z-40">
           <motion.div 
             animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
@@ -242,6 +253,7 @@ function PlayerExperience() {
             year={movie?.year}
             quality={movie?.best_quality_available || undefined}
             resolution={resolution}
+            sourceLabel={fonte?.label}
             playbackMode={playbackMode}
           />
         )}
