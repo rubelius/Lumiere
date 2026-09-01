@@ -218,45 +218,53 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
         return Response({'based_on': MovieListSerializer(movie).data, 'recommendations': recommendations})
     
     @action(detail=True, methods=['post'], throttle_classes=[ExpensiveOperationThrottle])
-    async def search_torrents(self, request, pk=None):
-        movie = await sync_to_async(self.get_object)()
-        user = request.user
-        if not user.prowlarr_url or not user.prowlarr_api_key:
-            return Response({'error': 'Prowlarr not configured.'}, status=status.HTTP_400_BAD_REQUEST)
+    def search_torrents(self, request, pk=None):
+        # Ação síncrona: o dispatch desta ViewSet é síncrono (list/retrieve
+        # são sync), então uma action `async def` devolveria a corrotina sem
+        # ninguém aguardá-la e o DRF estoura com "Expected a Response".
+        # O corpo segue assíncrono, executado por async_to_sync.
+
+        async def _executar():
+            movie = await sync_to_async(self.get_object)()
+            user = request.user
+            if not user.prowlarr_url or not user.prowlarr_api_key:
+                return Response({'error': 'Prowlarr not configured.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        min_resolution = request.data.get('min_resolution', '1080p')
-        prefer_remux = request.data.get('prefer_remux', False)
-        require_advanced_audio = request.data.get('require_advanced_audio', False)
-        min_seeders = int(request.data.get('min_seeders', 5))
+            min_resolution = request.data.get('min_resolution', '1080p')
+            prefer_remux = request.data.get('prefer_remux', False)
+            require_advanced_audio = request.data.get('require_advanced_audio', False)
+            min_seeders = int(request.data.get('min_seeders', 5))
         
-        client = ProwlarrClient(user.prowlarr_url, user.prowlarr_api_key)
-        try:
-            prowlarr_results = await client.search_movie(title=movie.title, year=movie.year, imdb_id=movie.imdb_id)
-        finally:
-            await client.close()
+            client = ProwlarrClient(user.prowlarr_url, user.prowlarr_api_key)
+            try:
+                prowlarr_results = await client.search_movie(title=movie.title, year=movie.year, imdb_id=movie.imdb_id)
+            finally:
+                await client.close()
         
-        created_releases = []
-        for result in prowlarr_results:
-            quality_data = parse_quality_from_title(result['title'])
-            result.update(quality_data)
-            scores = calculate_quality_score(result)
-            result.update(scores)
+            created_releases = []
+            for result in prowlarr_results:
+                quality_data = parse_quality_from_title(result['title'])
+                result.update(quality_data)
+                scores = calculate_quality_score(result)
+                result.update(scores)
             
-            if result['seeders'] < min_seeders or (prefer_remux and not result.get('is_remux')) or (require_advanced_audio and not (result.get('has_atmos') or result.get('has_dtsx') or result.get('has_truehd'))):
-                continue
+                if result['seeders'] < min_seeders or (prefer_remux and not result.get('is_remux')) or (require_advanced_audio and not (result.get('has_atmos') or result.get('has_dtsx') or result.get('has_truehd'))):
+                    continue
             
-            release, created = await sync_to_async(TorrentRelease.objects.update_or_create)(
-                info_hash=result['info_hash'], defaults={'movie': movie, **result}
-            )
-            if created:
-                created_releases.append(release)
+                release, created = await sync_to_async(TorrentRelease.objects.update_or_create)(
+                    info_hash=result['info_hash'], defaults={'movie': movie, **result}
+                )
+                if created:
+                    created_releases.append(release)
                 
-        await sync_to_async(CacheManager.invalidate_movie)(str(movie.id))
-        saved_releases = await sync_to_async(list)(TorrentRelease.objects.filter(movie=movie).order_by('-quality_score')[:20])
-        serializer = TorrentReleaseSerializer(saved_releases, many=True)
-        total_count = await sync_to_async(TorrentRelease.objects.filter(movie=movie).count)()
+            await sync_to_async(CacheManager.invalidate_movie)(str(movie.id))
+            saved_releases = await sync_to_async(list)(TorrentRelease.objects.filter(movie=movie).order_by('-quality_score')[:20])
+            serializer = TorrentReleaseSerializer(saved_releases, many=True)
+            total_count = await sync_to_async(TorrentRelease.objects.filter(movie=movie).count)()
         
-        return Response({'movie_id': movie.id, 'releases': serializer.data, 'new_releases_found': len(created_releases), 'total_releases': total_count})
+            return Response({'movie_id': movie.id, 'releases': serializer.data, 'new_releases_found': len(created_releases), 'total_releases': total_count})
+
+        return async_to_sync(_executar)()
 
 
 class TorrentReleaseViewSet(viewsets.ModelViewSet):
@@ -276,30 +284,38 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
         return queryset
     
     @action(detail=True, methods=['post'])
-    async def add_to_realdebrid(self, request, pk=None):
-        release = await sync_to_async(self.get_object)()
-        user = request.user
-        if not user.realdebrid_api_key:
-            return Response({'error': 'Real-Debrid not configured'}, status=status.HTTP_400_BAD_REQUEST)
+    def add_to_realdebrid(self, request, pk=None):
+        # Ação síncrona: o dispatch desta ViewSet é síncrono (list/retrieve
+        # são sync), então uma action `async def` devolveria a corrotina sem
+        # ninguém aguardá-la e o DRF estoura com "Expected a Response".
+        # O corpo segue assíncrono, executado por async_to_sync.
+
+        async def _executar():
+            release = await sync_to_async(self.get_object)()
+            user = request.user
+            if not user.realdebrid_api_key:
+                return Response({'error': 'Real-Debrid not configured'}, status=status.HTTP_400_BAD_REQUEST)
             
-        if release.in_realdebrid and release.realdebrid_id and release.realdebrid_status not in ('error', 'dead'):
-            return Response({'message': 'Release is already active in Real-Debrid.', 'torrent_id': release.realdebrid_id, 'status': release.realdebrid_status})
+            if release.in_realdebrid and release.realdebrid_id and release.realdebrid_status not in ('error', 'dead'):
+                return Response({'message': 'Release is already active in Real-Debrid.', 'torrent_id': release.realdebrid_id, 'status': release.realdebrid_status})
         
-        client = RealDebridClient(user.realdebrid_api_key)
-        try:
-            torrent_id = await client.add_magnet(release.magnet_link)
-            info = await client.get_torrent_info(torrent_id)
-            if info.get('files'):
-                largest_file = max(info['files'], key=lambda f: f.get('bytes', 0))
-                await client.select_files(torrent_id, [largest_file['id']])
+            client = RealDebridClient(user.realdebrid_api_key)
+            try:
+                torrent_id = await client.add_magnet(release.magnet_link)
+                info = await client.get_torrent_info(torrent_id)
+                if info.get('files'):
+                    largest_file = max(info['files'], key=lambda f: f.get('bytes', 0))
+                    await client.select_files(torrent_id, [largest_file['id']])
                 
-            release.in_realdebrid = True
-            release.realdebrid_id = torrent_id
-            release.realdebrid_status = 'downloading'
-            release.realdebrid_added_at = timezone.now()
-            await sync_to_async(release.save)()
-            return Response({'message': 'Added to Real-Debrid', 'torrent_id': torrent_id})
-        except Exception as e:
-            return Response({'error': f'Failed to add to Real-Debrid: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        finally:
-            await client.close()
+                release.in_realdebrid = True
+                release.realdebrid_id = torrent_id
+                release.realdebrid_status = 'downloading'
+                release.realdebrid_added_at = timezone.now()
+                await sync_to_async(release.save)()
+                return Response({'message': 'Added to Real-Debrid', 'torrent_id': torrent_id})
+            except Exception as e:
+                return Response({'error': f'Failed to add to Real-Debrid: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            finally:
+                await client.close()
+
+        return async_to_sync(_executar)()
