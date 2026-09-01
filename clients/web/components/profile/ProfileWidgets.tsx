@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
+import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Clock, Film, Star, Edit3, Settings, Camera, Globe, Activity, 
@@ -26,7 +27,7 @@ export function ProfileHeader({ user, onEdit, onSettings }: { user: ProfileData[
   return (
     <motion.div variants={itemVariants} style={{ display: 'flex', alignItems: 'flex-end', gap: 64, marginBottom: 120, paddingBottom: 64, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
       <div style={{ position: 'relative', width: 220, aspectRatio: '3/4', border: '1px solid rgba(237,232,220,0.2)', backgroundColor: 'var(--void)', overflow: 'hidden' }}>
-        <img src={user.avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(1.2)' }} />
+        <Image src={user.avatarUrl} alt="Profile" fill sizes="220px" style={{ objectFit: 'cover', filter: 'grayscale(100%) contrast(1.2)' }} />
         <motion.div animate={{ y: ['-10%', '110%'] }} transition={{ repeat: Infinity, duration: 3, ease: 'linear' }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 2, backgroundColor: 'rgba(191,143,60,0.5)', boxShadow: '0 0 15px rgba(191,143,60,0.8)' }} />
       </div>
       <div style={{ flex: 1 }}>

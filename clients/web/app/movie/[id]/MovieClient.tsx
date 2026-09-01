@@ -1,5 +1,6 @@
 'use client'; 
 import { useState } from "react"; 
+import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion"; 
 
 import { Clock, Calendar, Globe, Award, Camera, Bookmark, Music, AlertCircle, User, StarHalf, MonitorPlay, FileText, Star, ChevronLeft, Play, X, Heart, Plus, CheckCircle2 } from "lucide-react"; 
@@ -170,7 +171,7 @@ export default function MovieClient() {
                 {/* ── TÍTULO OU LOGO CINEMATOGRÁFICO ── */}
                 {movie.logo_url ? (
                   <motion.div variants={fadeUpItem} style={{ marginBottom: '16px', maxHeight: '120px', maxWidth: '500px', display: 'flex', justifyContent: 'flex-start' }}>
-                    <img src={movie.logo_url} alt={movie.title} style={{ objectFit: 'contain', maxHeight: '120px', width: 'auto', filter: 'drop-shadow(0 0 20px rgba(191,143,60,0.3)) brightness(1.2)' }} />
+                    <Image src={movie.logo_url} alt={movie.title} width={500} height={120} style={{ objectFit: 'contain', maxHeight: '120px', width: 'auto', height: 'auto', filter: 'drop-shadow(0 0 20px rgba(191,143,60,0.3)) brightness(1.2)' }} />
                   </motion.div>
                 ) : (
                   <motion.h1 variants={fadeUpItem} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(7rem, 14vw, 14rem)', fontWeight: 400, color: 'var(--film)', marginBottom: '8px', lineHeight: 0.85, letterSpacing: '-0.02em', margin: '0 0 8px 0' }}> 
@@ -191,7 +192,7 @@ export default function MovieClient() {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       {movie.streaming_providers.map((p: any, idx: number) => (
                         <a key={idx} href={`https://www.justwatch.com/br/busca?q=${encodeURIComponent(movie.title)}`} target="_blank" rel="noreferrer" title={`Buscar no JustWatch: ${p.name}`} style={{ width: 24, height: 24, borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(86,84,80,0.3)', transition: 'all 0.3s' }} className="hover:scale-110 hover:border-[var(--gold)]">
-                          <img src={p.logo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <Image src={p.logo} alt={p.name} width={24} height={24} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </a>
                       ))}
                     </div>
@@ -289,7 +290,7 @@ export default function MovieClient() {
                       <motion.div variants={fadeUpItem} whileHover={{ y: -4, backgroundColor: 'rgba(237,232,220,0.02)' }} style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '16px', borderRadius: '4px', transition: 'background-color 0.3s' }} className="group cursor-crosshair"> 
                         <div style={{ width: '96px', flexShrink: 0, aspectRatio: '3/4', backgroundColor: 'var(--void)', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {directorData?.profile_url ? (
-                            <img src={directorData.profile_url} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={movie.director} />
+                            <Image src={directorData.profile_url} width={96} height={128} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={movie.director ?? 'Direção'} />
                           ) : (
                             <MonitorPlay style={{ width: 32, height: 32, color: 'var(--m3)' }} />
                           )}
@@ -305,7 +306,7 @@ export default function MovieClient() {
                         <motion.div variants={fadeUpItem} whileHover={{ y: -4, backgroundColor: 'rgba(237,232,220,0.02)' }} style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '16px', borderRadius: '4px', transition: 'background-color 0.3s' }} className="group cursor-crosshair"> 
                           <div style={{ width: '96px', flexShrink: 0, aspectRatio: '3/4', backgroundColor: 'var(--void)', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {dopData?.profile_url ? (
-                              <img src={dopData.profile_url} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={movie.cinematographer} />
+                              <Image src={dopData.profile_url} width={96} height={128} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={movie.cinematographer ?? 'Fotografia'} />
                             ) : (
                               <Camera style={{ width: 32, height: 32, color: 'var(--m3)' }} />
                             )}
@@ -322,7 +323,7 @@ export default function MovieClient() {
                         <motion.div variants={fadeUpItem} whileHover={{ y: -4, backgroundColor: 'rgba(237,232,220,0.02)' }} style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '16px', borderRadius: '4px', transition: 'background-color 0.3s' }} className="group cursor-crosshair"> 
                           <div style={{ width: '96px', flexShrink: 0, aspectRatio: '3/4', backgroundColor: 'var(--void)', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {writerData?.profile_url ? (
-                              <img src={writerData.profile_url} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={movie.writer} />
+                              <Image src={writerData.profile_url} width={96} height={128} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={movie.writer ?? 'Roteiro'} />
                             ) : (
                               <FileText style={{ width: 32, height: 32, color: 'var(--m3)' }} />
                             )}
@@ -339,7 +340,7 @@ export default function MovieClient() {
                         <motion.div variants={fadeUpItem} whileHover={{ y: -4, backgroundColor: 'rgba(237,232,220,0.02)' }} style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '16px', borderRadius: '4px', transition: 'background-color 0.3s' }} className="group cursor-crosshair"> 
                           <div style={{ width: '96px', flexShrink: 0, aspectRatio: '3/4', backgroundColor: 'var(--void)', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {composerData?.profile_url ? (
-                              <img src={composerData.profile_url} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={movie.composer} />
+                              <Image src={composerData.profile_url} width={96} height={128} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={movie.composer ?? 'Trilha'} />
                             ) : (
                               <Music style={{ width: 32, height: 32, color: 'var(--m3)' }} />
                             )}
@@ -360,7 +361,7 @@ export default function MovieClient() {
                             <motion.div key={i} whileHover={{ y: -4, scale: 1.02 }} whileTap={{ scale: 0.95 }} transition={{ type: 'spring', stiffness: 300 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', textAlign: 'center' }} className="group cursor-crosshair"> 
                               <div style={{ width: '100%', aspectRatio: '3/4', backgroundColor: 'var(--void)', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}> 
                                 {actor.img ? (
-                                  <img src={actor.img} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={actor.name} /> 
+                                  <Image src={actor.img} width={96} height={128} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.5s' }} className="group-hover:grayscale-0 group-hover:scale-105" alt={actor.name} /> 
                                 ) : (
                                   <User style={{ width: 24, height: 24, color: 'var(--m3)' }} />
                                 )}
@@ -447,7 +448,7 @@ export default function MovieClient() {
                           {mediaCaptures.map((img: string, i: number) => ( 
                             <motion.div key={i} whileHover={{ scale: 1.02, zIndex: 10, boxShadow: '0 10px 40px rgba(0,0,0,0.8)' }} whileTap={{ scale: 0.95 }} style={{ backgroundColor: 'var(--void)', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', cursor: 'crosshair', position: 'relative' }} className={`group ${i === 0 ? 'col-span-2 row-span-2' : ''}`}> 
                               <div style={{ aspectRatio: i === 0 ? '16/9' : '3/2', width: '100%', overflow: 'hidden' }}> 
-                                <img src={img} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.7s' }} className="group-hover:grayscale-0" alt="" /> 
+                                <Image src={img} fill sizes="(max-width: 768px) 50vw, 25vw" style={{ objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', transition: 'all 0.7s' }} className="group-hover:grayscale-0" alt="" /> 
                               </div> 
                             </motion.div> 
                           ))} 

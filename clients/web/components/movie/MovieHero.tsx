@@ -1,5 +1,6 @@
 'use client';
 import { motion } from "framer-motion";
+import { MotionImage } from '@/components/system/MotionImage';
 
 const FINE_ART_EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
@@ -13,11 +14,14 @@ export const MovieHero = ({ ytId, backgroundUrl }: { ytId: string | null, backgr
           allow="autoplay; encrypted-media"
         />
       ) : (
-        <motion.img
+        <MotionImage
           initial={{ scale: 1.1, opacity: 0 }} animate={{ scale: 1.05, opacity: 0.25 }}
           transition={{ scale: { duration: 20, ease: "linear", repeat: Infinity, repeatType: "reverse" }, opacity: { duration: 1.5, ease: FINE_ART_EASE } }}
           src={backgroundUrl}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'luminosity', filter: 'grayscale(100%) contrast(125%)' }} alt=""
+          fill
+          sizes="100vw"
+          priority
+          style={{ objectFit: 'cover', mixBlendMode: 'luminosity', filter: 'grayscale(100%) contrast(125%)' }} alt=""
         />
       )}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--bg) 0%, rgba(8,8,6,0.8) 40%, transparent 100%)' }} />

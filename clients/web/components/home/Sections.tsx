@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { MotionImage } from '@/components/system/MotionImage';
+import Image from 'next/image';
 import Link from 'next/link'
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion'
 import { useEffect } from 'react'
@@ -83,9 +85,11 @@ export function NowProjecting({
             }}
           >
             {/* Imagem com Foco Óptico */}
-            <motion.img
+            <MotionImage
               src={frameSrc}
               alt={title}
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
               animate={{
                 filter: isHovered 
                   ? 'saturate(0.7) brightness(0.8) contrast(1.1)' // Focado
@@ -93,7 +97,7 @@ export function NowProjecting({
                 scale: isHovered ? 1 : 1.02 // Levíssimo respiro na lente
               }}
               transition={{ duration: 1.2, ease: FINE_ART_EASE }}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              style={{ objectFit: 'cover', display: 'block' }}
             />
 
             {/* Simulação da Lâmpada (Flicker infinito) */}
@@ -448,10 +452,12 @@ export function SessionRow({ session, isHovered, isDimmed, onHover }: any) {
           
           {/* Se você tiver uma imagem no objeto session, ela aparece aqui */}
           {session.image && (
-            <img 
-              src={session.image} 
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+            <Image
+              src={session.image}
               alt=""
+              fill
+              sizes="100vw"
+              style={{ objectFit: 'cover' }}
             />
           )}
         </motion.div>

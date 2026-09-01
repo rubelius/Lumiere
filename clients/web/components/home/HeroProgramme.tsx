@@ -1,6 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
+import { MotionImage } from '@/components/system/MotionImage';
 import Image from 'next/image';
 import Link from 'next/link'
 import { useState } from 'react'
@@ -69,7 +70,10 @@ export function HeroProgramme({
           {/* ── BACKGROUND AMBIENTE & KINETIC ── */}
           <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden', backgroundColor: 'var(--void)' }}>
             
-            <motion.img
+            <MotionImage
+              fill
+              sizes="100vw"
+              priority
               initial={{ scale: 1.05, opacity: isFallback ? 0.3 : 0.2 }} 
               animate={{ 
                 scale: 1, 
@@ -81,8 +85,7 @@ export function HeroProgramme({
               }}
               src={finalBg} alt=""
               style={{ 
-                position: 'absolute', inset: 0,
-                width: '100%', height: '100%', objectFit: 'cover', 
+                objectFit: 'cover', 
                 filter: isFallback ? 'blur(40px) grayscale(60%) contrast(1.2)' : 'grayscale(100%) contrast(1.2)',
                 transform: isFallback ? 'scale(1.1)' : 'none',
                 mixBlendMode: 'luminosity' 
@@ -120,10 +123,11 @@ export function HeroProgramme({
 
               <div style={{ overflow: 'hidden', paddingBottom: 24, marginBottom: -16, minHeight: '120px', display: 'flex', alignItems: 'flex-end' }}>
                 {logoUrl ? (
-                  <motion.img 
+                  <MotionImage
                     initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 1.2, delay: 0.3, ease }}
-                    src={logoUrl} alt={title} 
-                    style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', objectPosition: 'left bottom', filter: 'drop-shadow(0px 10px 20px rgba(0,0,0,0.8))' }}
+                    src={logoUrl} alt={title}
+                    width={500} height={140}
+                    style={{ width: 'auto', height: 'auto', maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', objectPosition: 'left bottom', filter: 'drop-shadow(0px 10px 20px rgba(0,0,0,0.8))' }}
                   />
                 ) : (
                   <motion.h1 initial={{ y: '100%' }} animate={{ y: '0%' }} transition={{ duration: 1.2, delay: 0.3, ease }} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 10vw, 9rem)', fontWeight: 400, lineHeight: 0.85, letterSpacing: '-0.02em', color: 'var(--film)', margin: 0 }}>

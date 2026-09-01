@@ -1,5 +1,6 @@
 'use client';
 import { motion, AnimatePresence } from "framer-motion";
+import Image from 'next/image';
 import { Server, DownloadCloud, Tv, Key, Shield, Bell, Type, Palette, ArrowRight, Check, Copy, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -298,7 +299,7 @@ export default function Settings() {
                      
                      {/* O Preview Reage aos Sliders */}
                      <div style={{ aspectRatio: '21/9', width: '100%', backgroundColor: 'var(--void)', border: '1px solid rgba(237,232,220,0.1)', marginBottom: 48, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '5%' }}>
-                       <img src="/images/poster-1.png" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(50%) contrast(1.2)', opacity: 0.5 }} alt="" />
+                       <Image src="/images/poster-1.png" alt="" fill sizes="100vw" style={{ objectFit: 'cover', filter: 'grayscale(50%) contrast(1.2)', opacity: 0.5 }} />
                        
                        <motion.div animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ repeat: Infinity, duration: 4 }} style={{ position: 'absolute', inset: '5%', border: '1px dashed rgba(191,143,60,0.5)', pointerEvents: 'none' }}>
                           <span style={{ position: 'absolute', top: 4, left: 4, fontFamily: "'DM Mono', monospace", fontSize: '7px', color: 'rgba(191,143,60,0.8)', letterSpacing: '0.2em' }}>ACTION SAFE 90%</span>

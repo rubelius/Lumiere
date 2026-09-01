@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { MotionImage } from '@/components/system/MotionImage';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -148,12 +149,14 @@ export function FilmGridCard({ film, router, setExpandedId, onHover }: { film: M
       </div>
 
       <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden', backgroundColor: 'var(--void)', border: isHovered ? '1px solid rgba(191,143,60,0.3)' : '1px solid rgba(237,232,220,0.05)', transition: 'border-color 0.6s ease' }}>
-        <motion.img
+        <MotionImage
           src={film.img}
+          alt=""
+          fill
+          sizes="(max-width: 768px) 50vw, 20vw"
           animate={{ scale: isHovered ? 1.05 : 1, filter: isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)' }}
           transition={{ duration: 0.8, ease: FINE_ART_EASE }}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          loading="lazy"
+          style={{ objectFit: 'cover' }}
         />
 
         <motion.div

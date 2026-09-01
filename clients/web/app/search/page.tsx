@@ -1,6 +1,8 @@
 'use client';
 
 import { motion, AnimatePresence } from "framer-motion";
+import { MotionImage } from '@/components/system/MotionImage';
+import Image from 'next/image';
 import { ArrowUp, Loader2, Globe } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from "react";
@@ -86,7 +88,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
       >
         <motion.div initial={false} animate={{ opacity: isExpanded ? 1 : isHovered ? 0.10 : 0, width: isExpanded ? '100%' : isHovered ? '50%' : '0%' }} transition={{ duration: 0.85, ease: FINE_ART_EASE }} style={{ position: 'absolute', top: 0, bottom: 0, right: 0, overflow: 'hidden', zIndex: -1, filter: 'grayscale(100%)', transformOrigin: 'right' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--bg) 0%, transparent 100%)', zIndex: 1 }} />
-          <img src={film.img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
+          <Image src={film.img} alt="" fill sizes="50vw" style={{ objectFit: 'cover' }} />
         </motion.div>
 
         <motion.div animate={{ color: isHovered ? 'var(--gold)' : 'var(--m4)' }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
@@ -96,7 +98,7 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
         <AnimatePresence>
           {isHovered && !isExpanded && (
             <motion.div initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }} animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }} exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.95 }} style={{ position: 'absolute', left: 90, top: 35, width: 110, height: 160, zIndex: 5 }}>
-              <img src={film.img} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(25%) contrast(1.1)' }} alt="" />
+              <Image src={film.img} width={110} height={160} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(25%) contrast(1.1)' }} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -154,7 +156,7 @@ function FilmGridCard({ film, router, setExpandedId, onHover }: any) {
         [{film.number}]
       </div>
       <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden', backgroundColor: 'var(--void)', border: isHovered ? '1px solid rgba(191,143,60,0.3)' : '1px solid rgba(237,232,220,0.05)', transition: 'border-color 0.6s ease' }}>
-        <motion.img src={film.img} animate={{ scale: isHovered ? 1.05 : 1, filter: isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)' }} transition={{ duration: 0.8, ease: FINE_ART_EASE }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+        <MotionImage src={film.img} alt="" fill sizes="(max-width: 768px) 50vw, 20vw" animate={{ scale: isHovered ? 1.05 : 1, filter: isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)' }} transition={{ duration: 0.8, ease: FINE_ART_EASE }} style={{ objectFit: 'cover' }} />
         <motion.div animate={{ opacity: isHovered ? 1 : 0 }} transition={{ duration: 0.6, ease: FINE_ART_EASE }} style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--bg) 0%, rgba(8,8,6,0.9) 35%, transparent 100%)', pointerEvents: 'none' }} />
         <motion.div initial={false} animate={{ y: isHovered ? 0 : 20, opacity: isHovered ? 1 : 0 }} transition={{ duration: 0.6, ease: FINE_ART_EASE }} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -312,10 +314,12 @@ export default function GlobalSearch() {
               WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 40%, transparent 100%)'
             }}
           >
-            <img 
-              src={hoveredMovie.backgroundSrc} 
-              style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(60%) contrast(1.1)' }} 
+            <Image
+              src={hoveredMovie.backgroundSrc}
               alt=""
+              fill
+              sizes="100vw"
+              style={{ objectFit: 'cover', filter: 'grayscale(60%) contrast(1.1)' }}
             />
           </motion.div>
         )}

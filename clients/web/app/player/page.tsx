@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, Suspense } from "react";
+import Image from 'next/image';
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -200,7 +201,7 @@ function PlayerExperience() {
         </div>
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-           <img src="/images/backgrounds/chefao.jpg" alt="Poster" className="absolute inset-0 w-full h-full object-cover blur-md" style={{ filter: 'grayscale(30%) contrast(1.1) brightness(0.4)' }} />
+           <Image src="/images/backgrounds/chefao.jpg" alt="Poster" fill sizes="100vw" className="object-cover blur-md" style={{ filter: 'grayscale(30%) contrast(1.1) brightness(0.4)' }} />
            <motion.div animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} transition={{ repeat: Infinity, duration: 4 }} className="z-10 flex flex-col items-center gap-8">
              {playbackMode === "jellyfin" ? <Tv style={{ width: 64, height: 64, color: 'var(--gold)' }} /> : <MonitorPlay style={{ width: 64, height: 64, color: 'var(--gold)' }} />}
              <div style={{ textAlign: 'center' }}>

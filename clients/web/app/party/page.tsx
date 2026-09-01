@@ -1,5 +1,6 @@
 'use client';
 import { motion, AnimatePresence } from "framer-motion";
+import Image from 'next/image';
 import { Users, Link as LinkIcon, Play, CalendarPlus, X, Search, TerminalSquare, Radio, CheckCircle2, Activity, Settings2, Share2, SkipBack, SkipForward, Pause, Volume2, Subtitles, Maximize } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -139,7 +140,7 @@ export default function Party() {
               style={{ position: 'relative', width: '100%', maxWidth: '1200px', aspectRatio: '16/9', backgroundColor: 'var(--void)', border: '1px solid var(--gold)', boxShadow: '0 0 100px rgba(0,0,0,1)', zIndex: 1, overflow: 'hidden' }}
             >
               <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-                <img src="/images/hero-background.png" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', opacity: 0.6 }} alt="Video Poster" />
+                <Image src="/images/hero-backdrop.png" alt="Video Poster" fill sizes="100vw" style={{ objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', opacity: 0.6 }} />
               </div>
               
               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 10, background: 'linear-gradient(to bottom, rgba(4,4,2,0.9), rgba(0,0,0,0))', opacity: 0, transition: 'opacity 0.3s' }} className="group-hover/player:opacity-100">
@@ -295,7 +296,7 @@ export default function Party() {
                 <div style={{ display: 'flex', gap: '48px' }}>
                   <div style={{ width: '240px', flexShrink: 0 }}>
                     <div style={{ position: 'relative', aspectRatio: '2/3', backgroundColor: 'var(--bg)', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', overflow: 'hidden', boxShadow: '0 0 40px rgba(0,0,0,0.8)' }} className="group">
-                      <img src="/images/poster-1.png" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)' }} alt="Poster" />
+                      <Image src="/images/poster-1.png" alt="Poster" fill sizes="200px" style={{ objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)' }} />
                     </div>
                   </div>
                   
@@ -373,7 +374,7 @@ export default function Party() {
                     <motion.div whileHover={{ x: 4, backgroundColor: 'rgba(237,232,220,0.05)' }} key={user.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', border: '1px solid rgba(86,84,80,0.2)', backgroundColor: 'rgba(237,232,220,0.02)', cursor: 'crosshair', transition: 'all 0.2s' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <div style={{ position: 'relative', width: '32px', height: '32px', filter: 'grayscale(100%)', border: '1px solid rgba(86,84,80,0.5)', overflow: 'hidden' }}>
-                          <img src={user.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                          <Image src={user.avatar} alt="" fill sizes="48px" style={{ objectFit: 'cover' }} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--film)', letterSpacing: '0.15em', display: 'flex', alignItems: 'center', gap: '8px' }}>

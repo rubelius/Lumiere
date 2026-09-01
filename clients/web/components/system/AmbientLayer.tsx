@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image';
 import { motion } from 'framer-motion'
 
 /**
@@ -208,12 +209,12 @@ export function PosterReveal({ src, visible, mouseX, mouseY }: PosterRevealProps
         borderRadius: 1,
       }}
     >
-      <img
+      <Image
         src={src}
         alt=""
+        fill
+        sizes="90px"
         style={{
-          width: '100%',
-          height: '100%',
           objectFit: 'cover',
           filter: 'saturate(0.72) contrast(1.1)',
           display: 'block',

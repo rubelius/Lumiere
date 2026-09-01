@@ -1,6 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from "framer-motion";
+import { MotionImage } from '@/components/system/MotionImage';
 import { Play, Cast, SlidersHorizontal, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -161,10 +162,11 @@ function SessionMovieRow({ movie, index, router }: any) {
         animate={{ scale: isHovered ? 1.05 : 1 }} transition={{ duration: 0.6, ease: FINE_ART_EASE }}
         style={{ aspectRatio: '2/3', overflow: 'hidden', backgroundColor: 'var(--void)', border: '1px solid rgba(237,232,220,0.05)' }}
       >
-        <motion.img 
-          src={movie.poster} alt={movie.title} 
+        <MotionImage
+          src={movie.poster} alt={movie.title}
+          width={400} height={600}
           animate={{ filter: isHovered ? 'grayscale(0%) contrast(1.1)' : movie.status === 'pending' ? 'grayscale(100%) opacity(0.3)' : 'grayscale(30%) contrast(1)' }}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       </motion.div>
       

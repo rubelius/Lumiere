@@ -1,5 +1,6 @@
 'use client';
 import { useState } from "react";
+import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, CheckCircle2, Bookmark, Plus, Heart, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -15,7 +16,7 @@ export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie:
     <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1, ease: FINE_ART_EASE }} style={{ width: '320px', flexShrink: 0 }}> 
       <motion.div whileHover={{ y: -5, boxShadow: '0 20px 60px rgba(0,0,0,1)' }} transition={{ duration: 0.4, ease: FINE_ART_EASE }} style={{ position: 'relative', aspectRatio: '2/3', backgroundColor: 'var(--void)', border: '1px solid rgba(191,143,60,0.3)', padding: '8px', marginBottom: '32px', overflow: 'hidden', boxShadow: '0 0 50px rgba(0,0,0,0.8)' }} className="group"> 
         <div style={{ position: 'relative', width: '100%', height: '100%', border: '1px solid rgba(86,84,80,0.3)', overflow: 'hidden' }}> 
-          <img src={posterUrl} alt="Poster" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'contrast(110%) saturate(110%)', transition: 'all 0.7s' }} className="group-hover:scale-105" /> 
+          <Image src={posterUrl} alt="Poster" fill sizes="(max-width: 768px) 40vw, 300px" style={{ objectFit: 'cover', filter: 'contrast(110%) saturate(110%)', transition: 'all 0.7s' }} className="group-hover:scale-105" /> 
           <motion.div animate={{ y: ['-10%', '110%'] }} transition={{ repeat: Infinity, duration: 4, ease: 'linear' }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '1px', backgroundColor: 'var(--gold)', boxShadow: '0 0 10px rgba(191,143,60,0.8)', opacity: 0 }} className="group-hover:opacity-100" /> 
         </div> 
         
