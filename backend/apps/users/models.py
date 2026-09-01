@@ -4,6 +4,8 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from pgvector.django import VectorField
 
+from apps.ml.constants import EMBEDDING_DIMENSIONS
+
 
 class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -34,7 +36,7 @@ class User(AbstractUser):
     prowlarr_url = models.URLField(blank=True)
     prowlarr_api_key = models.CharField(max_length=255, blank=True)
     # ML
-    taste_profile_embedding = VectorField(dimensions=768, null=True, blank=True)
+    taste_profile_embedding = VectorField(dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
     preferences = models.JSONField(default=dict, blank=True)
     # Status
     is_premium = models.BooleanField(default=False)

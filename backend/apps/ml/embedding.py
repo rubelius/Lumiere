@@ -5,6 +5,8 @@ import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer
 
+from apps.ml.constants import EMBEDDING_DIMENSIONS, EMBEDDING_MODEL
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,7 +20,7 @@ class MovieEmbeddingGenerator:
     - Diretor e elenco principal
     """
 
-    def __init__(self, model_name: str = 'all-MiniLM-L6-v2'):
+    def __init__(self, model_name: str = EMBEDDING_MODEL):
         self.model_name = model_name
         self.model: Optional[SentenceTransformer] = None
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -143,7 +145,7 @@ class UserTasteEmbeddingGenerator:
             User embedding (384 dims)
         """
         if not watched_movies_embeddings:
-            return np.zeros(384)
+            return np.zeros(EMBEDDING_DIMENSIONS)
 
         embeddings_array = np.array(watched_movies_embeddings)
 

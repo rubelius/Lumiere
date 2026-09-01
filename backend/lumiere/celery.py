@@ -70,6 +70,13 @@ app.conf.beat_schedule = {
         'schedule': crontab(minute=0, hour=3),
     },
     
+    # Avança o cálculo de similaridades em lotes. De hora em hora porque são
+    # ~26 mil filmes a processar; a task para sozinha quando zera a fila.
+    'compute-pending-similarities': {
+        'task': 'apps.tasks.ml.compute_pending_similarities',
+        'schedule': crontab(minute=40),
+    },
+    
     # Update movie embeddings for new movies
     'update-movie-embeddings': {
         'task': 'apps.tasks.ml.update_movie_embeddings',

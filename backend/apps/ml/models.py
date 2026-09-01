@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models
 from pgvector.django import VectorField
 
+from apps.ml.constants import EMBEDDING_DIMENSIONS
+
 
 class UserTasteProfile(models.Model):
     user = models.OneToOneField(
@@ -11,11 +13,11 @@ class UserTasteProfile(models.Model):
     )
     
     # Vector Embedding
-    taste_profile_embedding = VectorField(dimensions=384, null=True, blank=True)
+    taste_profile_embedding = VectorField(dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
     # The task attempts to save 'embedding' and 'embedding_model'. 
     # Let's map 'embedding' to taste_profile_embedding for safety, but we MUST add these fields 
     # to avoid the AttributeError:
-    embedding = VectorField(dimensions=384, null=True, blank=True) 
+    embedding = VectorField(dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True) 
     embedding_model = models.CharField(max_length=255, null=True, blank=True)
     
     # Metadata fields exactly as written by tasks/ml.py

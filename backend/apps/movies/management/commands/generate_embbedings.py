@@ -41,8 +41,13 @@ class Command(BaseCommand):
         
         if limit:
             movies = movies[:limit]
-        
-        total = movies.count()
+
+        # Congela os ids ANTES de começar. O queryset filtra por
+        # embedding__isnull=True e é preguiçoso: a cada lote gravado ele
+        # encolhe, e refatiar com offset crescente sobre um conjunto que
+        # diminui pula metade dos filmes e termina numa fatia vazia.
+        ids = list(movies.values_list('id', flat=True))
+        total = len(ids)
         
         if total == 0:
             self.stdout.write(
@@ -57,7 +62,9 @@ class Command(BaseCommand):
         processed = 0
         
         for i in range(0, total, batch_size):
-            batch = list(movies[i:i+batch_size])
+            batch = list(Movie.objects.filter(id__in=ids[i:i + batch_size]))
+            if not batch:
+                continue
             
             # Prepare data
             movies_data = []
@@ -78,12 +85,14 @@ class Command(BaseCommand):
                 batch_size=len(movies_data)
             )
             
-            # Save
+            # Grava em lote: um UPDATE por filme seriam 25 mil idas ao banco.
             for movie, embedding in zip(batch, embeddings):
                 movie.embedding = embedding.tolist()
                 movie.embedding_model = generator.model_name
-                movie.save(update_fields=['embedding', 'embedding_model'])
-                processed += 1
+            Movie.objects.bulk_update(
+                batch, ['embedding', 'embedding_model'], batch_size=500
+            )
+            processed += len(batch)
             
             self.stdout.write(f"  Processados: {processed}/{total}")
         

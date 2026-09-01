@@ -3,7 +3,9 @@ import uuid
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.db import models
-from pgvector.django import VectorField
+from pgvector.django import HnswIndex, VectorField
+
+from apps.ml.constants import EMBEDDING_DIMENSIONS
 
 class Movie(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -85,7 +87,7 @@ class Movie(models.Model):
     # --------------------------------------------------------
     # 8. ML EMBEDDINGS (AI Search)
     # --------------------------------------------------------
-    embedding = VectorField(dimensions=768, null=True, blank=True)
+    embedding = VectorField(dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
     embedding_model = models.CharField(max_length=100, blank=True)
     
     # --------------------------------------------------------
@@ -138,6 +140,17 @@ class Movie(models.Model):
                 name='movie_search_idx',
                 fields=['title'],
                 opclasses=['gin_trgm_ops']
+            ),
+            # Sem índice, cada busca por similaridade varre os 25 mil vetores.
+            # Tolerável para uma consulta; inviável para o cálculo em massa que
+            # o recomendador exige. HNSW porque a extensão instalada é 0.8.1 e
+            # ele dispensa a etapa de treino que o IVFFlat pede.
+            HnswIndex(
+                name='movie_embedding_hnsw',
+                fields=['embedding'],
+                m=16,
+                ef_construction=64,
+                opclasses=['vector_cosine_ops'],
             ),
         ]
 

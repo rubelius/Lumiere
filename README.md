@@ -35,7 +35,7 @@ implemented but have not been run yet.
 | Film catalogue (TSPDT + TMDB + OMDB + Wikidata) | **Live** | 25,908 films, all ranked, 25,150 with artwork |
 | REST API + cookie-based JWT auth | **Live** | End to end, with silent token refresh |
 | Web client | **Live** | Every route rendering against real data |
-| Taste embeddings and recommender | Built, not run | 0 embeddings, 0 similarities stored |
+| Taste embeddings and recommender | **Live** | All 25,908 films embedded; similarity backfill in progress |
 | Acquisition (Prowlarr + Real-Debrid) | Partly live | Real-Debrid account syncs into the archive; Prowlarr search untested |
 | Cinema sessions and watch parties | Built, not run | 0 sessions stored |
 | Playback resolution (Real-Debrid > Jellyfin > Plex) | **Live** | A 4K REMUX plays from Real-Debrid end to end; Plex step untested |
@@ -75,9 +75,13 @@ Wikidata metadata into a single film record.
 that prioritises REMUX, Dolby Vision/HDR and lossless audio, then hands off to Real-Debrid
 for instant-availability checks and cached streaming.
 
-**4. The Neural Core.** Letterboxd history becomes a user embedding via
+**4. The Neural Core.** Film metadata becomes a 384-dimension vector via
 `sentence-transformers/all-MiniLM-L6-v2`, and pgvector cosine similarity powers
-content-based recommendations.
+content-based recommendations. The dimension lives in `apps/ml/constants.py`
+because it once disagreed between files, which silently blocked the whole
+pipeline. An HNSW index on the vector column takes a neighbour lookup from
+418ms to 17ms — without it, computing similarities across the archive is not
+practical.
 
 ### Playback resolution
 
@@ -279,6 +283,7 @@ python manage.py sync_tmdb             # artwork, cast, crew, overviews
 python manage.py sync_omdb             # external ratings
 python manage.py sync_wikidata         # awards and festivals
 python manage.py generate_embbedings   # taste vectors (name is misspelled in the repo)
+python manage.py compute_similarities  # nearest neighbours from those vectors
 python manage.py sync_realdebrid       # links what is already in your Real-Debrid account
 ```
 

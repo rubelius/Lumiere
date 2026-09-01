@@ -57,11 +57,13 @@ def generate_movie_embeddings(self, movie_ids: list = None, batch_size: int = 32
         generator = MovieEmbeddingGenerator()
         embeddings = generator.generate_batch_embeddings(movies_data, batch_size=batch_size)
         
-        # Save embeddings
+        # Grava em lote: um UPDATE por filme seriam mil idas ao banco.
         for movie, embedding in zip(movies_list, embeddings):
             movie.embedding = embedding.tolist()
             movie.embedding_model = generator.model_name
-            movie.save(update_fields=['embedding', 'embedding_model'])
+        Movie.objects.bulk_update(
+            movies_list, ['embedding', 'embedding_model'], batch_size=500
+        )
         
         logger.info(f"Generated embeddings for {len(movies_list)} movies")
         
@@ -82,24 +84,18 @@ def update_movie_embeddings():
     
     Roda diariamente às 4 AM via beat schedule
     """
-    # Process movies added in last 7 days without embeddings
-    from datetime import timedelta
-
-    from django.utils import timezone
-    
-    week_ago = timezone.now() - timedelta(days=7)
-    
-    recent_movies = Movie.objects.filter(
-        created_at__gte=week_ago,
-        embedding__isnull=True
+    # Qualquer filme sem embedding, e não só os da última semana: com a
+    # janela de 7 dias, um filme que escapasse dela (porque a fila falhou, ou
+    # porque entrou num backfill antigo) ficaria sem embedding para sempre.
+    # O lote é limitado para a execução periódica não virar um trabalho longo.
+    pendentes = list(
+        Movie.objects.filter(embedding__isnull=True).values_list('id', flat=True)[:1000]
     )
-    
-    if not recent_movies.exists():
+
+    if not pendentes:
         return {'message': 'No new movies to process'}
-    
-    movie_ids = [str(m.id) for m in recent_movies]
-    
-    return generate_movie_embeddings.apply_async(args=[movie_ids])
+
+    return generate_movie_embeddings.apply_async(args=[[str(i) for i in pendentes]])
 
 
 @shared_task(bind=True)
@@ -317,3 +313,23 @@ def retrain_all_users():
         )
     
     return {'users_scheduled': users.count()}
+
+@shared_task
+def compute_pending_similarities(batch_size: int = 500, top_n: int = 50):
+    """
+    Avança o cálculo de similaridades em lotes.
+
+    O acervo tem ~26 mil filmes e cada um guarda até 50 vizinhos, então fazer
+    tudo de uma vez seria um trabalho longo demais para uma execução
+    periódica. Processa um lote por vez, priorizando o ranking do TSPDT, e
+    termina sozinho quando não há mais pendentes.
+    """
+    from apps.ml.similarity import calcula_para_filme, filmes_pendentes
+
+    pendentes = list(filmes_pendentes(batch_size))
+    if not pendentes:
+        return {'message': 'Nenhum filme pendente'}
+
+    gravadas = sum(calcula_para_filme(f, top_n=top_n) for f in pendentes)
+    logger.info('Similaridades: %s filmes, %s relações', len(pendentes), gravadas)
+    return {'filmes': len(pendentes), 'relacoes': gravadas}
