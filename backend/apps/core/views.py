@@ -5,12 +5,23 @@ import redis
 from celery import current_app
 from django.core.cache import cache
 from django.db import connection
-from rest_framework import status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 
+@extend_schema(
+    responses=inline_serializer(
+        name='HealthCheck',
+        fields={
+            'status': serializers.CharField(),
+            'checks': serializers.DictField(child=serializers.CharField()),
+        },
+    ),
+    description='Estado do banco, do Redis e dos workers do Celery.',
+)
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def health_check(request):
@@ -101,6 +112,14 @@ def liveness_check(request):
     return Response({'status': 'alive'})
 
 
+@extend_schema(
+    request=None,
+    responses=inline_serializer(
+        name='WebSocketTicket',
+        fields={'ticket': serializers.CharField()},
+    ),
+    description='Ticket de uso único, válido por 30s, para abrir o WebSocket.',
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def issue_ws_ticket(request):

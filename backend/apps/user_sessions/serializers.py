@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from django.db.models import Sum
 from django.db import transaction
@@ -57,16 +58,19 @@ class CinemaSessionSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
 
+    @extend_schema_field(serializers.IntegerField())
     def get_movie_count(self, obj):
         # OTIMIZAÇÃO: Usa o tamanho da lista que já tá na memória em vez de .count() no banco
         return len(obj.session_movies.all())
 
+    @extend_schema_field(serializers.URLField(allow_null=True))
     def get_first_movie_poster(self, obj):
         movies = obj.session_movies.all()
         if movies:
             return movies[0].movie.poster_url if movies[0].movie else None
         return None
 
+    @extend_schema_field(SessionMovieSerializer(many=True, allow_null=True))
     def get_session_movies(self, obj):
         # OTIMIZAÇÃO CLAUDE: Só popula a lista de filmes se for a tela de detalhes (retrieve)
         if self.context.get('detail', False):

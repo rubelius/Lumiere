@@ -1,4 +1,6 @@
 from django.contrib.auth import get_user_model
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -85,6 +87,13 @@ class UserViewSet(viewsets.ModelViewSet):
 # ==============================================================================
 # O NOVO CÉREBRO ANALÍTICO DO SEU PERFIL
 # ==============================================================================
+@extend_schema(
+    responses=OpenApiTypes.OBJECT,
+    description=(
+        'Agregações de telemetria do perfil. O corpo é um objeto montado '
+        'dinamicamente a partir das consultas de agregação.'
+    ),
+)
 class ProfileTelemetryView(APIView):
     """
     API para agregar e fornecer os dados de telemetria do Perfil do Usuário

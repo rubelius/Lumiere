@@ -90,10 +90,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * @description Gera um ticket de uso único de 30 segundos para conexão WebSocket.
-         *     Protege o sistema contra vazamento de tokens em logs ou URLs.
-         */
+        /** @description Ticket de uso único, válido por 30s, para abrir o WebSocket. */
         post: operations["auth_ws_ticket_create"];
         delete?: never;
         options?: never;
@@ -108,14 +105,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * @description Comprehensive health check
-         *
-         *     Checks:
-         *     - Database connectivity
-         *     - Redis connectivity
-         *     - Celery workers
-         */
+        /** @description Estado do banco, do Redis e dos workers do Celery. */
         get: operations["health_retrieve"];
         put?: never;
         post?: never;
@@ -251,7 +241,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description API para agregar e fornecer os dados de telemetria do Perfil do Usuário */
+        /** @description Agregações de telemetria do perfil. O corpo é um objeto montado dinamicamente a partir das consultas de agregação. */
         get: operations["profile_telemetry_retrieve"];
         put?: never;
         post?: never;
@@ -610,20 +600,37 @@ export interface components {
             readonly status: components["schemas"]["StatusEnum"];
             theme_type: components["schemas"]["ThemeTypeEnum"];
             readonly theme: components["schemas"]["SessionTheme"];
-            readonly movie_count: string;
-            readonly first_movie_poster: string;
+            readonly movie_count: number;
+            /** Format: uri */
+            readonly first_movie_poster: string | null;
             readonly preparation_progress: number;
             readonly download_progress: number;
             estimated_duration_minutes?: number | null;
             readonly all_downloads_ready: boolean;
             readonly all_movies_selected: boolean;
             playlist_created?: boolean;
-            readonly session_movies: string;
+            readonly session_movies: components["schemas"]["SessionMovie"][] | null;
             movie_ids?: string[];
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
             readonly updated_at: string;
+        };
+        /**
+         * @description * `pending` - Pending
+         *     * `searching` - Searching
+         *     * `found` - Found
+         *     * `downloading` - Downloading
+         *     * `ready` - Ready
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        DownloadStatusEnum: "pending" | "searching" | "found" | "downloading" | "ready" | "failed";
+        HealthCheck: {
+            status: string;
+            checks: {
+                [key: string]: string;
+            };
         };
         Movie: {
             /** Format: uuid */
@@ -950,15 +957,16 @@ export interface components {
             readonly status?: components["schemas"]["StatusEnum"];
             theme_type?: components["schemas"]["ThemeTypeEnum"];
             readonly theme?: components["schemas"]["SessionTheme"];
-            readonly movie_count?: string;
-            readonly first_movie_poster?: string;
+            readonly movie_count?: number;
+            /** Format: uri */
+            readonly first_movie_poster?: string | null;
             readonly preparation_progress?: number;
             readonly download_progress?: number;
             estimated_duration_minutes?: number | null;
             readonly all_downloads_ready?: boolean;
             readonly all_movies_selected?: boolean;
             playlist_created?: boolean;
-            readonly session_movies?: string;
+            readonly session_movies?: components["schemas"]["SessionMovie"][] | null;
             movie_ids?: string[];
             /** Format: date-time */
             readonly created_at?: string;
@@ -972,7 +980,8 @@ export interface components {
             title?: string;
             /** Format: int64 */
             size_bytes?: number;
-            readonly size_gb?: string;
+            /** Format: double */
+            readonly size_gb?: number;
             resolution?: string;
             is_remux?: boolean;
             is_4k?: boolean;
@@ -1022,12 +1031,25 @@ export interface components {
             letterboxd_connected?: boolean;
             /** Format: uri */
             plex_server_url?: string;
-            readonly taste_profile_exists?: string;
+            readonly taste_profile_exists?: boolean;
             /**
              * Data de registro
              * Format: date-time
              */
             readonly date_joined?: string;
+        };
+        /** @description Serializer para filmes dentro de uma sessão */
+        SessionMovie: {
+            /** Format: uuid */
+            id?: string;
+            readonly movie: components["schemas"]["MovieList"];
+            /** Format: uuid */
+            movie_id: string;
+            order: number;
+            readonly selected_release: components["schemas"]["TorrentRelease"];
+            download_status?: components["schemas"]["DownloadStatusEnum"];
+            download_progress?: number;
+            notes?: string;
         };
         /** @description Serializer para temas de sessão */
         SessionTheme: {
@@ -1090,7 +1112,8 @@ export interface components {
             title: string;
             /** Format: int64 */
             size_bytes: number;
-            readonly size_gb: string;
+            /** Format: double */
+            readonly size_gb: number;
             resolution?: string;
             is_remux?: boolean;
             is_4k?: boolean;
@@ -1140,7 +1163,7 @@ export interface components {
             letterboxd_connected?: boolean;
             /** Format: uri */
             plex_server_url?: string;
-            readonly taste_profile_exists: string;
+            readonly taste_profile_exists: boolean;
             /**
              * Data de registro
              * Format: date-time
@@ -1162,6 +1185,9 @@ export interface components {
             password: string;
             password_confirm: string;
             display_name?: string;
+        };
+        WebSocketTicket: {
+            ticket: string;
         };
     };
     responses: never;
@@ -1281,12 +1307,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description No response body */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["WebSocketTicket"];
+                };
             };
         };
     };
@@ -1299,12 +1326,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description No response body */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["HealthCheck"];
+                };
             };
         };
     };
@@ -1481,12 +1509,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description No response body */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };

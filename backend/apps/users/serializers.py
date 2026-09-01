@@ -1,5 +1,6 @@
 from apps.ml.models import UserTasteProfile
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 User = get_user_model()
@@ -20,6 +21,7 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'date_joined', 'is_premium']
     
+    @extend_schema_field(serializers.BooleanField())
     def get_taste_profile_exists(self, obj):
         return hasattr(obj, 'taste_profile')
 

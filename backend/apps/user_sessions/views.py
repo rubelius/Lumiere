@@ -30,6 +30,11 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
         
     def get_queryset(self):  # type: ignore
         """Retorna apenas sessões do usuário"""
+        # Na geração do schema não há request autenticado: filtrar por
+        # AnonymousUser estoura e o drf-spectacular perde o modelo (e o tipo
+        # do parâmetro de rota, que caía para "string").
+        if getattr(self, 'swagger_fake_view', False):
+            return CinemaSession.objects.none()
         return CinemaSession.objects.filter(
             user=self.request.user
         ).prefetch_related(

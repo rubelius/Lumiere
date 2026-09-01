@@ -29,7 +29,8 @@ class MovieSerializer(serializers.ModelSerializer):
         exclude = ['embedding', 'embedding_model']
 
 class TorrentReleaseSerializer(serializers.ModelSerializer):
-    size_gb = serializers.ReadOnlyField()
+    # ReadOnlyField nao carrega tipo: o schema saía como string
+    size_gb = serializers.FloatField(read_only=True)
     class Meta:
         model = TorrentRelease
         fields = [
