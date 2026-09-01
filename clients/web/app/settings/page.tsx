@@ -4,6 +4,7 @@ import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { Server, DownloadCloud, Tv, Key, Shield, Bell, Type, Palette, ArrowRight, Check, Copy, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useIntegrations, useSaveIntegrations } from "@/features/settings/hooks/useIntegrations";
 
 
 export default function Settings() {
@@ -38,6 +39,13 @@ export default function Settings() {
 
   // Efeito de Cópia
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // ── FONTES DE REPRODUÇÃO (Real-Debrid > Jellyfin > Plex) ──
+  const { data: integracoes } = useIntegrations();
+  const salvar = useSaveIntegrations();
+  const [editando, setEditando] = useState<string | null>(null);
+  // Token vazio = manter o que já está gravado; o backend nunca o devolve.
+  const [rascunho, setRascunho] = useState<Record<string, string>>({});
   const copyToClipboard = (id: string) => {
     setCopiedKey(id);
     setTimeout(() => setCopiedKey(null), 2000);
@@ -547,41 +555,99 @@ export default function Settings() {
 
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       {(activeTab === "Conexões" ? [
-                        { label: "PLEX MEDIA SERVER", value: "CONECTADO", status: "success", detail: "192.168.1.100:32400" },
-                        { label: "JELLYFIN", value: "DESCONECTADO", status: "none", detail: "--" },
-                        { label: "DIRETÓRIO BASE", value: "/MNT/MEDIA/MOVIES", status: "default", detail: "5.4 TB LIVRES" }
+                        {
+                          id: 'jellyfin', label: "JELLYFIN",
+                          conectado: !!integracoes?.jellyfin_connected,
+                          detalhe: integracoes?.jellyfin_server_url || "--",
+                          campoUrl: 'jellyfin_server_url', campoToken: 'jellyfin_token',
+                          ordem: '2ª FONTE',
+                        },
+                        {
+                          id: 'plex', label: "PLEX MEDIA SERVER",
+                          conectado: !!integracoes?.plex_connected,
+                          detalhe: integracoes?.plex_server_url || "--",
+                          campoUrl: 'plex_server_url', campoToken: 'plex_token',
+                          ordem: '3ª FONTE',
+                        },
                       ] : [
-                        { label: "REAL-DEBRID", value: "PREMIUM ATIVO", status: "success", detail: "EXPIRA EM 142 DIAS" },
-                        { label: "ALLDEBRID", value: "NÃO CONFIGURADO", status: "none", detail: "--" },
+                        {
+                          id: 'realdebrid', label: "REAL-DEBRID",
+                          conectado: !!integracoes?.realdebrid_connected,
+                          detalhe: integracoes?.realdebrid_connected ? "CHAVE GRAVADA" : "--",
+                          campoUrl: null, campoToken: 'realdebrid_api_key',
+                          ordem: '1ª FONTE',
+                        },
                       ]).map((item, i) => (
-                        <motion.button 
-                          key={item.label}
-                          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1, duration: 0.6, ease: FINE_ART_EASE }}
-                          whileHover={{ backgroundColor: 'rgba(237,232,220,0.02)', x: 4 }}
-                          whileTap={{ scale: 0.98 }}
-                          style={{ 
-                            display: 'grid', gridTemplateColumns: '1fr 1fr 40px', gap: 24, alignItems: 'center', 
-                            padding: '24px 0', borderBottom: '1px solid rgba(237,232,220,0.05)',
-                            background: 'transparent', borderTop: 'none', borderLeft: 'none', borderRight: 'none',
-                            cursor: 'pointer', textAlign: 'left'
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: 'var(--film)', letterSpacing: '0.15em', marginBottom: 6 }}>{item.label}</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>{item.detail}</div>
-                          </div>
+                        <div key={item.id} style={{ borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
+                          <motion.button
+                            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1, duration: 0.6, ease: FINE_ART_EASE }}
+                            whileHover={{ backgroundColor: 'rgba(237,232,220,0.02)', x: 4 }}
+                            onClick={() => { setEditando(editando === item.id ? null : item.id); setRascunho({}); }}
+                            style={{
+                              width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr 40px', gap: 24, alignItems: 'center',
+                              padding: '24px 0', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left'
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: 'var(--film)', letterSpacing: '0.15em', marginBottom: 6 }}>
+                                {item.label} <span style={{ color: 'var(--m3)', fontSize: '8px' }}>· {item.ordem}</span>
+                              </div>
+                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>{item.detalhe}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                              {item.conectado && <Check style={{ width: 12, height: 12, color: 'var(--gold)' }} />}
+                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: item.conectado ? 'var(--gold)' : 'var(--m3)' }}>
+                                [{item.conectado ? 'CONECTADO' : 'NÃO CONFIGURADO'}]
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', color: 'var(--m3)' }}>
+                              <ArrowRight style={{ width: 16, height: 16, transform: editando === item.id ? 'rotate(90deg)' : 'none', transition: 'transform 0.3s' }} />
+                            </div>
+                          </motion.button>
 
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                            {item.status === 'success' && <Check style={{ width: 12, height: 12, color: 'var(--gold)' }} />}
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: item.status === 'success' ? 'var(--gold)' : item.status === 'none' ? 'var(--m3)' : 'var(--m2)' }}>
-                              [{item.value}]
-                            </span>
-                          </div>
-
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', color: 'var(--m3)' }}>
-                            <ArrowRight style={{ width: 16, height: 16 }} />
-                          </div>
-                        </motion.button>
+                          <AnimatePresence>
+                            {editando === item.id && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.4, ease: FINE_ART_EASE }}
+                                style={{ overflow: 'hidden' }}
+                              >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0 32px' }}>
+                                  {item.campoUrl && (
+                                    <input
+                                      type="url"
+                                      placeholder="http://servidor:8096"
+                                      defaultValue={item.detalhe === '--' ? '' : item.detalhe}
+                                      onChange={(e) => setRascunho(r => ({ ...r, [item.campoUrl as string]: e.target.value }))}
+                                      style={{ background: 'var(--s1)', border: '1px solid rgba(237,232,220,0.1)', color: 'var(--film)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em' }}
+                                    />
+                                  )}
+                                  <input
+                                    type="password"
+                                    placeholder={item.conectado ? 'CHAVE GRAVADA — deixe vazio para manter' : 'chave de API'}
+                                    onChange={(e) => setRascunho(r => ({ ...r, [item.campoToken]: e.target.value }))}
+                                    style={{ background: 'var(--s1)', border: '1px solid rgba(237,232,220,0.1)', color: 'var(--film)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em' }}
+                                  />
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                    <motion.button
+                                      whileHover={{ backgroundColor: 'var(--gold)', color: 'var(--void)' }}
+                                      disabled={salvar.isPending || Object.keys(rascunho).length === 0}
+                                      onClick={() => salvar.mutate(rascunho, { onSuccess: () => { setEditando(null); setRascunho({}); } })}
+                                      style={{ padding: '12px 24px', background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer', opacity: Object.keys(rascunho).length === 0 ? 0.4 : 1 }}
+                                    >
+                                      {salvar.isPending ? '[ GRAVANDO... ]' : '[ GRAVAR ]'}
+                                    </motion.button>
+                                    {salvar.isError && (
+                                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--danger)', letterSpacing: '0.1em' }}>
+                                        FALHA AO GRAVAR
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       ))}
                     </div>
                   </div>

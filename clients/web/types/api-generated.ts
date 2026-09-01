@@ -567,6 +567,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/integrations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Credenciais das fontes de reprodução. Os tokens são write-only: a resposta diz apenas se cada integração está configurada. */
+        get: operations["users_integrations_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Credenciais das fontes de reprodução. Os tokens são write-only: a resposta diz apenas se cada integração está configurada. */
+        patch: operations["users_integrations_partial_update"];
+        trace?: never;
+    };
     "/api/users/me/": {
         parameters: {
             query?: never;
@@ -648,6 +666,26 @@ export interface components {
             checks: {
                 [key: string]: string;
             };
+        };
+        /**
+         * @description Credenciais das fontes de reprodução.
+         *
+         *     Os tokens são write-only por princípio: uma vez gravados, a API informa
+         *     apenas SE existem, nunca o valor. Assim uma tela de configuração, um log de
+         *     resposta ou um cache de navegador nunca carregam o segredo de volta.
+         */
+        IntegrationSettings: {
+            /** Format: uri */
+            jellyfin_server_url?: string;
+            jellyfin_user_id?: string;
+            jellyfin_token?: string;
+            readonly jellyfin_connected: boolean;
+            /** Format: uri */
+            plex_server_url?: string;
+            plex_token?: string;
+            readonly plex_connected: boolean;
+            realdebrid_api_key?: string;
+            readonly realdebrid_connected: boolean;
         };
         Movie: {
             /** Format: uuid */
@@ -989,6 +1027,26 @@ export interface components {
             readonly created_at?: string;
             /** Format: date-time */
             readonly updated_at?: string;
+        };
+        /**
+         * @description Credenciais das fontes de reprodução.
+         *
+         *     Os tokens são write-only por princípio: uma vez gravados, a API informa
+         *     apenas SE existem, nunca o valor. Assim uma tela de configuração, um log de
+         *     resposta ou um cache de navegador nunca carregam o segredo de volta.
+         */
+        PatchedIntegrationSettings: {
+            /** Format: uri */
+            jellyfin_server_url?: string;
+            jellyfin_user_id?: string;
+            jellyfin_token?: string;
+            readonly jellyfin_connected?: boolean;
+            /** Format: uri */
+            plex_server_url?: string;
+            plex_token?: string;
+            readonly plex_connected?: boolean;
+            realdebrid_api_key?: string;
+            readonly realdebrid_connected?: boolean;
         };
         PatchedTorrentRelease: {
             /** Format: uuid */
@@ -2328,6 +2386,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
+                };
+            };
+        };
+    };
+    users_integrations_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationSettings"];
+                };
+            };
+        };
+    };
+    users_integrations_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedIntegrationSettings"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedIntegrationSettings"];
+                "multipart/form-data": components["schemas"]["PatchedIntegrationSettings"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationSettings"];
                 };
             };
         };

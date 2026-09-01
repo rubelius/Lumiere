@@ -11,7 +11,8 @@ from django.db.models import Sum, Avg, Count  # <-- Ferramentas matemáticas do 
 from apps.tasks.integrations import sync_letterboxd_diary  # type: ignore
 from apps.movies.models import Movie  # <-- Necessário para calcular as estatísticas
 
-from .serializers import (UserRegistrationSerializer, UserSerializer,
+from .serializers import (IntegrationSettingsSerializer,
+                          UserRegistrationSerializer, UserSerializer,
                           UserTasteProfileSerializer)
 
 User = get_user_model()
@@ -44,6 +45,26 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
     
+    @extend_schema(
+        request=IntegrationSettingsSerializer,
+        responses=IntegrationSettingsSerializer,
+        description=(
+            'Credenciais das fontes de reprodução. Os tokens são write-only: '
+            'a resposta diz apenas se cada integração está configurada.'
+        ),
+    )
+    @action(detail=False, methods=['get', 'patch'])
+    def integrations(self, request):
+        if request.method == 'PATCH':
+            serializer = IntegrationSettingsSerializer(
+                request.user, data=request.data, partial=True
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(IntegrationSettingsSerializer(request.user).data)
+
     @action(detail=False, methods=['get'])
     def taste_profile(self, request):
         """Retorna perfil de gosto do usuário"""
