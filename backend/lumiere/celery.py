@@ -16,6 +16,21 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 # Auto-discover tasks in all apps
 app.autodiscover_tasks()
 
+# O autodiscovery procura um módulo `tasks` DENTRO de cada app instalada. Aqui
+# as tasks moram em `apps/tasks/<assunto>.py`, e `apps.tasks` não é uma app
+# instalada — então nada disso era encontrado e o beat disparava tarefas não
+# registradas. Importar explicitamente é o que as torna conhecidas.
+app.conf.imports = (
+    'apps.tasks.backup',
+    'apps.tasks.cache',
+    'apps.tasks.downloads',
+    'apps.tasks.integrations',
+    'apps.tasks.ml',
+    'apps.tasks.recommendations',
+    'apps.tasks.sessions',
+    'apps.tasks.torrents',
+)
+
 # Periodic tasks schedule
 app.conf.beat_schedule = {
     # Sync Letterboxd diaries every 6 hours
@@ -30,17 +45,24 @@ app.conf.beat_schedule = {
         'schedule': crontab(minute='*/5'),
     },
     
-    # Prepare upcoming sessions (24h before)
-    'prepare-upcoming-sessions': {
-        'task': 'apps.tasks.sessions.auto_prepare_sessions',
-        'schedule': crontab(minute=0, hour='*/1'),
+    # Traz para o acervo o que entrou na conta Real-Debrid por fora do
+    # Lumière. Minuto 15 para não competir com as tarefas do minuto 0.
+    'sync-realdebrid-account': {
+        'task': 'apps.tasks.downloads.sync_realdebrid_account',
+        'schedule': crontab(minute=15),
     },
     
-    # Send session reminders (2h before)
-    'send-session-reminders': {
-        'task': 'apps.tasks.sessions.send_session_reminders',
-        'schedule': crontab(minute='*/30'),
-    },
+    # DESATIVADAS: apontavam para tasks que não existem. apps/tasks/sessions.py
+    # só tem o stub `prepare_session`, então o beat disparava NotRegistered a
+    # cada hora e a cada 30 min. Reativar quando as tasks forem escritas.
+    # 'prepare-upcoming-sessions': {
+    #     'task': 'apps.tasks.sessions.auto_prepare_sessions',
+    #     'schedule': crontab(minute=0, hour='*/1'),
+    # },
+    # 'send-session-reminders': {
+    #     'task': 'apps.tasks.sessions.send_session_reminders',
+    #     'schedule': crontab(minute='*/30'),
+    # },
     
     # Retrain ML models daily at 3 AM
     'retrain-ml-models': {

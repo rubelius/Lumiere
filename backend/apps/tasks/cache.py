@@ -1,4 +1,4 @@
-from apps.core.cache import CacheManager
+from apps.core.core_cache import CacheManager
 from apps.movies.models import Movie
 from apps.movies.serializers import MovieDetailSerializer
 from celery import shared_task

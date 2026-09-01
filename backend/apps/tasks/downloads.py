@@ -214,3 +214,36 @@ def monitor_realdebrid_download(self, release_id, user_id, session_id=None, lock
                 pass
             return {'status': 'error', 'message': 'Max retries reached'}
         raise self.retry(exc=e, countdown=30)
+
+@shared_task
+def sync_realdebrid_account():
+    """
+    Traz para o acervo o que já está na conta Real-Debrid.
+
+    Roda sozinha porque o usuário adiciona torrents pela interface do próprio
+    Real-Debrid, fora do Lumière — sem esta varredura periódica, o primeiro
+    degrau da cadeia de reprodução só enxergaria o que o Prowlarr trouxe.
+
+    A lógica é a mesma do `manage.py sync_realdebrid`; ambos chamam o serviço.
+    """
+    from apps.movies.realdebrid_sync import sincroniza_realdebrid
+
+    try:
+        r = sincroniza_realdebrid()
+    except RuntimeError as e:
+        # Sem chave configurada não é erro de execução: é ausência de conta.
+        logger.info('sync_realdebrid_account ignorado: %s', e)
+        return {'ignorado': str(e)}
+
+    logger.info(
+        'Real-Debrid sincronizado: %s ligados, %s atualizados, %s sem correspondência (de %s)',
+        r.ligados, r.atualizados, r.sem_casamento, r.total_na_conta,
+    )
+    return {
+        'total_na_conta': r.total_na_conta,
+        'ligados': r.ligados,
+        'atualizados': r.atualizados,
+        'series': r.series,
+        'incompletos': r.incompletos,
+        'sem_casamento': r.sem_casamento,
+    }
