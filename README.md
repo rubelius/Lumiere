@@ -36,9 +36,9 @@ implemented but have not been run yet.
 | REST API + cookie-based JWT auth | **Live** | End to end, with silent token refresh |
 | Web client | **Live** | Every route rendering against real data |
 | Taste embeddings and recommender | Built, not run | 0 embeddings, 0 similarities stored |
-| Acquisition (Prowlarr + Real-Debrid) | Built, not run | 0 releases stored |
+| Acquisition (Prowlarr + Real-Debrid) | Partly live | Real-Debrid account syncs into the archive; Prowlarr search untested |
 | Cinema sessions and watch parties | Built, not run | 0 sessions stored |
-| Playback resolution (Real-Debrid > Jellyfin > Plex) | **Live** | Chain verified end to end; no sources configured yet |
+| Playback resolution (Real-Debrid > Jellyfin > Plex) | **Live** | A 4K REMUX plays from Real-Debrid end to end; Plex step untested |
 | Android TV client | **Not started** | `clients/tv/` holds only a README |
 
 ## Architecture
@@ -257,7 +257,14 @@ python manage.py sync_tmdb             # artwork, cast, crew, overviews
 python manage.py sync_omdb             # external ratings
 python manage.py sync_wikidata         # awards and festivals
 python manage.py generate_embbedings   # taste vectors (name is misspelled in the repo)
+python manage.py sync_realdebrid       # links what is already in your Real-Debrid account
 ```
+
+`sync_realdebrid` matches account torrents to archive films by IMDb ID, or by
+exact title plus year — never by substring, because linking a release to the
+wrong film would make the player show a different movie. Run it with
+`--dry-run` first to see what it would link. Anything it cannot match with
+confidence is listed rather than guessed.
 
 `sync_tmdb` and `sync_omdb` need their API keys in `.env` and are rate-limited, so a full
 run over ~26k films takes hours.

@@ -43,7 +43,7 @@ class MovieAPITestCase(TestCase):
             country='USA',
             length_minutes=175,
             primary_genre='Crime',
-            ranking_2026=1,
+            ranking_current=1,
         )
     '''
     def test_list_movies(self):
