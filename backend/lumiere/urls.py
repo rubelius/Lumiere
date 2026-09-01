@@ -10,7 +10,7 @@ from rest_framework_simplejwt.views import (TokenObtainPairView,
 from drf_spectacular.views import (SpectacularAPIView, SpectacularRedocView,
                                    SpectacularSwaggerView)
 
-from apps.movies.views import MovieViewSet, TorrentReleaseViewSet
+from apps.movies.views import MovieViewSet, TorrentReleaseViewSet, subtitle_vtt
 from apps.user_sessions.views import CinemaSessionViewSet, SessionThemeViewSet
 from apps.users.views import UserViewSet
 
@@ -51,6 +51,8 @@ urlpatterns = [
     path('api/auth/ws-ticket/', issue_ws_ticket, name='ws-ticket'),
     
     # API Documentation
+    # Fora do router: o file_id é do OpenSubtitles, não de um recurso nosso.
+    path('api/subtitles/<int:file_id>/vtt/', subtitle_vtt, name='subtitle-vtt'),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),

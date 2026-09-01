@@ -41,7 +41,8 @@ def test_tokens_sao_write_only():
     valor apareceria em tela de configuração, log de resposta e cache.
     """
     campos = IntegrationSettingsSerializer().fields
-    for nome in ('jellyfin_token', 'plex_token', 'realdebrid_api_key'):
+    for nome in ('jellyfin_token', 'plex_token', 'realdebrid_api_key',
+                 'opensubtitles_api_key'):
         assert campos[nome].write_only, f'{nome} deveria ser write_only'
 
 
@@ -53,10 +54,17 @@ def test_leitura_expoe_apenas_estado_de_conexao():
         plex_server_url = ''
         plex_token = ''
         realdebrid_api_key = 'outro-segredo'
+        opensubtitles_api_key = 'terceiro-segredo'
+        opensubtitles_username = 'alguem'
+        opensubtitles_token = 'quarto-segredo'
 
     dados = IntegrationSettingsSerializer(Falso()).data
-    assert 'segredo' not in str(dados)
-    assert 'outro-segredo' not in str(dados)
+    for segredo in ('segredo', 'outro-segredo', 'terceiro-segredo', 'quarto-segredo'):
+        assert segredo not in str(dados), f'{segredo} vazou na resposta'
     assert dados['jellyfin_connected'] is True
     assert dados['plex_connected'] is False
     assert dados['realdebrid_connected'] is True
+    # Chave da aplicação permite buscar; baixar exige também o token do login.
+    assert dados['opensubtitles_connected'] is True
+    assert dados['opensubtitles_pode_baixar'] is True
+    assert dados['opensubtitles_username'] == 'alguem'

@@ -14,6 +14,7 @@ export const movieKeys = {
   detail: (id: string) => [...movieKeys.details(), id] as const,
   topRated: () => [...movieKeys.all, 'topRated'] as const,
   playback: (id: string) => [...movieKeys.all, 'playback', id] as const,
+  subtitles: (id: string, idiomas: string) => [...movieKeys.all, 'subtitles', id, idiomas] as const,
 } as const;
 
 // 👇 1. CRIAMOS A INTERFACE BLINDADA
@@ -92,5 +93,18 @@ export function usePlayback(id: string) {
     enabled: !!id,
     retry: (falhas, erro) => !(erro instanceof APIError) && falhas < 2,
     staleTime: 60_000,
+  });
+}
+
+/**
+ * Legendas externas do OpenSubtitles. Lista vazia (e não erro) quando a chave
+ * de API não está configurada — legenda é opcional, não pode virar falha.
+ */
+export function useSubtitles(id: string, idiomas = 'pt-BR,pt-PT,en') {
+  return useQuery({
+    queryKey: movieKeys.subtitles(id, idiomas),
+    queryFn: () => moviesApi.subtitles(id, idiomas),
+    enabled: !!id,
+    staleTime: 5 * 60_000,
   });
 }

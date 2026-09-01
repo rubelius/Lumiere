@@ -65,6 +65,18 @@ class PlaybackSourceSerializer(serializers.Serializer):
     quality = serializers.CharField(allow_blank=True)
 
 
+class SubtitleSerializer(serializers.Serializer):
+    """Legenda disponível no OpenSubtitles para um filme."""
+
+    file_id = serializers.IntegerField()
+    nome = serializers.CharField()
+    idioma = serializers.CharField()
+    downloads = serializers.IntegerField()
+    hearing_impaired = serializers.BooleanField()
+    do_upload_do_autor = serializers.BooleanField()
+    release = serializers.CharField(allow_blank=True)
+
+
 class SimilarMovieSerializer(serializers.Serializer):
     """Forma de cada item de MovieDetailSerializer.similar_movies."""
     movie = MovieListSerializer(read_only=True)

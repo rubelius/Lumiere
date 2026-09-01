@@ -4,7 +4,7 @@ import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { Server, DownloadCloud, Tv, Key, Shield, Bell, Type, Palette, ArrowRight, Check, Copy, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useIntegrations, useSaveIntegrations } from "@/features/settings/hooks/useIntegrations";
+import { useConectarOpenSubtitles, useIntegrations, useSaveIntegrations } from "@/features/settings/hooks/useIntegrations";
 
 
 export default function Settings() {
@@ -43,6 +43,8 @@ export default function Settings() {
   // ── FONTES DE REPRODUÇÃO (Real-Debrid > Jellyfin > Plex) ──
   const { data: integracoes } = useIntegrations();
   const salvar = useSaveIntegrations();
+  const conectarOS = useConectarOpenSubtitles();
+  const [contaOS, setContaOS] = useState({ username: '', password: '' });
   const [editando, setEditando] = useState<string | null>(null);
   // Token vazio = manter o que já está gravado; o backend nunca o devolve.
   const [rascunho, setRascunho] = useState<Record<string, string>>({});
@@ -571,6 +573,17 @@ export default function Settings() {
                         },
                       ] : [
                         {
+                          id: 'opensubtitles', label: "OPENSUBTITLES",
+                          conectado: !!integracoes?.opensubtitles_connected,
+                          detalhe: integracoes?.opensubtitles_pode_baixar
+                            ? `CONTA ${integracoes?.opensubtitles_username || ''} — DOWNLOAD LIBERADO`
+                            : integracoes?.opensubtitles_connected
+                              ? 'BUSCA OK — CONECTE A CONTA PARA BAIXAR'
+                              : '--',
+                          campoUrl: null, campoToken: 'opensubtitles_api_key',
+                          ordem: 'LEGENDAS',
+                        },
+                        {
                           id: 'realdebrid', label: "REAL-DEBRID",
                           conectado: !!integracoes?.realdebrid_connected,
                           detalhe: integracoes?.realdebrid_connected ? "CHAVE GRAVADA" : "--",
@@ -628,6 +641,31 @@ export default function Settings() {
                                     onChange={(e) => setRascunho(r => ({ ...r, [item.campoToken]: e.target.value }))}
                                     style={{ background: 'var(--s1)', border: '1px solid rgba(237,232,220,0.1)', color: 'var(--film)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em' }}
                                   />
+                                  {item.id === 'opensubtitles' && item.conectado && !integracoes?.opensubtitles_pode_baixar && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8, borderTop: '1px solid rgba(237,232,220,0.05)' }}>
+                                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.15em' }}>
+                                        BAIXAR CONSOME A COTA DA CONTA — CONECTE-A. A SENHA NÃO É GRAVADA.
+                                      </span>
+                                      <input type="text" placeholder="usuário" autoComplete="off"
+                                        onChange={(e) => setContaOS(c => ({ ...c, username: e.target.value }))}
+                                        style={{ background: 'var(--s1)', border: '1px solid rgba(237,232,220,0.1)', color: 'var(--film)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '10px' }} />
+                                      <input type="password" placeholder="senha" autoComplete="off"
+                                        onChange={(e) => setContaOS(c => ({ ...c, password: e.target.value }))}
+                                        style={{ background: 'var(--s1)', border: '1px solid rgba(237,232,220,0.1)', color: 'var(--film)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '10px' }} />
+                                      <motion.button
+                                        whileHover={{ backgroundColor: 'var(--gold)', color: 'var(--void)' }}
+                                        disabled={conectarOS.isPending || !contaOS.username || !contaOS.password}
+                                        onClick={() => conectarOS.mutate(contaOS, { onSuccess: () => setContaOS({ username: '', password: '' }) })}
+                                        style={{ padding: '12px 24px', background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer', alignSelf: 'flex-start' }}
+                                      >
+                                        {conectarOS.isPending ? '[ CONECTANDO... ]' : '[ CONECTAR CONTA ]'}
+                                      </motion.button>
+                                      {conectarOS.isError && (
+                                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--danger)' }}>CREDENCIAIS RECUSADAS</span>
+                                      )}
+                                    </div>
+                                  )}
+
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                                     <motion.button
                                       whileHover={{ backgroundColor: 'var(--gold)', color: 'var(--void)' }}

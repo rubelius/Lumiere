@@ -314,3 +314,6 @@ LOGGING = {
 OMDB_API_KEY = os.getenv('OMDB_API_KEY')
 TMDB_API_KEY = os.getenv('TMDB_API_KEY')
 REAL_DEBRID_API_KEY = os.getenv('REAL_DEBRID_API_KEY')
+OPENSUBTITLES_BASE_URL = os.getenv(
+    'OPENSUBTITLES_BASE_URL', 'https://api.opensubtitles.com/api/v1'
+)

@@ -200,6 +200,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/{id}/subtitles/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Legendas externas disponíveis no OpenSubtitles. Lista vazia quando a chave de API não está configurada. */
+        get: operations["movies_subtitles_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/available/": {
         parameters: {
             query?: never;
@@ -478,6 +495,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/subtitles/{file_id}/vtt/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Conteúdo da legenda já convertido para WebVTT, que é o único formato que a tag <track> do navegador entende. */
+        get: operations["subtitles_vtt_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/themes/": {
         parameters: {
             query?: never;
@@ -602,6 +636,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/opensubtitles-login/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Troca usuário e senha do OpenSubtitles por um token. A senha não é armazenada — só o token que ela produz. */
+        post: operations["users_opensubtitles_login_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/taste_profile/": {
         parameters: {
             query?: never;
@@ -675,17 +726,19 @@ export interface components {
          *     resposta ou um cache de navegador nunca carregam o segredo de volta.
          */
         IntegrationSettings: {
-            /** Format: uri */
             jellyfin_server_url?: string;
             jellyfin_user_id?: string;
             jellyfin_token?: string;
             readonly jellyfin_connected: boolean;
-            /** Format: uri */
             plex_server_url?: string;
             plex_token?: string;
             readonly plex_connected: boolean;
             realdebrid_api_key?: string;
             readonly realdebrid_connected: boolean;
+            opensubtitles_api_key?: string;
+            opensubtitles_username?: string;
+            readonly opensubtitles_connected: boolean;
+            readonly opensubtitles_pode_baixar: boolean;
         };
         Movie: {
             /** Format: uuid */
@@ -925,6 +978,10 @@ export interface components {
             color?: string;
             collection_name?: string | null;
         };
+        OpenSubtitlesLogin: {
+            username: string;
+            password: string;
+        };
         PaginatedCinemaSessionList: {
             /** @example 123 */
             count: number;
@@ -969,6 +1026,21 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["SessionTheme"][];
+        };
+        PaginatedSubtitleList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Subtitle"][];
         };
         PaginatedTorrentReleaseList: {
             /** @example 123 */
@@ -1036,17 +1108,19 @@ export interface components {
          *     resposta ou um cache de navegador nunca carregam o segredo de volta.
          */
         PatchedIntegrationSettings: {
-            /** Format: uri */
             jellyfin_server_url?: string;
             jellyfin_user_id?: string;
             jellyfin_token?: string;
             readonly jellyfin_connected?: boolean;
-            /** Format: uri */
             plex_server_url?: string;
             plex_token?: string;
             readonly plex_connected?: boolean;
             realdebrid_api_key?: string;
             readonly realdebrid_connected?: boolean;
+            opensubtitles_api_key?: string;
+            opensubtitles_username?: string;
+            readonly opensubtitles_connected?: boolean;
+            readonly opensubtitles_pode_baixar?: boolean;
         };
         PatchedTorrentRelease: {
             /** Format: uuid */
@@ -1176,6 +1250,16 @@ export interface components {
          * @enum {string}
          */
         StatusEnum: "planning" | "preparing" | "ready" | "in_progress" | "completed" | "cancelled";
+        /** @description Legenda disponível no OpenSubtitles para um filme. */
+        Subtitle: {
+            file_id: number;
+            nome: string;
+            idioma: string;
+            downloads: number;
+            hearing_impaired: boolean;
+            do_upload_do_autor: boolean;
+            release: string;
+        };
         /**
          * @description * `predefined` - Predefined
          *     * `custom` - Custom
@@ -1559,6 +1643,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Movie"];
+                };
+            };
+        };
+    };
+    movies_subtitles_list: {
+        parameters: {
+            query?: {
+                available_instantly?: boolean;
+                category?: string;
+                country?: string;
+                curations?: string;
+                decades?: string;
+                director?: string;
+                genres?: string;
+                in_plex?: boolean;
+                /** @description Idiomas separados por vírgula. */
+                languages?: string;
+                /** @description Qual campo usar ao ordenar os resultados. */
+                ordering?: string;
+                /** @description Um número de página dentro do conjunto de resultados paginado. */
+                page?: number;
+                qualities?: string;
+                search?: string;
+                year?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSubtitleList"];
                 };
             };
         };
@@ -2167,6 +2291,34 @@ export interface operations {
             };
         };
     };
+    subtitles_vtt_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/vtt": string;
+                };
+            };
+            /** @description Conta OpenSubtitles não conectada ou legenda indisponível. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     themes_list: {
         parameters: {
             query?: {
@@ -2449,6 +2601,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
+                };
+            };
+        };
+    };
+    users_opensubtitles_login_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenSubtitlesLogin"];
+                "application/x-www-form-urlencoded": components["schemas"]["OpenSubtitlesLogin"];
+                "multipart/form-data": components["schemas"]["OpenSubtitlesLogin"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationSettings"];
                 };
             };
         };

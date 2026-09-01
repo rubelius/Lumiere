@@ -1,6 +1,9 @@
 from dataclasses import asdict
 
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from django.http import HttpResponse
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -19,6 +22,7 @@ from apps.core.throttling import ExpensiveOperationThrottle
 from apps.integrations.prowlarr import ProwlarrClient
 from apps.integrations.realdebrid import RealDebridClient
 from apps.movies.playback import resolve_playback
+from apps.movies.subtitle_service import busca_legendas, obtem_vtt
 from apps.movies.utils import calculate_quality_score, parse_quality_from_title
 from apps.ml.models import MovieSimilarity
 
@@ -29,6 +33,7 @@ from .serializers import (
     MovieListSerializer,
     MovieSerializer,
     PlaybackSourceSerializer,
+    SubtitleSerializer,
     TorrentReleaseSerializer
 )
 
@@ -181,6 +186,24 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
             )
         return Response(asdict(fonte))
 
+    @extend_schema(
+        parameters=[OpenApiParameter(
+            name='languages', description='Idiomas separados por vírgula.',
+            required=False, type=str,
+        )],
+        responses=SubtitleSerializer(many=True),
+        description=(
+            'Legendas externas disponíveis no OpenSubtitles. Lista vazia '
+            'quando a chave de API não está configurada.'
+        ),
+    )
+    @action(detail=True, methods=['get'])
+    def subtitles(self, request, pk=None):
+        movie = self.get_object()
+        idiomas = request.query_params.get('languages', 'pt-BR,pt-PT,en')
+        legendas = async_to_sync(busca_legendas)(movie, request.user, idiomas)
+        return Response(SubtitleSerializer(legendas, many=True).data)
+
     @action(detail=False, methods=['get'])
     def top_rated(self, request):
         movies = self.queryset.filter(ranking_current__isnull=False).order_by('ranking_current')[:100]
@@ -319,3 +342,25 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
                 await client.close()
 
         return async_to_sync(_executar)()
+
+@extend_schema(
+    responses={
+        (200, 'text/vtt'): OpenApiTypes.STR,
+        404: OpenApiResponse(description='Conta OpenSubtitles não conectada ou legenda indisponível.'),
+    },
+    description=(
+        'Conteúdo da legenda já convertido para WebVTT, que é o único formato '
+        'que a tag <track> do navegador entende.'
+    ),
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def subtitle_vtt(request, file_id: int):
+    vtt = async_to_sync(obtem_vtt)(request.user, file_id)
+    if not vtt:
+        return Response(
+            {'detail': 'Legenda indisponível. Conecte sua conta OpenSubtitles.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    # text/vtt para o navegador aceitar no <track>.
+    return HttpResponse(vtt, content_type='text/vtt; charset=utf-8')

@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
-from rest_framework import status, viewsets
+from drf_spectacular.utils import extend_schema, inline_serializer
+from asgiref.sync import async_to_sync
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -63,6 +64,37 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
 
+        return Response(IntegrationSettingsSerializer(request.user).data)
+
+    @extend_schema(
+        request=inline_serializer(
+            name='OpenSubtitlesLogin',
+            fields={'username': serializers.CharField(), 'password': serializers.CharField(write_only=True)},
+        ),
+        responses=IntegrationSettingsSerializer,
+        description=(
+            'Troca usuário e senha do OpenSubtitles por um token. A senha não '
+            'é armazenada — só o token que ela produz.'
+        ),
+    )
+    @action(detail=False, methods=['post'], url_path='opensubtitles-login')
+    def opensubtitles_login(self, request):
+        from apps.integrations.opensubtitles import obter_token
+
+        usuario = (request.data.get('username') or '').strip()
+        senha = request.data.get('password') or ''
+        if not (usuario and senha):
+            return Response({'detail': 'Informe usuário e senha.'}, status=400)
+        if not request.user.opensubtitles_api_key:
+            return Response({'detail': 'Configure antes a chave de API.'}, status=400)
+
+        token = async_to_sync(obter_token)(request.user.opensubtitles_api_key, usuario, senha)
+        if not token:
+            return Response({'detail': 'OpenSubtitles recusou as credenciais.'}, status=400)
+
+        request.user.opensubtitles_username = usuario
+        request.user.opensubtitles_token = token
+        request.user.save(update_fields=['opensubtitles_username', 'opensubtitles_token'])
         return Response(IntegrationSettingsSerializer(request.user).data)
 
     @action(detail=False, methods=['get'])

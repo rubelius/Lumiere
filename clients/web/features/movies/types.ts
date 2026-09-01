@@ -51,6 +51,7 @@ export type MovieDetail = Omit<
 }
 
 export type PlaybackSource = components['schemas']['PlaybackSource']
+export type Subtitle = components['schemas']['Subtitle']
 export type SimilarMovie = components['schemas']['SimilarMovie']
 export type TorrentRelease = components['schemas']['TorrentRelease']
 

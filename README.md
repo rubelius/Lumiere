@@ -39,6 +39,7 @@ implemented but have not been run yet.
 | Acquisition (Prowlarr + Real-Debrid) | Partly live | Real-Debrid account syncs into the archive; Prowlarr search untested |
 | Cinema sessions and watch parties | Built, not run | 0 sessions stored |
 | Playback resolution (Real-Debrid > Jellyfin > Plex) | **Live** | A 4K REMUX plays from Real-Debrid end to end; Plex step untested |
+| External subtitles (OpenSubtitles) | **Live** | Search, SRT→WebVTT conversion and player tracks verified end to end |
 | Android TV client | **Not started** | `clients/tv/` holds only a README |
 
 ## Architecture
@@ -102,6 +103,22 @@ none of their own.
 
 The order is business logic, not an implementation detail — it is asserted in
 `backend/apps/movies/test_playback.py` so a reorder fails the suite.
+
+### Subtitles
+
+`<track>` only understands WebVTT, and OpenSubtitles serves SRT — so the
+backend converts before handing it over. Without that the subtitle silently
+never appears, with no error anywhere.
+
+The web client fetches the file through its own origin
+(`/api/subtitles/{id}/vtt`) rather than from Django directly. A cross-origin
+`<track>` would require `crossOrigin` on the `<video>`, and that would break
+playback: the Real-Debrid CDN sends no CORS headers, so the video itself would
+start failing.
+
+Searching needs only the OpenSubtitles application key. Downloading also needs
+a user token, because it spends that account's daily quota — the password is
+exchanged for a token once and never stored.
 
 ### Authentication
 
@@ -278,6 +295,8 @@ run over ~26k films takes hours.
 | `GET /api/movies/{id}/` | Full film record — cached in Redis for one hour |
 | `GET /api/movies/top_rated/` | Highest-ranked films |
 | `GET /api/movies/{id}/playback/` | Resolve where to play — Real-Debrid, then Jellyfin, then Plex |
+| `GET /api/movies/{id}/subtitles/` | External subtitles available on OpenSubtitles |
+| `GET /api/subtitles/{file_id}/vtt/` | That subtitle, converted to WebVTT |
 | `POST /api/movies/{id}/search_torrents/` | Prowlarr search plus quality scoring |
 | `/api/releases/`, `/api/sessions/`, `/api/themes/`, `/api/users/` | Resource routers |
 | `POST /api/auth/token/`, `/refresh/`, `/verify/` | JWT lifecycle |

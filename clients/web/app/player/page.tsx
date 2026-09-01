@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Tv, MonitorPlay } from "lucide-react";
 
 import { PlayerTopBar, PlayerBottomControls, PlayerDiagnosticPanel } from "@/components/player/PlayerUI";
-import { useMovie, usePlayback } from "@/features/movies/hooks/useMovies";
+import { useMovie, usePlayback, useSubtitles } from "@/features/movies/hooks/useMovies";
 
 
 function PlayerExperience() {
@@ -18,6 +18,7 @@ function PlayerExperience() {
   const { data: movie } = useMovie(movieId);
   // Real-Debrid > Jellyfin > Plex, resolvido no backend.
   const { data: fonte, isLoading: resolvendoFonte } = usePlayback(movieId);
+  const { data: legendas } = useSubtitles(movieId);
   
   const [mounted, setMounted] = useState(false);
   const [isExiting, setIsExiting] = useState(false); 
@@ -202,7 +203,21 @@ function PlayerExperience() {
             onWaiting={() => setIsWaiting(true)}
             onCanPlay={() => setIsWaiting(false)}
             onClick={togglePlay}
-          />
+          >
+            {/* Servidas pela mesma origem (rota do Next): uma <track> de outra
+                origem exigiria crossOrigin no <video>, e isso quebraria o
+                stream do Real-Debrid, cuja CDN não devolve cabeçalhos CORS. */}
+            {(legendas || []).map((leg, i) => (
+              <track
+                key={leg.file_id}
+                kind="subtitles"
+                src={`/api/subtitles/${leg.file_id}/vtt`}
+                srcLang={leg.idioma}
+                label={`${leg.idioma}${leg.hearing_impaired ? ' (SDH)' : ''}`}
+                default={i === 0}
+              />
+            ))}
+          </video>
           <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at center, transparent 30%, rgba(4,4,2,0.8) 100%)', pointerEvents: 'none' }} />
           <div className="absolute inset-0 bg-noise opacity-[0.04] mix-blend-overlay pointer-events-none" />
         </div>

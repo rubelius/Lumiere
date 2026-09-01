@@ -38,3 +38,17 @@ export function useSaveIntegrations() {
     },
   });
 }
+
+/**
+ * Conecta a conta do OpenSubtitles. A senha vai só nesta chamada, é trocada
+ * por um token no servidor e nunca é gravada.
+ */
+export function useConectarOpenSubtitles() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (credenciais: { username: string; password: string }) =>
+      http.post<IntegrationSettings>('/api/users/integrations/opensubtitles-login/', credenciais),
+    onSuccess: (dados) => queryClient.setQueryData(integrationKeys.all, dados),
+  });
+}

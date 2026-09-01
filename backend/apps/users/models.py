@@ -23,6 +23,11 @@ class User(AbstractUser):
     jellyfin_server_url = models.URLField(blank=True)
     jellyfin_token = models.CharField(max_length=255, blank=True)
     jellyfin_user_id = models.CharField(max_length=64, blank=True)
+    # OpenSubtitles — guardamos o token, nunca a senha: ela é trocada por
+    # token uma vez, no momento de conectar a conta.
+    opensubtitles_api_key = models.CharField(max_length=255, blank=True)
+    opensubtitles_username = models.CharField(max_length=100, blank=True)
+    opensubtitles_token = models.CharField(max_length=512, blank=True)
     # Real-Debrid
     realdebrid_api_key = models.CharField(max_length=255, blank=True)
     # Prowlarr

@@ -98,6 +98,8 @@ class IntegrationSettingsSerializer(serializers.ModelSerializer):
     jellyfin_connected = serializers.SerializerMethodField()
     plex_connected = serializers.SerializerMethodField()
     realdebrid_connected = serializers.SerializerMethodField()
+    opensubtitles_connected = serializers.SerializerMethodField()
+    opensubtitles_pode_baixar = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -105,11 +107,14 @@ class IntegrationSettingsSerializer(serializers.ModelSerializer):
             'jellyfin_server_url', 'jellyfin_user_id', 'jellyfin_token', 'jellyfin_connected',
             'plex_server_url', 'plex_token', 'plex_connected',
             'realdebrid_api_key', 'realdebrid_connected',
+            'opensubtitles_api_key', 'opensubtitles_username',
+            'opensubtitles_connected', 'opensubtitles_pode_baixar',
         ]
         extra_kwargs = {
             'jellyfin_token': {'write_only': True, 'required': False, 'allow_blank': True},
             'plex_token': {'write_only': True, 'required': False, 'allow_blank': True},
             'realdebrid_api_key': {'write_only': True, 'required': False, 'allow_blank': True},
+            'opensubtitles_api_key': {'write_only': True, 'required': False, 'allow_blank': True},
         }
 
     @extend_schema_field(serializers.BooleanField())
@@ -122,4 +127,18 @@ class IntegrationSettingsSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.BooleanField())
     def get_realdebrid_connected(self, obj):
-        return bool(obj.realdebrid_api_key)
+        # A cadeia de reprodução cai para a chave global quando o usuário não
+        # tem a própria; informar só a do usuário faria a tela dizer
+        # "não configurado" enquanto o Real-Debrid resolve normalmente.
+        from django.conf import settings
+        return bool(obj.realdebrid_api_key or settings.REAL_DEBRID_API_KEY)
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_opensubtitles_connected(self, obj):
+        """Chave da aplicação: já permite BUSCAR legendas."""
+        return bool(obj.opensubtitles_api_key)
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_opensubtitles_pode_baixar(self, obj):
+        """Baixar consome a cota da conta, então exige também o token do login."""
+        return bool(obj.opensubtitles_api_key and obj.opensubtitles_token)
