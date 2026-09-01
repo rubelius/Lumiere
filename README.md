@@ -116,6 +116,11 @@ The web client fetches the file through its own origin
 playback: the Real-Debrid CDN sends no CORS headers, so the video itself would
 start failing.
 
+Subtitles pulled from a provider are often timed against a different release,
+so the player can shift them. The offset is applied from each cue's original
+timing rather than its current one, so repeated adjustments never accumulate
+drift and returning to zero restores the file exactly.
+
 Searching needs only the OpenSubtitles application key. Downloading also needs
 a user token, because it spends that account's daily quota — the password is
 exchanged for a token once and never stored.

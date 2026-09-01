@@ -180,6 +180,7 @@ export function PlayerDiagnosticPanel(props: any) {
   const {
     activeMenu, activeTab, setActiveTab, playbackMode, setPlaybackMode, onClose,
     legendas = [] as FaixaDeLegenda[], legendaAtiva = null, onSelecionarLegenda,
+    atrasoLegenda = 0, onAjustarAtraso, onZerarAtraso,
   } = props;
 
   return (
@@ -264,7 +265,49 @@ export function PlayerDiagnosticPanel(props: any) {
                   </motion.button>
                 );
               })}
-              <div style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em', marginTop: 12 }}>
+              {legendaAtiva !== null && (
+                <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(237,232,220,0.08)' }}>
+                  <div style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.15em', marginBottom: 12 }}>
+                    SINCRONIA
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {[-1, -0.1].map((delta) => (
+                      <motion.button
+                        key={delta}
+                        onClick={() => onAjustarAtraso?.(delta)}
+                        whileHover={{ borderColor: 'var(--gold)', color: 'var(--gold)' }}
+                        style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.15)', color: 'var(--m2)', padding: '6px 10px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", fontSize: '9px' }}
+                      >
+                        {delta}s
+                      </motion.button>
+                    ))}
+
+                    <button
+                      onClick={() => onZerarAtraso?.()}
+                      title="Zerar"
+                      style={{ flex: 1, background: 'transparent', border: 'none', cursor: 'pointer', color: atrasoLegenda === 0 ? 'var(--m3)' : 'var(--gold)', fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.1em' }}
+                    >
+                      {atrasoLegenda > 0 ? '+' : ''}{atrasoLegenda.toFixed(1)}s
+                    </button>
+
+                    {[0.1, 1].map((delta) => (
+                      <motion.button
+                        key={delta}
+                        onClick={() => onAjustarAtraso?.(delta)}
+                        whileHover={{ borderColor: 'var(--gold)', color: 'var(--gold)' }}
+                        style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.15)', color: 'var(--m2)', padding: '6px 10px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", fontSize: '9px' }}
+                      >
+                        +{delta}s
+                      </motion.button>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: '7px', color: 'var(--m3)', letterSpacing: '0.1em', marginTop: 10, lineHeight: 1.8 }}>
+                    POSITIVO ATRASA A LEGENDA · NEGATIVO ADIANTA
+                  </div>
+                </div>
+              )}
+
+              <div style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em', marginTop: 16 }}>
                 VIA OPENSUBTITLES
               </div>
             </>

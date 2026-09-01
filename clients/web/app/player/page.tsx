@@ -22,6 +22,19 @@ function PlayerExperience() {
   // Índice da faixa ativa; null = desligada. O acervo é de cinema estrangeiro,
   // então a primeira (pt-BR, por causa da ordem pedida na busca) entra ligada.
   const [legendaAtiva, setLegendaAtiva] = useState<number | null>(0);
+  // Deslocamento em segundos. Positivo atrasa a legenda, negativo adianta.
+  const [atrasoLegenda, setAtrasoLegenda] = useState(0);
+  // Tempos originais indexados pela PRÓPRIA cue, não pela posição na lista:
+  // o navegador reordena as cues por tempo de início quando um deles muda, e
+  // um índice posicional passaria a apontar para a cue errada — o que
+  // embaralhava as legendas ao voltar de um deslocamento grande.
+  // Sem guardar os originais, além disso, cada ajuste partiria do tempo já
+  // deslocado e o erro se acumularia a cada clique.
+  const temposOriginais = useRef(new WeakMap<TextTrackCue, { inicio: number; fim: number }>());
+  // Contador para reexecutar o efeito quando um arquivo de legenda termina de
+  // carregar. Reatribuir o mesmo atraso não serviria: o React compara com
+  // Object.is e não re-renderiza.
+  const [cuesCarregadas, setCuesCarregadas] = useState(0);
   
   const [mounted, setMounted] = useState(false);
   const [isExiting, setIsExiting] = useState(false); 
@@ -121,6 +134,28 @@ function PlayerExperience() {
         // Só escreve quando difere: atribuir dispara 'change' e entraria em laço.
         if (faixas[i].mode !== desejado) faixas[i].mode = desejado;
       }
+      aplicarAtraso();
+    };
+
+    const aplicarAtraso = () => {
+      for (let i = 0; i < faixas.length; i++) {
+        const cues = faixas[i].cues;
+        if (!cues || cues.length === 0) continue;
+
+        // Snapshot antes de mexer: alterar um tempo reordena a lista viva, e
+        // iterar sobre ela pularia ou repetiria cues.
+        for (const cue of Array.from(cues)) {
+          let original = temposOriginais.current.get(cue);
+          if (!original) {
+            // Primeira vez que vemos esta cue: os tempos aqui são os do
+            // arquivo, ainda sem deslocamento.
+            original = { inicio: cue.startTime, fim: cue.endTime };
+            temposOriginais.current.set(cue, original);
+          }
+          cue.startTime = Math.max(0, original.inicio + atrasoLegenda);
+          cue.endTime = Math.max(0, original.fim + atrasoLegenda);
+        }
+      }
     };
 
     aplicar();
@@ -133,7 +168,7 @@ function PlayerExperience() {
       faixas.removeEventListener('addtrack', aplicar);
       faixas.removeEventListener('change', aplicar);
     };
-  }, [legendaAtiva, legendas]);
+  }, [legendaAtiva, legendas, atrasoLegenda, cuesCarregadas]);
 
   useEffect(() => {
     const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -244,6 +279,9 @@ function PlayerExperience() {
                 src={`/api/subtitles/${leg.file_id}/vtt`}
                 srcLang={leg.idioma}
                 label={`${leg.idioma}${leg.hearing_impaired ? ' (SDH)' : ''}`}
+                // As cues só existem depois que o arquivo carrega; sem isto o
+                // deslocamento não pegaria na primeira exibição.
+                onLoad={() => setCuesCarregadas((n) => n + 1)}
               />
             ))}
           </video>
@@ -337,6 +375,10 @@ function PlayerExperience() {
             legendas={legendas || []}
             legendaAtiva={legendaAtiva}
             onSelecionarLegenda={setLegendaAtiva}
+            atrasoLegenda={atrasoLegenda}
+            onAjustarAtraso={(delta: number) =>
+              setAtrasoLegenda((v) => Math.round((v + delta) * 10) / 10)}
+            onZerarAtraso={() => setAtrasoLegenda(0)}
           />
         )}
       </AnimatePresence>
