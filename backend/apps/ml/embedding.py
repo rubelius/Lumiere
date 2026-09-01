@@ -5,9 +5,40 @@ import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer
 
-from apps.ml.constants import EMBEDDING_DIMENSIONS, EMBEDDING_MODEL
+from apps.ml.constants import EMBEDDING_DIMENSIONS, EMBEDDING_MODEL, aplica_prefixo
 
 logger = logging.getLogger(__name__)
+
+
+def monta_texto(dados: Dict) -> str:
+    """
+    Texto que representa o filme para o modelo.
+
+    Existe uma função só porque os caminhos individual e em lote divergiam: o
+    em lote — o que realmente roda no backfill — descartava keywords, que o
+    acervo tem em 74% dos filmes. Embeddings gerados por caminhos diferentes
+    não são comparáveis entre si.
+    """
+    partes = []
+    if dados.get('title'):
+        partes.append(f"Title: {dados['title']}")
+    if dados.get('overview'):
+        partes.append(f"Overview: {dados['overview']}")
+    if dados.get('director'):
+        partes.append(f"Director: {dados['director']}")
+    for campo, rotulo, limite in (
+        ('genres', 'Genres', None),
+        ('themes', 'Themes', None),
+        ('moods', 'Moods', None),
+        ('keywords', 'Keywords', 10),
+    ):
+        valor = dados.get(campo)
+        if not valor:
+            continue
+        if isinstance(valor, list):
+            valor = ', '.join(valor[:limite] if limite else valor)
+        partes.append(f'{rotulo}: {valor}')
+    return ' '.join(partes)
 
 
 class MovieEmbeddingGenerator:
@@ -45,34 +76,7 @@ class MovieEmbeddingGenerator:
         """
         self.load_model()
 
-        text_parts = []
-
-        if movie_data.get('title'):
-            text_parts.append(f"Title: {movie_data['title']}")
-
-        if movie_data.get('overview'):
-            text_parts.append(f"Overview: {movie_data['overview']}")
-
-        if movie_data.get('director'):
-            text_parts.append(f"Director: {movie_data['director']}")
-
-        if movie_data.get('genres'):
-            genres = ', '.join(movie_data['genres']) if isinstance(movie_data['genres'], list) else movie_data['genres']
-            text_parts.append(f"Genres: {genres}")
-
-        if movie_data.get('themes'):
-            themes = ', '.join(movie_data['themes']) if isinstance(movie_data['themes'], list) else movie_data['themes']
-            text_parts.append(f"Themes: {themes}")
-
-        if movie_data.get('moods'):
-            moods = ', '.join(movie_data['moods']) if isinstance(movie_data['moods'], list) else movie_data['moods']
-            text_parts.append(f"Moods: {moods}")
-
-        if movie_data.get('keywords'):
-            keywords = ', '.join(movie_data['keywords'][:10]) if isinstance(movie_data['keywords'], list) else movie_data['keywords']
-            text_parts.append(f"Keywords: {keywords}")
-
-        text = ' '.join(text_parts)
+        text = aplica_prefixo(monta_texto(movie_data), self.model_name)
 
         embedding = self.model.encode(  # type: ignore
             text,
@@ -95,21 +99,7 @@ class MovieEmbeddingGenerator:
         """
         self.load_model()
 
-        texts = []
-        for movie_data in movies_data:
-            text_parts = []
-
-            if movie_data.get('title'):
-                text_parts.append(f"Title: {movie_data['title']}")
-            if movie_data.get('overview'):
-                text_parts.append(f"Overview: {movie_data['overview']}")
-            if movie_data.get('director'):
-                text_parts.append(f"Director: {movie_data['director']}")
-            if movie_data.get('genres'):
-                genres = ', '.join(movie_data['genres']) if isinstance(movie_data['genres'], list) else movie_data['genres']
-                text_parts.append(f"Genres: {genres}")
-
-            texts.append(' '.join(text_parts))
+        texts = [aplica_prefixo(monta_texto(d), self.model_name) for d in movies_data]
 
         embeddings = self.model.encode(  # type: ignore
             texts,

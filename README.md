@@ -35,7 +35,7 @@ implemented but have not been run yet.
 | Film catalogue (TSPDT + TMDB + OMDB + Wikidata) | **Live** | 25,908 films, all ranked, 25,150 with artwork |
 | REST API + cookie-based JWT auth | **Live** | End to end, with silent token refresh |
 | Web client | **Live** | Every route rendering against real data |
-| Taste embeddings and recommender | **Live** | All 25,908 films embedded; similarity backfill in progress |
+| Taste embeddings and recommender | **Live** | Model chosen by benchmark; re-embedding the archive on the new model |
 | Acquisition (Prowlarr + Real-Debrid) | Partly live | Real-Debrid account syncs into the archive; Prowlarr search untested |
 | Cinema sessions and watch parties | Built, not run | 0 sessions stored |
 | Playback resolution (Real-Debrid > Jellyfin > Plex) | **Live** | A 4K REMUX plays from Real-Debrid end to end; Plex step untested |
@@ -75,13 +75,32 @@ Wikidata metadata into a single film record.
 that prioritises REMUX, Dolby Vision/HDR and lossless audio, then hands off to Real-Debrid
 for instant-availability checks and cached streaming.
 
-**4. The Neural Core.** Film metadata becomes a 384-dimension vector via
-`sentence-transformers/all-MiniLM-L6-v2`, and pgvector cosine similarity powers
-content-based recommendations. The dimension lives in `apps/ml/constants.py`
-because it once disagreed between files, which silently blocked the whole
-pipeline. An HNSW index on the vector column takes a neighbour lookup from
-418ms to 17ms — without it, computing similarities across the archive is not
-practical.
+**4. The Neural Core.** Film metadata becomes a 768-dimension vector via
+`intfloat/multilingual-e5-base`, and pgvector cosine similarity powers
+content-based recommendations.
+
+The model was chosen by measurement, not by reputation. `manage.py
+benchmark_embeddings` scores candidates on retrieval over the archive itself,
+using films that share a collection or a director as ground truth. Over a
+10,000-film pool:
+
+| model | dims | language | collection@10 | MRR | director@10 |
+| --- | --- | --- | --- | --- | --- |
+| all-MiniLM-L6-v2 (previous) | 384 | English | 0.604 | 0.584 | 0.151 |
+| all-mpnet-base-v2 | 768 | English | 0.636 | 0.606 | 0.117 |
+| paraphrase-multilingual-mpnet-base-v2 | 768 | multilingual | 0.623 | 0.584 | 0.089 |
+| **intfloat/multilingual-e5-base** | **768** | **multilingual** | **0.728** | **0.711** | **0.232** |
+
+Two results run against intuition: doubling the dimension on its own did not
+help (mpnet got *worse* at the director signal), and not every multilingual
+model helped either. What decided it was model quality combined with
+multilingual training — the archive's overviews are in Portuguese and the
+previous model was English-only.
+
+The dimension and the model live in `apps/ml/constants.py` because they once
+disagreed between files, which silently blocked the entire pipeline. An HNSW
+index on the vector column takes a neighbour lookup from 418ms to 17ms —
+without it, computing similarities across the archive is not practical.
 
 ### Playback resolution
 
