@@ -27,8 +27,13 @@ CANDIDATOS = [
     ('paraphrase-multilingual-mpnet-base-v2', 768, 'multilíngue'),
     ('intfloat/multilingual-e5-base', 768, 'multilíngue'),
     ('intfloat/multilingual-e5-large', 1024, 'multilíngue'),
+    ('intfloat/multilingual-e5-large-instruct', 1024, 'multilíngue'),
     ('BAAI/bge-m3', 1024, 'multilíngue'),
+    ('Alibaba-NLP/gte-multilingual-base', 768, 'multilíngue'),
 ]
+
+# Modelos que publicam a própria implementação e só carregam com ela.
+EXIGEM_CODIGO_REMOTO = {'Alibaba-NLP/gte-multilingual-base'}
 
 
 class Command(BaseCommand):
@@ -41,6 +46,9 @@ class Command(BaseCommand):
                             help='Quantos vizinhos considerar (padrão: 10).')
         parser.add_argument('--models', type=str, default='',
                             help='Lista separada por vírgula; vazio = todos.')
+        parser.add_argument('--batch', type=int, default=64,
+                            help='Lote de codificação. Reduza em máquina com '
+                                 'pouca RAM: os modelos grandes paginam.')
 
     def handle(self, *args, **opts):
         from apps.ml.embedding import monta_texto
@@ -55,6 +63,7 @@ class Command(BaseCommand):
             f'{sum(len(v) for v in diretores.values())} com diretor repetido\n'
         )
 
+        self._lote = opts['batch']
         escolhidos = opts['models'].split(',') if opts['models'] else None
         linhas = []
         for nome, dims, idioma in CANDIDATOS:
@@ -115,13 +124,15 @@ class Command(BaseCommand):
 
         self.stdout.write(f'  {nome} ...')
         inicio = time.time()
-        modelo = SentenceTransformer(nome)
+        modelo = SentenceTransformer(
+            nome, trust_remote_code=nome in EXIGEM_CODIGO_REMOTO
+        )
 
         # Os modelos E5 são treinados com prefixo; sem ele a qualidade cai.
         entradas = [f'query: {t}' for t in textos] if 'e5' in nome.lower() else textos
 
         vetores = modelo.encode(
-            entradas, batch_size=64, convert_to_numpy=True,
+            entradas, batch_size=self._lote, convert_to_numpy=True,
             show_progress_bar=False, normalize_embeddings=True,
         ).astype(np.float32)
         segundos = time.time() - inicio
@@ -129,7 +140,11 @@ class Command(BaseCommand):
         recall_col, mrr_col = self._recupera(vetores, colecoes, k)
         recall_dir, _ = self._recupera(vetores, diretores, k)
 
+        # Sem isto o modelo anterior continua na memória enquanto o próximo
+        # carrega, o que numa máquina apertada leva a paginação.
         del modelo
+        import gc
+        gc.collect()
         return {
             'nome': nome, 'dims': vetores.shape[1], 'idioma': idioma,
             'recall_col': recall_col, 'mrr_col': mrr_col,
