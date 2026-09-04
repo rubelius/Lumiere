@@ -122,6 +122,23 @@ disagreed between files, which silently blocked the entire pipeline. An HNSW
 index on the vector column takes a neighbour lookup from 418ms to 17ms —
 without it, computing similarities across the archive is not practical.
 
+That index has a catch. HNSW walks `ef_search` candidates and stops, and
+pgvector's default is 40 — so a request for 50 neighbours came back with 39,
+and not even the right 39. Measured against exact search over 40 archive
+films:
+
+| ef_search | neighbours returned | recall@50 | recall@10 |
+| --- | --- | --- | --- |
+| 40 (pgvector default) | 39.0 | 76.8% | 95.2% |
+| 100 | 50.0 | 92.2% | 97.5% |
+| **200** | **50.0** | **100%** | **100%** |
+| 400 | 50.0 | 100% | 100% |
+
+A quarter of every neighbour list was wrong, silently — no error, no short-row
+warning from Postgres. `apps/ml/similarity.py` now raises the beam per query
+via a transaction-local `set_config`, and logs a warning whenever a list comes
+back shorter than asked.
+
 Changing the model means re-embedding the whole archive and recomputing every
 neighbour list:
 

@@ -224,3 +224,19 @@ def test_receitas_novas_realmente_acrescentam_o_campo():
     # O elenco chega como lista de dicts do TMDB; ao modelo interessa o nome.
     assert 'Cast: Eddie Constantine, Anna Karina' in monta_texto(filme, 'com_elenco')
     assert 'name' not in monta_texto(filme, 'com_elenco')
+
+
+@pytest.mark.parametrize('top_n', [1, 10, 50, 60, 100, 500])
+def test_feixe_de_busca_nunca_fica_menor_que_a_lista_pedida(top_n):
+    """
+    O HNSW percorre `ef_search` candidatos e para. Se esse número for menor que
+    a quantidade de vizinhos pedida, a resposta vem curta — e curta em silêncio:
+    nenhum erro, nenhum aviso do Postgres, só uma lista pior.
+
+    Foi o que aconteceu com o padrão do pgvector (40) contra um pedido de 50:
+    39 vizinhos por filme, e recall de 77% mesmo entre esses.
+    """
+    from apps.ml.similarity import ef_search_para
+
+    assert ef_search_para(top_n) >= top_n
+    assert ef_search_para(top_n) >= 200
