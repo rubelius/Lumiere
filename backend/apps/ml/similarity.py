@@ -13,6 +13,7 @@ import logging
 from typing import Optional
 
 from django.db import connection, transaction
+from django.db.models import Count
 from pgvector.django import CosineDistance
 
 from apps.ml.constants import EMBEDDING_MODEL
@@ -115,15 +116,26 @@ def calcula_para_filme(filme: Movie, top_n: int = 50) -> int:
     return len(novas)
 
 
-def filmes_pendentes(limite: Optional[int] = None):
+def filmes_pendentes(limite: Optional[int] = None, top_n: int = 50):
     """
-    Filmes com embedding e ainda sem nenhuma similaridade gravada.
+    Filmes com embedding cuja lista de vizinhos está faltando ou incompleta.
+
+    "Incompleta" importa tanto quanto "vazia". Uma rodada interrompida no meio
+    deixa filmes com uma lista curta, e para um filtro que só procura lista
+    vazia esses filmes parecem prontos para sempre — foi assim que o acervo
+    quase ficou com 39 vizinhos por filme em definitivo.
 
     Ordena pelo ranking do TSPDT: se o processamento for interrompido, o que
     ficou pronto é o que o acervo considera mais importante.
     """
+    # Num acervo menor que a lista pedida, ninguém alcança top_n e todo filme
+    # pareceria incompleto para sempre.
+    alvo = min(top_n, Movie.objects.filter(embedding__isnull=False).count() - 1)
+
     qs = (
-        Movie.objects.filter(embedding__isnull=False, similarities__isnull=True)
+        Movie.objects.filter(embedding__isnull=False)
+        .annotate(quantos=Count('similarities'))
+        .filter(quantos__lt=alvo)
         .order_by('ranking_current')
     )
     return qs[:limite] if limite else qs

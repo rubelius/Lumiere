@@ -282,7 +282,7 @@ def compute_pending_similarities(batch_size: int = 500, top_n: int = 50):
     """
     from apps.ml.similarity import calcula_para_filme, filmes_pendentes
 
-    pendentes = list(filmes_pendentes(batch_size))
+    pendentes = list(filmes_pendentes(batch_size, top_n=top_n))
     if not pendentes:
         return {'message': 'Nenhum filme pendente'}
 
