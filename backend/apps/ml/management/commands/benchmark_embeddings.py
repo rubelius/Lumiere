@@ -38,10 +38,28 @@ CANDIDATOS = [
 EXIGEM_CODIGO_REMOTO = {'Alibaba-NLP/gte-multilingual-base'}
 
 
+def chave_do_resultado(linha: dict) -> tuple:
+    """
+    Identidade de uma medição: modelo, receita e tamanho do pool.
+
+    Resultado antigo, gravado antes de a receita existir, não traz esses
+    campos e por isso nunca casa — é remedido em vez de reaproveitado. Errar
+    para o lado de medir de novo custa minutos; errar para o outro publica um
+    número da configuração errada.
+    """
+    return (linha.get('nome'), linha.get('receita'), linha.get('pool'))
+
+
 class Command(BaseCommand):
     help = 'Compara modelos de embedding por recuperação no acervo.'
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            '--receita', default='atual', choices=sorted(__import__(
+                'apps.ml.embedding', fromlist=['RECEITAS']).RECEITAS),
+            help='Quais campos do filme entram no texto (padrão: atual, a que '
+                 'o acervo tem embeddada).',
+        )
         parser.add_argument('--pool', type=int, default=10000,
                             help='Tamanho do conjunto de busca (padrão: 10000).')
         parser.add_argument('--k', type=int, default=10,
@@ -58,10 +76,15 @@ class Command(BaseCommand):
                                  'pouca RAM: os modelos grandes paginam.')
 
     def handle(self, *args, **opts):
-        from apps.ml.embedding import monta_texto
+        from apps.ml.embedding import RECEITAS, monta_texto
 
         filmes = self._monta_pool(opts['pool'])
-        textos = [monta_texto(self._dados(f)) for f in filmes]
+        dados = [self._dados(f) for f in filmes]
+        textos = [monta_texto(d, opts['receita']) for d in dados]
+        if opts['receita'] != 'atual':
+            self.stdout.write(self.style.WARNING(
+                f"Receita '{opts['receita']}': os números só são comparáveis "
+                f'com os de outra rodada na MESMA receita.'))
         colecoes, diretores = self._verdade_base(filmes)
 
         self.stdout.write(
@@ -78,7 +101,8 @@ class Command(BaseCommand):
         anteriores = {}
         if arquivo.exists() and not opts['refazer']:
             try:
-                anteriores = {r['nome']: r for r in json.loads(arquivo.read_text())}
+                anteriores = {chave_do_resultado(r): r
+                              for r in json.loads(arquivo.read_text())}
                 if anteriores:
                     self.stdout.write(
                         f'{len(anteriores)} resultado(s) recuperado(s) de {arquivo}\n')
@@ -90,8 +114,9 @@ class Command(BaseCommand):
         for nome, dims, idioma in CANDIDATOS:
             if escolhidos and nome not in escolhidos:
                 continue
-            if nome in anteriores:
-                linhas.append(anteriores[nome])
+            chave = (nome, opts['receita'], len(filmes))
+            if chave in anteriores:
+                linhas.append(anteriores[chave])
                 self.stdout.write(f'  {nome}: já medido, pulando')
                 continue
             try:
@@ -101,8 +126,13 @@ class Command(BaseCommand):
                 self.stderr.write(self.style.WARNING(
                     f'  {nome}: FALHOU ({type(e).__name__}: {str(e)[:90]})'))
                 continue
+            # A receita e o pool entram no resultado e na chave: números de
+            # pools ou receitas diferentes não são comparáveis, e reaproveitar
+            # um pelo outro serviria a medida errada como se fosse a certa.
+            linha['receita'] = opts['receita']
+            linha['pool'] = len(filmes)
             linhas.append(linha)
-            anteriores[nome] = linha
+            anteriores[chave] = linha
             arquivo.write_text(json.dumps(list(anteriores.values()), indent=2, ensure_ascii=False))
             # Imprime já: um comando destes leva dezenas de minutos, e guardar
             # tudo para o fim perde todo o trabalho se o último modelo quebrar.
@@ -127,10 +157,14 @@ class Command(BaseCommand):
 
     @staticmethod
     def _dados(f):
+        # Entrega todo campo que alguma receita possa pedir; cada receita
+        # escolhe o que usa. Sem isso, comparar receitas mediria a ausência do
+        # campo em vez do efeito dele.
         return {
             'title': f.title, 'overview': f.overview or '', 'director': f.director or '',
             'genres': f.genres or [], 'themes': f.themes or [],
             'moods': f.moods or [], 'keywords': f.keywords or [],
+            'year': f.year or '', 'country': f.country or '', 'cast': f.cast or [],
         }
 
     @staticmethod

@@ -167,3 +167,60 @@ def test_prefixo_so_para_a_familia_e5(modelo, esperado):
     seria o modelo medido.
     """
     assert aplica_prefixo('texto', modelo).startswith('query: ') is esperado
+
+
+def test_receita_atual_e_a_que_o_acervo_tem_embeddada():
+    """
+    Mudar a receita 'atual' não quebra nada na hora: o backfill roda, os
+    vetores gravam, a busca responde. Só que os filmes reembeddados passam a
+    viver num espaço diferente dos que ficaram, e a vizinhança entre os dois
+    grupos vira ruído — sem erro, sem log, sem pista.
+
+    Este teste fixa o texto exato. Quem precisar mudá-lo tem de mudar aqui
+    também, e nesse momento a decisão de reembeddar o acervo inteiro fica
+    explícita em vez de acontecer por acidente.
+    """
+    from apps.ml.embedding import monta_texto
+
+    filme = {
+        'title': 'Alphaville',
+        'overview': 'Um agente atravessa o espaço até uma cidade sem poesia.',
+        'director': 'Jean-Luc Godard',
+        'genres': ['Ficção científica', 'Noir'],
+        'themes': [],
+        'moods': [],
+        'keywords': ['distopia', 'inteligência artificial'],
+        # Campos de outras receitas: a 'atual' tem de ignorá-los.
+        'year': 1965,
+        'country': 'França',
+        'cast': [{'name': 'Eddie Constantine'}, {'name': 'Anna Karina'}],
+    }
+
+    assert monta_texto(filme) == (
+        'Title: Alphaville '
+        'Overview: Um agente atravessa o espaço até uma cidade sem poesia. '
+        'Director: Jean-Luc Godard '
+        'Genres: Ficção científica, Noir '
+        'Keywords: distopia, inteligência artificial'
+    )
+
+
+def test_receitas_novas_realmente_acrescentam_o_campo():
+    """
+    Uma receita que declara um campo mas não o coloca no texto mediria a
+    ausência dele e concluiria que não ajuda.
+    """
+    from apps.ml.embedding import monta_texto
+
+    filme = {
+        'title': 'Alphaville', 'overview': 'Uma cidade sem poesia.',
+        'director': 'Jean-Luc Godard', 'genres': ['Noir'], 'keywords': ['distopia'],
+        'year': 1965, 'country': 'França',
+        'cast': [{'name': 'Eddie Constantine'}, {'name': 'Anna Karina'}],
+    }
+
+    assert 'Year: 1965' in monta_texto(filme, 'com_ano_e_pais')
+    assert 'Country: França' in monta_texto(filme, 'com_ano_e_pais')
+    # O elenco chega como lista de dicts do TMDB; ao modelo interessa o nome.
+    assert 'Cast: Eddie Constantine, Anna Karina' in monta_texto(filme, 'com_elenco')
+    assert 'name' not in monta_texto(filme, 'com_elenco')
