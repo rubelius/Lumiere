@@ -101,77 +101,33 @@ def update_movie_embeddings():
 @shared_task(bind=True)
 def compute_movie_similarities(self, movie_id: str, top_n: int = 50):
     """
-    Calcula e salva similaridades para um filme
-    
-    Usa pgvector para busca eficiente de nearest neighbors
-    
-    Args:
-        movie_id: UUID do filme
-        top_n: Número de filmes similares para salvar
+    Recalcula as similaridades de um filme, sob demanda.
+
+    A lógica vive em apps/ml/similarity.py. Esta task já teve uma cópia dela,
+    e a cópia envelheceu: carimbava 'all-MiniLM-L6-v2' em model_version muito
+    depois de o projeto ter trocado de modelo. Como é justamente esse campo
+    que diz quais linhas ainda estão no modelo antigo, um carimbo mentiroso
+    torna a próxima migração impossível de auditar.
     """
+    from apps.ml.similarity import calcula_para_filme
+
     try:
         movie = Movie.objects.get(id=movie_id)
-        
-        if not movie.embedding:
-            logger.warning(f"Movie {movie_id} has no embedding")
-            return {'error': 'No embedding'}
-        
-        # Find similar movies using pgvector
-        # Using cosine distance (lower is more similar)
-        similar_movies = Movie.objects.filter(
-            embedding__isnull=False
-        ).exclude(
-            id=movie.id
-        ).annotate(
-            distance=CosineDistance('embedding', movie.embedding)
-        ).order_by('distance')[:top_n]
-        
-        # --- INÍCIO DA CORREÇÃO DE TRANSAÇÃO (ISSUE 2) ---
-        
-        # Cria os objetos em memória sem acessar o banco a cada loop
-        similarities_to_create = []
-        for similar_movie in similar_movies:
-            # Convert distance to similarity score (0-1, higher is more similar)
-            similarity_score = 1.0 - similar_movie.distance
-            
-            # Determine similarity type
-            similarity_type = 'thematic'
-            if movie.director == similar_movie.director:
-                similarity_type = 'director_filmography'
-            elif set(movie.genres or []) & set(similar_movie.genres or []):
-                similarity_type = 'same_genre'
-            
-            similarities_to_create.append(MovieSimilarity(
-                movie=movie,
-                similar_movie=similar_movie,
-                overall_similarity=similarity_score,
-                content_similarity=similarity_score,
-                similarity_type=similarity_type,
-                model_version='all-MiniLM-L6-v2'
-            ))
-        
-        # Transação atômica e bulk_create: ou tudo é salvo ou tudo é revertido
-        with transaction.atomic():
-            MovieSimilarity.objects.filter(movie=movie).delete()
-            MovieSimilarity.objects.bulk_create(
-                similarities_to_create,
-                ignore_conflicts=True
-            )
-            
-        # --- FIM DA CORREÇÃO ---
-        
-        logger.info(f"Computed {len(similarities_to_create)} similarities for {movie.title}")
-        
-        return {
-            'movie_id': str(movie_id),
-            'similarities_created': len(similarities_to_create)
-        }
-    
     except Movie.DoesNotExist:
         return {'error': 'Movie not found'}
+
+    try:
+        gravadas = calcula_para_filme(movie, top_n=top_n)
     except Exception as e:
         logger.error(f"Error computing similarities: {e}")
         raise self.retry(exc=e, countdown=300)
+
+    if not gravadas:
+        logger.warning(f"Movie {movie_id} has no embedding")
+        return {'error': 'No embedding'}
+
+    logger.info(f"Computed {gravadas} similarities for {movie.title}")
+    return {'movie_id': str(movie_id), 'similarities_created': gravadas}
 
 
 @shared_task(bind=True)
@@ -258,7 +214,7 @@ def train_user_taste_profile(self, user_id: str):
             user=user,
             defaults={
                 'embedding': user_embedding.tolist(),
-                'embedding_model': 'all-MiniLM-L6-v2',
+                'embedding_model': generator.model_name,
                 'favorite_genres': favorite_genres,
                 'favorite_directors': favorite_directors,
                 'favorite_decades': favorite_decades,

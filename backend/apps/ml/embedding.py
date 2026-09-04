@@ -45,7 +45,8 @@ class MovieEmbeddingGenerator:
     """
     Gera embeddings para filmes
 
-    Usa sentence-transformers (all-MiniLM-L6-v2) para:
+    Usa sentence-transformers, com o modelo definido em apps/ml/constants.py,
+    sobre:
     - Overview do filme
     - Gêneros e temas
     - Diretor e elenco principal
@@ -72,7 +73,7 @@ class MovieEmbeddingGenerator:
             movie_data: Dict com title, overview, director, genres, themes, etc.
 
         Returns:
-            numpy array de 384 dimensões
+            numpy array com EMBEDDING_DIMENSIONS posições
         """
         self.load_model()
 
@@ -119,6 +120,15 @@ class UserTasteEmbeddingGenerator:
     def __init__(self):
         self.movie_generator = MovieEmbeddingGenerator()
 
+    @property
+    def model_name(self) -> str:
+        """
+        Modelo que originou os vetores. O perfil é a média dos embeddings dos
+        filmes, então quem responde é o gerador embrulhado — e quem grava o
+        perfil precisa carimbar este nome, não um literal que envelhece.
+        """
+        return self.movie_generator.model_name
+
     def generate_user_embedding(
         self,
         watched_movies_embeddings: List[np.ndarray],
@@ -132,7 +142,7 @@ class UserTasteEmbeddingGenerator:
             ratings: Lista de ratings (0.5 a 5.0). Se None, peso igual para todos
 
         Returns:
-            User embedding (384 dims)
+            Embedding do usuário, com EMBEDDING_DIMENSIONS posições
         """
         if not watched_movies_embeddings:
             return np.zeros(EMBEDDING_DIMENSIONS)

@@ -75,9 +75,9 @@ Wikidata metadata into a single film record.
 that prioritises REMUX, Dolby Vision/HDR and lossless audio, then hands off to Real-Debrid
 for instant-availability checks and cached streaming.
 
-**4. The Neural Core.** Film metadata becomes a 768-dimension vector via
-`intfloat/multilingual-e5-base`, and pgvector cosine similarity powers
-content-based recommendations.
+**4. The Neural Core.** Film metadata becomes a 1024-dimension vector via
+`BAAI/bge-m3`, and pgvector cosine similarity powers content-based
+recommendations.
 
 The model was chosen by measurement, not by reputation. `manage.py
 benchmark_embeddings` scores candidates on retrieval over the archive itself,
@@ -86,7 +86,7 @@ using films that share a collection or a director as ground truth. Over a
 
 | model | dims | language | collection@10 | MRR | director@10 |
 | --- | --- | --- | --- | --- | --- |
-| all-MiniLM-L6-v2 (previous) | 384 | English | 0.604 | 0.584 | 0.151 |
+| all-MiniLM-L6-v2 (original) | 384 | English | 0.604 | 0.584 | 0.151 |
 | all-mpnet-base-v2 | 768 | English | 0.636 | 0.606 | 0.117 |
 | paraphrase-multilingual-mpnet-base-v2 | 768 | multilingual | 0.623 | 0.584 | 0.089 |
 | **intfloat/multilingual-e5-base** | **768** | **multilingual** | **0.728** | **0.711** | **0.232** |
@@ -104,14 +104,14 @@ directly comparable to each other):
 
 | model | dims | collection@10 | MRR | director@10 | encode |
 | --- | --- | --- | --- | --- | --- |
-| intfloat/multilingual-e5-base (current) | 768 | 0.777 | 0.768 | 0.515 | 37s |
+| intfloat/multilingual-e5-base | 768 | 0.777 | 0.768 | 0.515 | 37s |
 | intfloat/multilingual-e5-large | 1024 | 0.792 | 0.788 | 0.529 | 88s |
 | intfloat/multilingual-e5-large-instruct | 1024 | 0.794 | 0.769 | 0.497 | 87s |
 | **BAAI/bge-m3** | **1024** | **0.834** | **0.819** | **0.543** | 106s |
 
 Going from e5-base to e5-large buys 2%. Going to **bge-m3 buys 7%** on
 collection retrieval and 5% on the director signal — so size alone was again
-not the story; the specific model was.
+not the story; the specific model was. bge-m3 is what the archive runs on.
 
 Results are written to `/tmp/lumiere_benchmark.json` as each model finishes and
 reloaded on the next run, so a run interrupted midway (a closed laptop lid, for
@@ -121,6 +121,20 @@ The dimension and the model live in `apps/ml/constants.py` because they once
 disagreed between files, which silently blocked the entire pipeline. An HNSW
 index on the vector column takes a neighbour lookup from 418ms to 17ms —
 without it, computing similarities across the archive is not practical.
+
+Changing the model means re-embedding the whole archive and recomputing every
+neighbour list:
+
+```bash
+python manage.py generate_embbedings --batch-size 16   # ~26k films
+python manage.py compute_similarities --refazer
+```
+
+`apps/ml/tests.py` guards the two ways that migration has silently broken
+before: a model name written by hand somewhere in the code, which survives the
+change and then lies about which rows are still on the old model; and a
+dimension changed in `constants.py` without the matching migration, which
+leaves the Postgres column at the old size until the first write fails.
 
 ### Playback resolution
 

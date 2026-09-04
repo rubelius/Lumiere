@@ -100,8 +100,8 @@ class MovieDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Movie
-        # 'embedding' e um vetor de 768 dimensoes usado apenas pelo recomendador:
-        # ~12 KB por filme na rede quando preenchido, e nenhum cliente le.
+        # 'embedding' e um vetor de EMBEDDING_DIMENSIONS posicoes, usado so pelo recomendador:
+        # dezenas de KB por filme na rede quando preenchido, e nenhum cliente le.
         exclude = ['embedding', 'embedding_model']
     
     @extend_schema_field(serializers.IntegerField(allow_null=True))

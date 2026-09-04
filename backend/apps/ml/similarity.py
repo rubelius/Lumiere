@@ -82,3 +82,24 @@ def filmes_pendentes(limite: Optional[int] = None):
         .order_by('ranking_current')
     )
     return qs[:limite] if limite else qs
+
+
+def ids_para_calcular(refazer: bool = False, limite: Optional[int] = None):
+    """
+    IDs dos filmes a processar, em ordem de ranking do TSPDT.
+
+    Devolve IDs, não objetos: o acervo tem ~26 mil filmes e carregar todos de
+    uma vez traria junto os vetores de 1024 dimensões e os JSON de elenco,
+    centenas de MB que a máquina não precisa segurar para calcular um por vez.
+
+    A lista é materializada de propósito. Sem `refazer` o filtro é justamente
+    "ainda não tem similaridade", condição que cada gravação desfaz — um
+    queryset preguiçoso encolheria debaixo do laço e o backfill pularia parte
+    do acervo em silêncio.
+    """
+    qs = Movie.objects.filter(embedding__isnull=False)
+    if not refazer:
+        qs = qs.filter(similarities__isnull=True)
+
+    qs = qs.order_by('ranking_current').values_list('id', flat=True)
+    return list(qs[:limite] if limite else qs)
