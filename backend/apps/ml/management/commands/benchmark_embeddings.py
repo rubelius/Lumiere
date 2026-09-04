@@ -12,8 +12,10 @@ Verdade-base, extraída do próprio acervo:
                dois filmes são do mesmo diretor, então mede semântica de fato.
 """
 
+import json
 import time
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 from django.core.management.base import BaseCommand
@@ -46,6 +48,11 @@ class Command(BaseCommand):
                             help='Quantos vizinhos considerar (padrão: 10).')
         parser.add_argument('--models', type=str, default='',
                             help='Lista separada por vírgula; vazio = todos.')
+        parser.add_argument('--resultados', type=str, default='/tmp/lumiere_benchmark.json',
+                            help='Arquivo onde os resultados são acumulados. '
+                                 'Modelos já medidos são pulados.')
+        parser.add_argument('--refazer', action='store_true',
+                            help='Ignora o que já foi medido e refaz tudo.')
         parser.add_argument('--batch', type=int, default=64,
                             help='Lote de codificação. Reduza em máquina com '
                                  'pouca RAM: os modelos grandes paginam.')
@@ -64,10 +71,28 @@ class Command(BaseCommand):
         )
 
         self._lote = opts['batch']
+        # Guarda em disco a cada modelo. Uma rodada destas leva dezenas de
+        # minutos e já foi perdida por suspensão da máquina (tampa fechada);
+        # sem persistir, todo o trabalho concluído ia junto.
+        arquivo = Path(opts['resultados'])
+        anteriores = {}
+        if arquivo.exists() and not opts['refazer']:
+            try:
+                anteriores = {r['nome']: r for r in json.loads(arquivo.read_text())}
+                if anteriores:
+                    self.stdout.write(
+                        f'{len(anteriores)} resultado(s) recuperado(s) de {arquivo}\n')
+            except (ValueError, OSError):
+                anteriores = {}
+
         escolhidos = opts['models'].split(',') if opts['models'] else None
         linhas = []
         for nome, dims, idioma in CANDIDATOS:
             if escolhidos and nome not in escolhidos:
+                continue
+            if nome in anteriores:
+                linhas.append(anteriores[nome])
+                self.stdout.write(f'  {nome}: já medido, pulando')
                 continue
             try:
                 linha = self._avalia(nome, dims, idioma, textos, colecoes, diretores, opts['k'])
@@ -77,6 +102,8 @@ class Command(BaseCommand):
                     f'  {nome}: FALHOU ({type(e).__name__}: {str(e)[:90]})'))
                 continue
             linhas.append(linha)
+            anteriores[nome] = linha
+            arquivo.write_text(json.dumps(list(anteriores.values()), indent=2, ensure_ascii=False))
             # Imprime já: um comando destes leva dezenas de minutos, e guardar
             # tudo para o fim perde todo o trabalho se o último modelo quebrar.
             self.stdout.write(self.style.SUCCESS(

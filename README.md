@@ -97,6 +97,26 @@ model helped either. What decided it was model quality combined with
 multilingual training — the archive's overviews are in Portuguese and the
 previous model was English-only.
 
+A second round compared the larger multilingual models on a 2,500-film pool
+(smaller because the machine could not hold the 1024-dimension models in
+memory; absolute numbers run higher with fewer distractors, but the models are
+directly comparable to each other):
+
+| model | dims | collection@10 | MRR | director@10 | encode |
+| --- | --- | --- | --- | --- | --- |
+| intfloat/multilingual-e5-base (current) | 768 | 0.777 | 0.768 | 0.515 | 37s |
+| intfloat/multilingual-e5-large | 1024 | 0.792 | 0.788 | 0.529 | 88s |
+| intfloat/multilingual-e5-large-instruct | 1024 | 0.794 | 0.769 | 0.497 | 87s |
+| **BAAI/bge-m3** | **1024** | **0.834** | **0.819** | **0.543** | 106s |
+
+Going from e5-base to e5-large buys 2%. Going to **bge-m3 buys 7%** on
+collection retrieval and 5% on the director signal — so size alone was again
+not the story; the specific model was.
+
+Results are written to `/tmp/lumiere_benchmark.json` as each model finishes and
+reloaded on the next run, so a run interrupted midway (a closed laptop lid, for
+instance) resumes instead of starting over.
+
 The dimension and the model live in `apps/ml/constants.py` because they once
 disagreed between files, which silently blocked the entire pipeline. An HNSW
 index on the vector column takes a neighbour lookup from 418ms to 17ms —
