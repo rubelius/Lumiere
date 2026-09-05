@@ -45,6 +45,10 @@ class Command(BaseCommand):
         if r.incompletos:
             self.stdout.write(f'ignorados por não estarem baixados: {r.incompletos}')
         self.stdout.write(self.style.WARNING(f'sem correspondência no acervo: {r.sem_casamento}'))
+        if r.links_nao_consultados:
+            self.stdout.write(self.style.WARNING(
+                f'links não consultados (API não respondeu): {r.links_nao_consultados} '
+                f'— esses mantiveram os links que já tinham'))
 
         for nome in r.nao_casados[:15]:
             self.stdout.write(f'    ? {nome[:70]}')

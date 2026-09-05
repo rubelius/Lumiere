@@ -74,8 +74,13 @@ class TestCinemaSessionAPI:
         )
 
         response = auth_client.post(f'/api/sessions/{session.id}/prepare/')
-        
+
         assert response.status_code == 200
+        # A resposta serializa o objeto em memória, então afirmar só sobre ela
+        # passaria mesmo que o save() não tivesse persistido nada. O que
+        # importa é o que a task vai encontrar quando for ler.
+        session.refresh_from_db()
+        assert session.status == 'preparing'
         assert response.data['session']['status'] == 'preparing'
         mock_prepare.assert_called_once_with(str(session.id))
 

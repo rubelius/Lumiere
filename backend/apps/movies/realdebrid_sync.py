@@ -38,6 +38,10 @@ class ResultadoDaSincronizacao:
     series: int = 0
     incompletos: int = 0
     sem_casamento: int = 0
+    # Consultas de link que a API não respondeu. Esses registros foram
+    # atualizados sem tocar nos links, então o número precisa aparecer: é a
+    # diferença entre "o filme não tem link" e "não deu para perguntar".
+    links_nao_consultados: int = 0
     nao_casados: List[str] = field(default_factory=list)
     ligacoes: List[str] = field(default_factory=list)
 
@@ -89,10 +93,19 @@ async def _busca_links(chave: str, ids):
     """
     GET /torrents devolve `links` vazio; só GET /torrents/info/{id} os traz, e
     sem eles o degrau Real-Debrid não resolve. Uma chamada por item casado.
+
+    Devolve só as consultas que responderam. `get_torrent_info` engole erro de
+    HTTP e devolve {} — dict vazio é "não sei", não "não tem links", e tratar
+    os dois como a mesma coisa apagava os links bons que já estavam gravados.
     """
     cliente = RealDebridClient(chave)
     try:
-        return {i: (await cliente.get_torrent_info(i)).get('links') or [] for i in ids}
+        achados = {}
+        for i in ids:
+            info = await cliente.get_torrent_info(i)
+            if info:
+                achados[i] = info.get('links') or []
+        return achados
     finally:
         await cliente.close()
 
@@ -132,8 +145,15 @@ def sincroniza_realdebrid(limite: int = 200, dry_run: bool = False) -> Resultado
     if casados:
         links_por_id = async_to_sync(_busca_links)(chave, [t['id'] for _, t, _ in casados])
         for filme, t, nome in casados:
-            t['links'] = links_por_id.get(t['id'], [])
-            _, foi_criado = _grava(filme, t, nome)
+            # Ausente do dicionário = a consulta falhou. Nesse caso o registro
+            # é atualizado sem tocar em realdebrid_links, preservando o que já
+            # estava lá; a reprodução não pode cair por causa de um blip de rede.
+            sabemos = t['id'] in links_por_id
+            if sabemos:
+                t['links'] = links_por_id[t['id']]
+            else:
+                r.links_nao_consultados += 1
+            _, foi_criado = _grava(filme, t, nome, grava_links=sabemos)
             if foi_criado:
                 r.ligados += 1
                 r.ligacoes.append(f'{filme.title} ({filme.year}) — {len(t["links"])} link(s)')
@@ -145,7 +165,15 @@ def sincroniza_realdebrid(limite: int = 200, dry_run: bool = False) -> Resultado
     return r
 
 
-def _grava(filme, torrent, nome):
+def monta_campos(filme, torrent, nome, grava_links: bool = True) -> dict:
+    """
+    Campos gravados no TorrentRelease.
+
+    `grava_links=False` omite realdebrid_links de propósito, e essa omissão é
+    o ponto: em update_or_create, o que não está em defaults não é tocado.
+    Incluir a chave com lista vazia apagaria os links bons quando a API só
+    tivesse deixado de responder.
+    """
     qualidade = parse_quality_from_title(nome)
     dados = {
         'movie': filme,
@@ -155,14 +183,21 @@ def _grava(filme, torrent, nome):
         'realdebrid_id': torrent.get('id', ''),
         'realdebrid_status': torrent.get('status', ''),
         'realdebrid_progress': torrent.get('progress', 0),
-        'realdebrid_links': torrent.get('links') or [],
         # Já baixado na conta: reproduz na hora, sem espera.
         'instantly_available': True,
         **qualidade,
     }
+    if grava_links:
+        dados['realdebrid_links'] = torrent.get('links') or []
+
     dados.update(calculate_quality_score(dados))
+    return dados
+
+
+def _grava(filme, torrent, nome, grava_links: bool = True):
     return TorrentRelease.objects.update_or_create(
-        info_hash=torrent['hash'].lower(), defaults=dados,
+        info_hash=torrent['hash'].lower(),
+        defaults=monta_campos(filme, torrent, nome, grava_links),
     )
 
 
