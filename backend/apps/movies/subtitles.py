@@ -45,13 +45,19 @@ def srt_para_vtt(conteudo: str) -> str:
     texto = _TEMPO.sub(normaliza_tempo, texto)
     texto = _TAGS_SSA.sub('', texto)
 
+    # A numeração do bloco é opcional no WebVTT; mantê-la é inofensivo, mas
+    # removê-la evita que um número solto vire legenda caso o arquivo esteja
+    # malformado. O que define numeração é a POSIÇÃO — a linha imediatamente
+    # anterior ao tempo —, não o conteúdo: descartar toda linha só de dígitos
+    # apagava legendas que são um número, como '1984', '911' ou uma contagem
+    # regressiva.
+    cruas = texto.split('\n')
     linhas = []
-    for linha in texto.split('\n'):
-        # A numeração do bloco é opcional no WebVTT; mantê-la é inofensivo,
-        # mas removê-la evita que um número solto vire legenda caso o arquivo
-        # esteja malformado.
+    for i, linha in enumerate(cruas):
         if linha.strip().isdigit():
-            continue
+            proxima = next((c for c in cruas[i + 1:] if c.strip()), '')
+            if '-->' in proxima:
+                continue
         linhas.append(linha)
 
     corpo = '\n'.join(linhas).strip('\n')

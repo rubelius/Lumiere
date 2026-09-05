@@ -69,6 +69,16 @@ def add_to_realdebrid(self, release_id, user_id):
         raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
 
 
+class EstadoDesconhecido(Exception):
+    """
+    A API do Real-Debrid não respondeu, então não sabemos o estado do download.
+
+    Existe para separar isso de "o download falhou". `get_torrent_info` engole
+    erro de HTTP e devolve {}, e tratar os dois como a mesma coisa marcava
+    download saudável como 'error' por causa de instabilidade de rede.
+    """
+
+
 @shared_task
 def check_realdebrid_status():
     """
@@ -82,6 +92,19 @@ def check_realdebrid_status():
 
     spawned = 0
     for release in active_releases:
+        # A busca da sessão vem ANTES de pegar o lock. Na ordem inversa, uma
+        # release sem sessão travava a chave por 26 minutos e saía pelo
+        # `continue` — e só o monitor devolve o lock, monitor que nesse
+        # caminho nunca chega a ser disparado. Como a maioria das releases não
+        # está em sessão nenhuma, isso bloqueava justamente as que passassem a
+        # estar nos 26 minutos seguintes.
+        session_movie = SessionMovie.objects.filter(
+            selected_release=release
+        ).select_related('session__user').first()
+
+        if not session_movie:
+            continue
+
         lock_key = f'rd_monitor_lock_{release.id}'
 
         # Only spawn if no monitor is already running for this release
@@ -89,13 +112,6 @@ def check_realdebrid_status():
         acquired = cache.add(lock_key, '1', timeout=60 * 26)
         if not acquired:
             continue  # monitor already running
-
-        session_movie = SessionMovie.objects.filter(
-            selected_release=release
-        ).select_related('session__user').first()
-
-        if not session_movie:
-            continue
 
         monitor_realdebrid_download.apply_async(
             args=[
@@ -136,6 +152,12 @@ def monitor_realdebrid_download(self, release_id, user_id, session_id=None, lock
                 await client.close()
 
         info = async_to_sync(check_async)()
+        if not info:
+            # Dict vazio é falha de chamada, não estado. Seguir daqui gravaria
+            # status=None num campo NOT NULL e progresso 0 num download que
+            # pode estar em 90%.
+            raise EstadoDesconhecido(f'sem resposta para {release.realdebrid_id}')
+
         status_val = info.get('status')
         progress = info.get('progress', 0)
 
@@ -206,6 +228,12 @@ def monitor_realdebrid_download(self, release_id, user_id, session_id=None, lock
     except (TorrentRelease.DoesNotExist, Exception) as e:
         if self.request.retries >= self.max_retries:
             release_lock()
+            # Nunca soubemos o estado: deixar como está é o único registro
+            # honesto. Marcar 'error' aqui condenaria um download que pode
+            # estar concluído, e o estado gravado é o que a interface mostra.
+            if isinstance(e, EstadoDesconhecido):
+                logger.warning('Estado do download %s desconhecido: %s', release_id, e)
+                return {'status': 'unknown', 'message': str(e)}
             try:
                 TorrentRelease.objects.filter(id=release_id).update(
                     realdebrid_status='error'

@@ -3,6 +3,7 @@
 import os
 
 from celery import Celery
+from kombu import Queue
 from celery.schedules import crontab
 
 # Set default Django settings
@@ -32,6 +33,16 @@ app.conf.imports = (
 )
 
 # Periodic tasks schedule
+# Filas que os workers consomem. Sem esta declaração o worker escuta apenas a
+# fila padrão, e `apply_async(queue='etl')` de apps/ingestion/tasks.py punha
+# as tarefas numa fila que ninguém lia — elas simplesmente ficavam lá, sem
+# erro e sem execução. Declarar aqui, e não no comando do worker, faz valer
+# para qualquer forma de subir o worker: sem -Q, ele consome todas estas.
+app.conf.task_queues = (
+    Queue('celery'),   # padrão
+    Queue('etl'),      # ingestão: trabalhos longos, isolados dos curtos
+)
+
 app.conf.beat_schedule = {
     # Sync Letterboxd diaries every 6 hours
     'sync-letterboxd-diaries': {

@@ -83,3 +83,39 @@ def test_ja_em_vtt_continua_valido():
 def test_entrada_vazia_nao_quebra():
     for entrada in (None, '', '   '):
         assert srt_para_vtt(entrada).startswith('WEBVTT')
+
+
+def test_legenda_que_e_so_um_numero_sobrevive():
+    """
+    Descartar toda linha só de dígitos apagava a fala, não a numeração: uma
+    legenda que diz '1984' ou '911' simplesmente sumia da tela, e nada no
+    arquivo indicava que ela existira.
+
+    O que define numeração de bloco é a posição — logo antes do tempo.
+    """
+    srt = (
+        '1\n'
+        '00:00:01,000 --> 00:00:03,000\n'
+        '1984\n'
+        '\n'
+        '2\n'
+        '00:00:04,000 --> 00:00:06,000\n'
+        '911\n'
+    )
+    vtt = srt_para_vtt(srt)
+
+    assert '1984' in vtt, 'fala numérica descartada como se fosse numeração'
+    assert '911' in vtt
+    # A numeração de bloco continua sendo removida.
+    assert '\n1\n' not in vtt
+    assert '\n2\n' not in vtt
+
+
+def test_numero_isolado_no_fim_do_arquivo_nao_e_confundido_com_numeracao():
+    """Sem tempo depois dele, o número é conteúdo — não há bloco para numerar."""
+    srt = (
+        '1\n'
+        '00:00:01,000 --> 00:00:03,000\n'
+        '42\n'
+    )
+    assert '42' in srt_para_vtt(srt)
