@@ -64,12 +64,25 @@ class MovieAPITestCase(TestCase):
         self.assertEqual(response.data['year'], 1972)
     
     def test_top_rated(self):
-        """Teste endpoint top_rated"""
+        """
+        O endpoint ordena por ranking_current, onde 1 é o melhor.
+
+        Com um único filme no banco — como era antes — a asserção passava com
+        a ordem invertida, com a ordenação removida, com qualquer coisa. Só
+        uma lista com mais de um item testa ordem.
+        """
+        Movie.objects.create(title='Filme do meio', year=1980, ranking_current=50)
+        Movie.objects.create(title='Filme do fim', year=1990, ranking_current=900)
+        # Sem ranking não entra na lista: o endpoint filtra isnull=False.
+        Movie.objects.create(title='Sem ranking', year=2000, ranking_current=None)
+
         response = self.client.get('/api/movies/top_rated/')
-        
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertGreater(len(response.data), 0)
-        self.assertEqual(response.data[0]['title'], 'The Godfather')
+        self.assertEqual(
+            [m['title'] for m in response.data],
+            ['The Godfather', 'Filme do meio', 'Filme do fim'],
+        )
     
     def test_unauthenticated_access(self):
         """Teste acesso sem autenticação"""
@@ -118,15 +131,24 @@ class QualityAlgorithmTestCase(TestCase):
         self.assertEqual(scores['quality_score'], 100)
     
     def test_hardcoded_subs_penalty(self):
-        """Teste penalidade de legendas hardcoded"""
-        title = "Movie.2020.1080p.BluRay.x264.HC.AAC-GROUP"
-        
-        result = parse_quality_from_title(title)
-        self.assertTrue(result['has_hardcoded_subs'])
-        
-        scores = calculate_quality_score(result)
-        # Score deve ser reduzido em 10
-        self.assertLess(scores['quality_score'], 100)
+        """
+        Legenda queimada na imagem custa 10 pontos.
+
+        Antes o teste só afirmava que a nota era menor que 100 — coisa que um
+        BluRay 1080p já é com folga, com ou sem a penalidade. Apagar o
+        desconto do código deixava o teste passando. O que prova a penalidade
+        é a DIFERENÇA entre o mesmo release com e sem a marca.
+        """
+        com_hc = parse_quality_from_title("Movie.2020.1080p.BluRay.x264.HC.AAC-GROUP")
+        sem_hc = parse_quality_from_title("Movie.2020.1080p.BluRay.x264.AAC-GROUP")
+
+        self.assertTrue(com_hc['has_hardcoded_subs'])
+        self.assertFalse(sem_hc['has_hardcoded_subs'])
+
+        nota_com = calculate_quality_score(com_hc)['quality_score']
+        nota_sem = calculate_quality_score(sem_hc)['quality_score']
+
+        self.assertEqual(nota_sem - nota_com, 10)
 
 
 class TorrentReleaseAPITestCase(TestCase):
