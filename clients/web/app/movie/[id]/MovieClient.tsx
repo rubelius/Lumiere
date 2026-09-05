@@ -105,7 +105,15 @@ export default function MovieClient() {
   ];
 
   const releases = (movie as any).releases || [];
-  const similarMovies = movie.similar_movies || [];
+  // Cada item é { movie, similarity, type } — os campos do filme moram em
+  // `movie`, não na raiz. Lidos como `similar.title` saíam todos undefined e a
+  // seção renderizava cards vazios apontando para /movie/undefined; o `any` no
+  // map era o que impedia o TypeScript de acusar.
+  // Sem id não há para onde linkar, e o schema marca id como opcional porque
+  // o gerador não separa leitura de escrita. Filtrar aqui deixa o resto do
+  // bloco livre de checagem — e o `!` que evitaria isso é justamente o tipo de
+  // silêncio que criou o defeito acima.
+  const similarMovies = (movie.similar_movies || []).filter((s) => s.movie?.id);
   const mediaCaptures = (movie as any).media_captures || [];
 
   const getYoutubeId = (url?: string) => {
@@ -470,9 +478,9 @@ export default function MovieClient() {
              
             {similarMovies.length > 0 ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '32px' }}> 
-                {similarMovies.map((similar: any, i: number) => ( 
-                  <motion.div key={similar.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ delay: i * 0.1, duration: 0.6, ease: FINE_ART_EASE }}> 
-                    <MovieCard id={similar.id} title={similar.title} year={similar.year} imageUrl={similar.img} qualities={similar.qualities} index={i} /> 
+                {similarMovies.map(({ movie: parecido }, i: number) => ( 
+                  <motion.div key={parecido.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ delay: i * 0.1, duration: 0.6, ease: FINE_ART_EASE }}> 
+                    <MovieCard id={parecido.id as string} title={parecido.title} year={parecido.year ? String(parecido.year) : undefined} imageUrl={parecido.poster_url ?? ''} index={i} /> 
                   </motion.div> 
                 ))} 
               </div> 
