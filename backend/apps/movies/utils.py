@@ -204,3 +204,37 @@ def calculate_quality_score(release_data: Dict[str, Any]) -> Dict[str, int]:
     
     scores['quality_score'] = total_score
     return scores
+
+# Da melhor para a pior. O pedido diz o piso: nada abaixo dele entra.
+RESOLUCOES = ['2160p', '1080p', '720p', '480p']
+
+
+def passa_no_filtro(release: Dict[str, Any], filtros: Dict[str, Any]) -> bool:
+    """
+    Se este resultado de busca atende ao que foi pedido.
+
+    Existe uma função só porque havia duas cópias do filtro: a da task, com
+    todos os critérios, e a da view, que lia `min_resolution` do pedido e
+    nunca o aplicava. Releases abaixo do piso eram gravadas e devolvidas ao
+    usuário como se ele não tivesse pedido nada.
+    """
+    if release.get('seeders', 0) < int(filtros.get('min_seeders', 5)):
+        return False
+
+    if filtros.get('prefer_remux') and not release.get('is_remux'):
+        return False
+
+    if filtros.get('require_advanced_audio') and not (
+        release.get('has_atmos') or release.get('has_dtsx') or release.get('has_truehd')
+    ):
+        return False
+
+    piso = filtros.get('min_resolution', '1080p')
+    # Resolução desconhecida — do pedido ou do resultado — vai para o fim da
+    # ordem, então um resultado sem resolução legível só passa se o piso
+    # também for desconhecido.
+    indice_piso = RESOLUCOES.index(piso) if piso in RESOLUCOES else len(RESOLUCOES)
+    resolucao = release.get('resolution')
+    indice_res = RESOLUCOES.index(resolucao) if resolucao in RESOLUCOES else len(RESOLUCOES)
+
+    return indice_res <= indice_piso

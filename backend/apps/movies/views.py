@@ -29,7 +29,9 @@ from apps.ml.similarity import diversifica
 
 from .filters import MovieFilter
 from .models import Movie, TorrentRelease
+from .utils import passa_no_filtro
 from .serializers import (
+    campos_da_listagem,
     MovieDetailSerializer, 
     MovieListSerializer,
     MovieSerializer,
@@ -69,12 +71,12 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
         search_term = self.request.query_params.get('search', None)
         
         if self.action == 'list' and not search_term:
-            queryset = queryset.only(
-                'id', 'title', 'original_title', 'year', 'director',
-                'poster_url', 'ranking_current', 'tmdb_rating',
-                'background_url', 'country', 'tagline', 'in_plex', 'genres', 'trailer_url',
-                'logo_url', 'cinematographer', 'composer', 'writer', 'streaming_providers'
-            )
+            # A lista vem do próprio serializer, não escrita à mão. Cinco
+            # campos que ele lê tinham ficado de fora, e cada um deles é uma
+            # consulta extra POR FILME: 101 consultas para uma página de 20,
+            # contra 1 sem o only(). A otimização estava custando cem vezes o
+            # que economizava, e nada acusava — o resultado saía correto.
+            queryset = queryset.only(*campos_da_listagem())
         elif self.action == 'retrieve':
             queryset = queryset.prefetch_related('torrent_releases')
             
@@ -276,7 +278,15 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
                 scores = calculate_quality_score(result)
                 result.update(scores)
             
-                if result['seeders'] < min_seeders or (prefer_remux and not result.get('is_remux')) or (require_advanced_audio and not (result.get('has_atmos') or result.get('has_dtsx') or result.get('has_truehd'))):
+                # Filtro compartilhado com a task. Esta cópia lia
+                # min_resolution do pedido e nunca o aplicava: releases abaixo
+                # do piso eram gravadas e devolvidas assim mesmo.
+                if not passa_no_filtro(result, {
+                    'min_seeders': min_seeders,
+                    'prefer_remux': prefer_remux,
+                    'require_advanced_audio': require_advanced_audio,
+                    'min_resolution': min_resolution,
+                }):
                     continue
             
                 release, created = await sync_to_async(TorrentRelease.objects.update_or_create)(

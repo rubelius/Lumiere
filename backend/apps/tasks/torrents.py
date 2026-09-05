@@ -3,7 +3,7 @@ import logging
 
 from apps.integrations.prowlarr import ProwlarrClient
 from apps.movies.models import Movie, TorrentRelease
-from apps.movies.utils import calculate_quality_score, parse_quality_from_title
+from apps.movies.utils import passa_no_filtro, calculate_quality_score, parse_quality_from_title
 from celery import shared_task
 from django.utils import timezone
 
@@ -76,23 +76,14 @@ def search_torrents_for_movie(self, movie_id: str, user_id: str, filters: dict =
             scores = calculate_quality_score(result)
             result.update(scores)
             
-            # Apply filters
-            if result['seeders'] < min_seeders:
-                continue
-            
-            if prefer_remux and not result.get('is_remux'):
-                continue
-            
-            if require_advanced_audio:
-                if not (result.get('has_atmos') or result.get('has_dtsx') or result.get('has_truehd')):
-                    continue
-            
-            # Resolution filter
-            resolution_order = ['2160p', '1080p', '720p', '480p']
-            min_index = resolution_order.index(min_resolution) if min_resolution in resolution_order else 999
-            result_index = resolution_order.index(result.get('resolution', '480p')) if result.get('resolution') in resolution_order else 999
-            
-            if result_index > min_index:
+            # Filtro compartilhado com a view. Eram duas cópias, e a da
+            # view tinha perdido o critério de resolução pelo caminho.
+            if not passa_no_filtro(result, {
+                'min_seeders': min_seeders,
+                'prefer_remux': prefer_remux,
+                'require_advanced_audio': require_advanced_audio,
+                'min_resolution': min_resolution,
+            }):
                 continue
             
             # Create or update release

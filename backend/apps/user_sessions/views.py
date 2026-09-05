@@ -1,5 +1,6 @@
 from datetime import timedelta
-from django.db import transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
@@ -163,14 +164,42 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # O movie_id vinha cru do cliente para o create(). Os três erros mais
+        # comuns viravam 500: UUID malformado (ValidationError), filme que não
+        # existe (violação de chave estrangeira) e filme já na sessão
+        # (unique_together). Nenhum deles é falha do servidor.
+        from apps.movies.models import Movie
+
+        try:
+            filme = Movie.objects.get(pk=movie_id)
+        except (Movie.DoesNotExist, DjangoValidationError, ValueError):
+            return Response(
+                {'error': 'Movie not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if session.session_movies.filter(movie=filme).exists():
+            return Response(
+                {'error': 'Movie already in session'},
+                status=status.HTTP_409_CONFLICT
+            )
+
         last_order = session.session_movies.order_by('-order').first()
         next_order = (last_order.order + 1) if last_order else 0
-        
-        session_movie = SessionMovie.objects.create(
-            session=session,
-            movie_id=movie_id,
-            order=next_order
-        )
+
+        try:
+            session_movie = SessionMovie.objects.create(
+                session=session,
+                movie=filme,
+                order=next_order
+            )
+        except IntegrityError:
+            # Duas requisições simultâneas passam juntas pela checagem acima;
+            # a restrição do banco é quem decide, e o perdedor recebe 409.
+            return Response(
+                {'error': 'Movie already in session'},
+                status=status.HTTP_409_CONFLICT
+            )
         
         from apps.movies.serializers import MovieListSerializer
         return Response({

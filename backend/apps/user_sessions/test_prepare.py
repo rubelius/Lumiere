@@ -120,3 +120,30 @@ def test_reentrada_nao_atropela_sessao_ja_iniciada(django_user_model):
     sessao.refresh_from_db()
     assert sessao.status == 'in_progress'
     assert r == {'skipped': 'in_progress'}
+
+
+@pytest.mark.django_db
+def test_add_movie_responde_erro_do_cliente_como_erro_do_cliente(client):
+    """
+    O movie_id ia cru para o create(). UUID malformado, filme inexistente e
+    filme repetido — os três caminhos de erro mais comuns — viravam 500, como
+    se o servidor tivesse quebrado.
+    """
+    from django.contrib.auth import get_user_model
+    from rest_framework.test import APIClient
+
+    user = get_user_model().objects.create_user(username='add', password='x')
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    sessao = cria_sessao(user, status='planning')
+    filme = Movie.objects.create(title='Alphaville', year=1965)
+    url = f'/api/sessions/{sessao.id}/add_movie/'
+
+    assert api.post(url, {'movie_id': 'nao-e-uuid'}, format='json').status_code == 404
+    assert api.post(
+        url, {'movie_id': '00000000-0000-0000-0000-000000000000'},
+        format='json').status_code == 404
+
+    assert api.post(url, {'movie_id': str(filme.id)}, format='json').status_code == 200
+    assert api.post(url, {'movie_id': str(filme.id)}, format='json').status_code == 409

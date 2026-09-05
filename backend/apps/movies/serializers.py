@@ -5,6 +5,17 @@ from .models import Movie, TorrentRelease
 from .utils import calculate_quality_score, parse_quality_from_title
 
 
+def campos_da_listagem() -> list:
+    """
+    Colunas que a listagem precisa carregar do banco.
+
+    Derivada de MovieListSerializer para não haver duas listas divergindo: um
+    campo lido pelo serializer e ausente do `.only()` vira consulta extra por
+    filme, sem erro e com o resultado certo — só cem vezes mais caro.
+    """
+    return list(MovieListSerializer.Meta.fields)
+
+
 class MovieListSerializer(serializers.ModelSerializer):
     """
     Serializer otimizado para as listas (Home e Library).
