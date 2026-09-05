@@ -280,6 +280,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/recommended/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Filmes que combinam com o gosto do usuário e que ele ainda não viu.
+         * @description Calculado na hora a partir do vetor do perfil de gosto, que é retreinado a cada filme concluído. Devolve lista vazia enquanto não houver perfil — mostrar popularidade e chamar de personalização seria pior que não mostrar nada.
+         */
+        get: operations["movies_recommended_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/top_rated/": {
         parameters: {
             query?: never;
@@ -1854,6 +1874,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Movie"];
+                };
+            };
+        };
+    };
+    movies_recommended_list: {
+        parameters: {
+            query?: {
+                available_instantly?: boolean;
+                category?: string;
+                country?: string;
+                curations?: string;
+                decades?: string;
+                director?: string;
+                genres?: string;
+                in_plex?: boolean;
+                /** @description Qual campo usar ao ordenar os resultados. */
+                ordering?: string;
+                /** @description Um número de página dentro do conjunto de resultados paginado. */
+                page?: number;
+                qualities?: string;
+                search?: string;
+                year?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMovieListList"];
                 };
             };
         };

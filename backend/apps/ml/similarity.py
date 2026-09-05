@@ -250,3 +250,57 @@ def agenda_retreino_do_gosto(user) -> bool:
             'foi gravado; o perfil se atualiza na próxima rodada agendada.',
             user, type(e).__name__, str(e)[:120])
         return False
+
+
+def recomenda_para(user, limite: int = 20, top_n_bruto: int = 200):
+    """
+    Filmes que combinam com o gosto do usuário e que ele ainda não viu.
+
+    Calculado na hora, a partir do vetor do perfil. Não depende de worker: numa
+    instância caseira o Celery costuma não estar no ar, e uma recomendação que
+    só existe depois que uma task roda é uma recomendação que nunca aparece.
+
+    Devolve lista vazia quando não há perfil. É de propósito: sem perfil o que
+    daria para mostrar é popularidade, e apresentar popularidade como
+    personalização é a mentira que a tela toda tenta não contar.
+    """
+    from apps.movies.models import Movie, WatchHistory
+
+    perfil = getattr(user, 'taste_profile', None)
+    vetor = getattr(perfil, 'embedding', None) if perfil else None
+    if vetor is None:
+        return []
+
+    vistos = set(
+        WatchHistory.objects.filter(user=user, completed=True)
+        .values_list('movie_id', flat=True)
+    )
+
+    # Busca mais que o necessário porque o filtro do já-visto e a cota de
+    # diretor vão cortar: pedir exatamente `limite` devolveria menos que isso.
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT set_config('hnsw.ef_search', %s, true)",
+                [str(ef_search_para(top_n_bruto))],
+            )
+        candidatos = list(
+            Movie.objects.filter(embedding__isnull=False)
+            .exclude(id__in=vistos)
+            .annotate(distancia=CosineDistance('embedding', vetor))
+            .order_by('distancia')[:top_n_bruto]
+        )
+
+    # Mesma cota de diretor das obras correlatas: sem ela, um perfil formado
+    # por muitos filmes do mesmo autor devolve a filmografia dele inteira.
+    escolhidos, quantos = [], {}
+    for filme in candidatos:
+        diretor = filme.director or ''
+        if diretor and quantos.get(diretor, 0) >= MAX_POR_DIRETOR:
+            continue
+        quantos[diretor] = quantos.get(diretor, 0) + 1
+        escolhidos.append(filme)
+        if len(escolhidos) == limite:
+            break
+
+    return escolhidos

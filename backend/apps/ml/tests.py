@@ -492,7 +492,7 @@ def test_rever_pesa_mais_que_assistir_uma_vez(django_user_model):
     WatchHistory.objects.create(user=u, movie=uma, completed=True, times_watched=1)
     WatchHistory.objects.create(user=u, movie=varias, completed=True, times_watched=4)
 
-    notas = sorted(nota for _, nota in amostras_de_gosto(u))
+    notas = sorted(a.nota for a in amostras_de_gosto(u))
     assert notas[0] == NOTA_NEUTRA
     assert notas[1] > NOTA_NEUTRA
     assert notas[1] <= 5.0, 'a nota nao pode passar do teto da escala'

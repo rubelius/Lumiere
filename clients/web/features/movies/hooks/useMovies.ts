@@ -108,3 +108,22 @@ export function useSubtitles(id: string, idiomas = 'pt-BR,pt-PT,en') {
     staleTime: 5 * 60_000,
   });
 }
+
+/**
+ * Filmes que combinam com o gosto do usuário e que ele ainda não viu.
+ *
+ * O perfil é retreinado a cada filme concluído, então esta lista muda sozinha
+ * conforme a pessoa assiste. `has_profile` distingue as duas razões de a lista
+ * vir vazia — ainda não há perfil, ou há perfil e nada novo combinou —, que
+ * pedem mensagens diferentes na tela.
+ */
+export function useRecomendados() {
+  return useQuery({
+    queryKey: [...movieKeys.all, 'recomendados'] as const,
+    queryFn: () =>
+      http.get<{ count: number; has_profile: boolean; results: MovieListItem[] }>(
+        '/api/movies/recommended/',
+      ),
+    staleTime: 60_000,
+  });
+}

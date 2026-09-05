@@ -26,7 +26,8 @@ from apps.movies.playback import resolve_playback
 from apps.movies.subtitle_service import busca_legendas, obtem_vtt
 from apps.movies.utils import calculate_quality_score, parse_quality_from_title
 from apps.ml.models import MovieSimilarity
-from apps.ml.similarity import agenda_retreino_do_gosto, diversifica
+from apps.ml.similarity import (agenda_retreino_do_gosto, diversifica,
+                                 recomenda_para)
 
 from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
@@ -273,6 +274,27 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
             agenda_retreino_do_gosto(request.user)
 
         return Response(WatchHistorySerializer(registro).data)
+
+    @extend_schema(
+        responses={200: MovieListSerializer(many=True)},
+        summary='Filmes que combinam com o gosto do usuário e que ele ainda não viu.',
+        description=(
+            'Calculado na hora a partir do vetor do perfil de gosto, que é '
+            'retreinado a cada filme concluído. Devolve lista vazia enquanto '
+            'não houver perfil — mostrar popularidade e chamar de '
+            'personalização seria pior que não mostrar nada.'
+        ),
+    )
+    @action(detail=False, methods=['get'])
+    def recommended(self, request):
+        filmes = recomenda_para(request.user, limite=20)
+        contexto = {'assistidos': ids_assistidos(request.user, filmes),
+                    'request': request}
+        return Response({
+            'count': len(filmes),
+            'has_profile': hasattr(request.user, 'taste_profile'),
+            'results': MovieListSerializer(filmes, many=True, context=contexto).data,
+        })
 
     @action(detail=True, methods=['get'])
     def playback(self, request, pk=None):

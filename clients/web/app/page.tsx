@@ -6,6 +6,7 @@ import { etiquetasDeDisponibilidade } from '@/lib/disponibilidade';
 import Image from 'next/image';
 import { CinemaMarquee, FilmProgramme, FilmEntry } from '@/components/home/FilmProgramme'
 import { NowProjecting, AdmitOne, LibraryCount, SessionRow } from '@/components/home/Sections'
+import { AfinidadeAferida } from '@/components/home/AfinidadeAferida'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
@@ -290,6 +291,8 @@ export default function HomePage() {
             href={`/player?id=${lastWatched.id}`}
           />
         )}
+
+        <AfinidadeAferida />
 
         <section style={{ padding: '72px 72px 120px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 48, paddingBottom: 24, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>

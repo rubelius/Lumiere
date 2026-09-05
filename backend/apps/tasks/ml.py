@@ -1,4 +1,5 @@
 import logging
+from typing import NamedTuple
 
 import numpy as np
 from apps.integrations.models import LetterboxdDiary
@@ -22,9 +23,19 @@ MINIMO_PARA_PERFIL = 10
 NOTA_NEUTRA = 3.0
 
 
+class AmostraDeGosto(NamedTuple):
+    """Um filme que o usuário viu, com o peso que ele tem no perfil."""
+    movie: object
+    nota: float
+    avaliado: bool
+
+
 def amostras_de_gosto(user):
     """
-    Pares (embedding, nota) que descrevem o gosto do usuário.
+    O que o usuário viu, com o peso de cada filme no perfil.
+
+    Devolve o filme inteiro, não só o vetor: o perfil também guarda gêneros,
+    diretores e décadas preferidos, e todos saem dos mesmos registros.
 
     Junta o histórico do próprio Lumière com o diário importado do Letterboxd.
     Quando o mesmo filme aparece nos dois, vale o registro local: ele traz a
@@ -41,9 +52,10 @@ def amostras_de_gosto(user):
                     .filter(user=user, matched=True, movie__embedding__isnull=False)
                     .select_related('movie')):
         if entrada.movie.embedding is not None:
-            por_filme[entrada.movie_id] = (
-                entrada.movie.embedding,
-                float(entrada.rating) if entrada.rating else NOTA_NEUTRA,
+            por_filme[entrada.movie_id] = AmostraDeGosto(
+                movie=entrada.movie,
+                nota=float(entrada.rating) if entrada.rating else NOTA_NEUTRA,
+                avaliado=entrada.rating is not None,
             )
 
     for visto in (WatchHistory.objects
@@ -54,7 +66,8 @@ def amostras_de_gosto(user):
         nota = float(visto.rating) if visto.rating else NOTA_NEUTRA
         if visto.times_watched > 1:
             nota = min(5.0, nota + 0.5 * (visto.times_watched - 1))
-        por_filme[visto.movie_id] = (visto.movie.embedding, nota)
+        por_filme[visto.movie_id] = AmostraDeGosto(
+            movie=visto.movie, nota=nota, avaliado=visto.rating is not None)
 
     return list(por_filme.values())
 
@@ -199,8 +212,8 @@ def train_user_taste_profile(self, user_id: str):
             logger.warning(f"User {user_id} has insufficient data (<{MINIMO_PARA_PERFIL} movies)")
             return {'error': 'Insufficient data', 'entries': len(amostras)}
 
-        embeddings = [a[0] for a in amostras]
-        ratings = [a[1] for a in amostras]
+        embeddings = [a.movie.embedding for a in amostras]
+        ratings = [a.nota for a in amostras]
         
         # Generate user embedding
         generator = UserTasteEmbeddingGenerator()
@@ -211,10 +224,9 @@ def train_user_taste_profile(self, user_id: str):
         favorite_directors = {}
         favorite_decades = {}
         
-        for entry in diary_entries:
-            movie = entry.movie
-            rating = float(entry.rating) if entry.rating else 3.0
-            
+        for amostra in amostras:
+            movie, rating = amostra.movie, amostra.nota
+
             # Only count well-rated movies (>= 3.5)
             if rating >= 3.5:
                 # Genres
@@ -236,8 +248,8 @@ def train_user_taste_profile(self, user_id: str):
         favorite_decades = dict(sorted(favorite_decades.items(), key=lambda x: x[1], reverse=True)[:5])
         
         # Statistics
-        total_watched = diary_entries.count()
-        total_ratings = diary_entries.filter(rating__isnull=False).count()
+        total_watched = len(amostras)
+        total_ratings = sum(1 for a in amostras if a.avaliado)
         avg_rating = sum(ratings) / len(ratings) if ratings else 0.0
         
         # Rating distribution
