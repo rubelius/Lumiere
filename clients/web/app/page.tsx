@@ -52,7 +52,7 @@ export default function HomePage() {
   const [randomHeroMovies, setRandomHeroMovies] = useState<HomeMovie[]>([]);
   const [lastWatched, setLastWatched] = useState<any | null>(null);
 
-  const { data, isLoading } = useMovies({ page: 1 });
+  const { data, isLoading, isError, refetch } = useMovies({ page: 1 });
 
   useEffect(() => {
     if (data?.results && data.results.length > 0 && randomHeroMovies.length === 0) {
@@ -114,6 +114,29 @@ export default function HomePage() {
     if (!v || v <= 0 || isNaN(v)) return 'Duração desconhecida';
     return `${Math.floor(v / 60)}h ${v % 60}m`;
   };
+
+  // Falha da API não é carregamento. Sem este ramo, `isLoading` virava false,
+  // `data` ficava undefined e a condição de baixo — lista vazia — prendia a
+  // tela no mesmo spinner para sempre, sem dizer o que houve nem oferecer
+  // saída.
+  if (isError) {
+    return (
+      <div style={{ background: 'var(--bg)', minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 24, textAlign: 'center' }}>
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: '#8C3A3A', letterSpacing: '0.2em' }}>
+          // ACERVO INDISPONÍVEL
+        </div>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '20px', color: 'var(--m2)', maxWidth: 420 }}>
+          Não foi possível alcançar o servidor do acervo.
+        </div>
+        <button
+          onClick={() => refetch()}
+          style={{ background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '10px 22px', cursor: 'pointer', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em' }}
+        >
+          [ TENTAR NOVAMENTE ]
+        </button>
+      </div>
+    );
+  }
 
   // ── NOVO LOADING CINEMATOGRÁFICO ──
   if (isLoading || randomHeroMovies.length === 0) {

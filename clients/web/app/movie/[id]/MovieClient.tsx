@@ -104,7 +104,10 @@ export default function MovieClient() {
     { label: "BILHETERIA", value: movie.revenue ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(movie.revenue) : "Confidencial" },
   ];
 
-  const releases = (movie as any).releases || [];
+  // A API devolve `best_releases`; `releases` nunca existiu. Lido através de
+  // `as any`, o campo saía undefined e o painel mostrava sempre zero cópias —
+  // o mesmo `any` que escondia o defeito das obras correlatas.
+  const releases = movie.best_releases || [];
   // Cada item é { movie, similarity, type } — os campos do filme moram em
   // `movie`, não na raiz. Lidos como `similar.title` saíam todos undefined e a
   // seção renderizava cards vazios apontando para /movie/undefined; o `any` no

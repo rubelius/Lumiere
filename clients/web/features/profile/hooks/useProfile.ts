@@ -46,20 +46,24 @@ export function useProfile() {
   });
 
   const logout = async () => {
-    console.log("Iniciando Sequência de Desconexão...");
+    // Os tokens vivem em cookies HttpOnly, e `document.cookie` não os enxerga
+    // — é justamente o que HttpOnly significa. A versão anterior varria
+    // document.cookie e o localStorage e não tocava em nenhum dos dois que
+    // autenticam: a tela voltava ao login com a sessão ainda de pé.
+    //
+    // Só o servidor que gravou consegue apagar, com um Set-Cookie expirado.
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Rede fora: segue para o login mesmo assim. Melhor a tela travada em
+      // login do que o usuário continuar dentro achando que saiu.
+    }
 
-    // 1. Destrói TODOS os rastros locais
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.clear(); 
+    // Estado local que não é credencial, mas guarda rastro de quem usou.
+    localStorage.clear();
     sessionStorage.clear();
-    
-    // 2. Destrói todos os Cookies que o navegador tiver acesso
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
 
-    // 3. HARD RELOAD (A Opção Nuclear): Arranca a árvore do React pela raiz e limpa a memória RAM
+    // Recarrega de verdade: limpa o cache do React Query e o estado em memória.
     window.location.href = '/login';
   };
 

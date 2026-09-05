@@ -239,7 +239,7 @@ export default function GlobalSearch() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const { data, isLoading, isFetching } = useMovies({ 
+  const { data, isLoading, isFetching, isError } = useMovies({ 
     page, 
     search: debouncedSearch
   });
@@ -399,6 +399,11 @@ export default function GlobalSearch() {
               </span>
             ) : debouncedSearch && allMovies.length > 0 ? (
               <span style={{ color: 'var(--film)' }}>{data?.count || 0} Registros localizados na rede.</span>
+            ) : isError ? (
+              // Antes deste ramo, falha do servidor caía na mensagem de baixo:
+              // o usuário lia "não encontrei nada" e concluía que o filme não
+              // está no acervo, quando a busca nem chegou a acontecer.
+              <span style={{ color: '#8C3A3A' }}>Falha ao consultar o acervo. Verifique a conexão e tente de novo.</span>
             ) : debouncedSearch && allMovies.length === 0 && !isLoading ? (
               <span style={{ color: '#8C3A3A' }}>Sinal não encontrado. Refine os parâmetros da busca.</span>
             ) : (

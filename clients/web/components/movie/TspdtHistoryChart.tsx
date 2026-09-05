@@ -43,8 +43,14 @@ export const TspdtHistoryChart = ({ history }: { history: any }) => {
   const maxRankData = Math.max(...rawEntries.map(e => e.rank), 1000);
   const bestRankData = Math.min(...rawEntries.map(e => e.rank), 1);
 
+  // Um único ano no histórico faz maxYear === minYear, e a divisão vira 0/0.
+  // O guarda de cima cobria só os rótulos: o traçado saía como `M NaN,NaN` e
+  // o gráfico ficava em branco, sem erro no console. São 950 filmes do acervo.
+  const spanAnos = maxYear - minYear;
+
   const mapPoint = (entry: {year: number, rank: number}) => {
-    const x = ((entry.year - minYear) / (maxYear - minYear)) * W;
+    // Sem intervalo, o ponto vai ao centro — onde o rótulo dele já está.
+    const x = spanAnos === 0 ? W / 2 : ((entry.year - minYear) / spanAnos) * W;
     const rankRatio = maxRankData === bestRankData ? 0.5 : (entry.rank - bestRankData) / (maxRankData - bestRankData);
     const y = 30 + rankRatio * (150 - 30); 
     return { x, y };
