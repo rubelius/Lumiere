@@ -165,7 +165,8 @@ def check_instant_availability_batch(self, release_ids: list, user_id: str):
     Returns:
         Dict com available_count
     """
-    from apps.integrations.realdebrid import RealDebridClient
+    from apps.integrations.realdebrid import (RealDebridClient,
+                                             chave_do_usuario)
     from django.contrib.auth import get_user_model
     
     User = get_user_model()
@@ -173,7 +174,7 @@ def check_instant_availability_batch(self, release_ids: list, user_id: str):
     try:
         user = User.objects.get(id=user_id)
         
-        if not user.realdebrid_api_key:
+        if not chave_do_usuario(user):
             return {'error': 'Real-Debrid not configured'}
         
         releases = TorrentRelease.objects.filter(id__in=release_ids)
@@ -183,7 +184,7 @@ def check_instant_availability_batch(self, release_ids: list, user_id: str):
         
         # Check availability in batches of 100
         async def check_async():
-            client = RealDebridClient(user.realdebrid_api_key)
+            client = RealDebridClient(chave_do_usuario(user))
             try:
                 availability = await client.check_instant_availability(hashes)
                 return availability

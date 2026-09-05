@@ -5,7 +5,8 @@ from django.core.cache import cache
 from django.db import transaction
 from asgiref.sync import async_to_sync
 
-from apps.integrations.realdebrid import RealDebridClient
+from apps.integrations.realdebrid import (RealDebridClient,
+                                             chave_do_usuario)
 from apps.movies.models import TorrentRelease
 from apps.user_sessions.models import CinemaSession, SessionMovie
 from apps.user_sessions.utils import send_download_progress, send_session_update
@@ -24,12 +25,12 @@ def add_to_realdebrid(self, release_id, user_id):
         release = TorrentRelease.objects.get(id=release_id)
         user = User.objects.get(id=user_id)
         
-        if not user.realdebrid_api_key:  # type: ignore
+        if not chave_do_usuario(user):
             return {'error': 'Real-Debrid not configured'}
         
         # Wrapped async logic
         async def add_async():
-            client = RealDebridClient(user.realdebrid_api_key)  # type: ignore
+            client = RealDebridClient(chave_do_usuario(user))  # type: ignore
             try:
                 torrent_id = await client.add_magnet(release.magnet_link)
                 info = await client.get_torrent_info(torrent_id)
@@ -145,7 +146,7 @@ def monitor_realdebrid_download(self, release_id, user_id, session_id=None, lock
             return {'error': 'No Real-Debrid torrent ID'}
 
         async def check_async():
-            client = RealDebridClient(user.realdebrid_api_key)
+            client = RealDebridClient(chave_do_usuario(user))
             try:
                 return await client.get_torrent_info(release.realdebrid_id)
             finally:
@@ -175,7 +176,7 @@ def monitor_realdebrid_download(self, release_id, user_id, session_id=None, lock
         if status_val == 'downloaded':
             # Terminal state — release lock after completion handling
             async def get_links_async():
-                client = RealDebridClient(user.realdebrid_api_key)
+                client = RealDebridClient(chave_do_usuario(user))
                 try:
                     return await client.get_download_links(release.realdebrid_id)
                 finally:

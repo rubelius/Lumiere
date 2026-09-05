@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 import httpx
+from django.conf import settings
 
 
 class RealDebridClient:
@@ -210,3 +211,16 @@ class RealDebridClient:
     async def close(self):
         """Fecha conexão"""
         await self.client.aclose()
+
+def chave_do_usuario(user) -> str:
+    """
+    Chave do Real-Debrid válida para este usuário.
+
+    A conta do usuário primeiro, a da instância depois. Numa cinemateca
+    pessoal a chave normalmente mora só no .env, e cada caminho que olhasse
+    apenas o campo do usuário desistiria em silêncio com a integração
+    perfeitamente configurada — foi o que aconteceu com o download, a busca de
+    torrents e a checagem de disponibilidade instantânea, enquanto a
+    reprodução funcionava, porque só ela conhecia as duas fontes.
+    """
+    return getattr(user, 'realdebrid_api_key', '') or settings.REAL_DEBRID_API_KEY or ''

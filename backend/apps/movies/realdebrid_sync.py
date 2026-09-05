@@ -24,7 +24,7 @@ from django.db.models import Q
 
 from apps.integrations.realdebrid import RealDebridClient
 from apps.movies.models import Movie, TorrentRelease
-from apps.movies.release_naming import extrai_imdb_id, extrai_titulo_e_ano, parece_serie
+from apps.movies.release_naming import normaliza_titulo, extrai_imdb_id, extrai_titulo_e_ano, parece_serie
 from apps.movies.utils import calculate_quality_score, parse_quality_from_title
 
 logger = logging.getLogger(__name__)
@@ -59,10 +59,30 @@ def casa_com_filme(nome: str) -> Optional[Movie]:
         return None
 
     titulo, ano = extraido
-    return Movie.objects.filter(
+    exato = Movie.objects.filter(
         Q(title__iexact=titulo) | Q(original_title__iexact=titulo),
         year=ano,
     ).first()
+    if exato:
+        return exato
+
+    # Segunda tentativa, ignorando pontuação e acento. O nome do release perde
+    # a pontuação no caminho, então "Avatar The Way of Water" nunca alcançava
+    # "Avatar: The Way of Water" no acervo.
+    #
+    # Continua sendo igualdade exata sobre a forma normalizada, e continua
+    # exigindo o ano: um acervo de 26 mil filmes casaria qualquer coisa por
+    # substring, e casar errado é pior que não casar — liga a cópia de um
+    # filme na ficha de outro.
+    alvo = normaliza_titulo(titulo)
+    if not alvo:
+        return None
+
+    for filme in Movie.objects.filter(year=ano).only('id', 'title', 'original_title'):
+        if alvo in (normaliza_titulo(filme.title),
+                    normaliza_titulo(filme.original_title)):
+            return filme
+    return None
 
 
 def rotulo_de_qualidade(release: TorrentRelease) -> str:

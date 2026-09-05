@@ -67,3 +67,62 @@ def test_extrai_imdb_id_quando_o_grupo_embute():
 
 def test_sem_imdb_no_nome_devolve_none():
     assert extrai_imdb_id('The.Lobster.2015.Bluray.1080p') is None
+
+
+from apps.movies.release_naming import normaliza_titulo
+
+
+@pytest.mark.parametrize('release, acervo', [
+    # O caso que apareceu na conta real: o release perde os dois-pontos.
+    ('Avatar The Way of Water', 'Avatar: The Way of Water'),
+    ("Guillermo del Toros Pinocchio", "Guillermo del Toro's Pinocchio"),
+    ('Mulholland Dr', 'Mulholland Dr.'),
+    ('Cidade de Deus', 'Cidade de Deus'),
+    # Acento: o acervo é em português, os releases raramente têm.
+    ('Martires', 'Mártires'),
+    ('2001 A Space Odyssey', '2001: A Space Odyssey'),
+    ('Amelie', 'Amélie'),
+])
+def test_pontuacao_e_acento_nao_sao_diferenca_de_conteudo(release, acervo):
+    assert normaliza_titulo(release) == normaliza_titulo(acervo)
+
+
+@pytest.mark.parametrize('a, b', [
+    ('The Lobster', 'The Lobster Kid'),
+    ('Beau Is Afraid', 'Finally Home: Making Beau is Afraid'),
+    ('Pinocchio', "Guillermo del Toro's Pinocchio"),
+    ('Blade Runner', 'Blade Runner 2049'),
+    ('Alien', 'Aliens'),
+])
+def test_normalizar_nao_transforma_filmes_diferentes_em_iguais(a, b):
+    """
+    O acervo tem 26 mil filmes, e vários são o making-of ou a continuação de
+    outro. Normalizar remove pontuação, não palavras: casar errado liga a
+    cópia de um filme na ficha de outro, o que é pior que não casar.
+    """
+    assert normaliza_titulo(a) != normaliza_titulo(b)
+
+
+def test_normalizar_titulo_vazio_nao_casa_com_nada():
+    """
+    String vazia é igual a string vazia. Sem esta guarda, todo filme sem
+    título original casaria com qualquer release cujo título sumisse na
+    extração.
+    """
+    assert normaliza_titulo('') == ''
+    assert normaliza_titulo(None) == ''
+    assert normaliza_titulo('...') == ''
+
+
+@pytest.mark.parametrize('a, b', [
+    ('Spider-Man', 'Spider Man'),          # hífen precisa virar espaço
+    ("Toro's", 'Toros'),                   # apóstrofo precisa sumir
+    ('Rock’n’Roll', 'Rocknroll'),          # apóstrofo tipográfico também
+])
+def test_pontuacao_tem_dois_comportamentos(a, b):
+    """
+    Apóstrofo some, o resto vira espaço. Tratar os dois igual quebra um dos
+    casos: apóstrofo virando espaço separa palavra que era uma só, e
+    pontuação sumindo junta palavra que era duas.
+    """
+    assert normaliza_titulo(a) == normaliza_titulo(b)

@@ -124,3 +124,42 @@ def test_plex_sem_credencial_e_ignorado():
     user = SimpleNamespace(plex_server_url='', plex_token='')
     movie = SimpleNamespace(title='Filme', original_title='Movie', year=1990)
     assert asyncio.run(playback._from_plex(movie, user)) is None
+
+
+from apps.integrations.realdebrid import chave_do_usuario
+
+
+class _UsuarioFalso:
+    def __init__(self, chave=''):
+        self.realdebrid_api_key = chave
+
+
+def test_chave_do_usuario_prefere_a_do_proprio_usuario(settings):
+    settings.REAL_DEBRID_API_KEY = 'da-instancia'
+    assert chave_do_usuario(_UsuarioFalso('do-usuario')) == 'do-usuario'
+
+
+def test_chave_do_usuario_cai_na_da_instancia(settings):
+    """
+    Numa cinemateca pessoal a chave mora só no .env. Caminhos que olhavam
+    apenas o campo do usuário desistiam em silêncio com a integração
+    perfeitamente configurada — o download, a busca de torrents e a checagem
+    de disponibilidade instantânea ficaram mortos por isso, enquanto a
+    reprodução funcionava, porque só ela conhecia as duas fontes.
+    """
+    settings.REAL_DEBRID_API_KEY = 'da-instancia'
+    assert chave_do_usuario(_UsuarioFalso('')) == 'da-instancia'
+
+
+def test_chave_do_usuario_vazia_quando_nada_esta_configurado(settings):
+    settings.REAL_DEBRID_API_KEY = None
+    assert chave_do_usuario(_UsuarioFalso('')) == ''
+
+
+def test_chave_do_usuario_aceita_objeto_sem_o_campo(settings):
+    """
+    Usuário anônimo não tem o atributo. Sem o getattr isso viraria
+    AttributeError no meio do resolvedor de reprodução.
+    """
+    settings.REAL_DEBRID_API_KEY = 'da-instancia'
+    assert chave_do_usuario(object()) == 'da-instancia'

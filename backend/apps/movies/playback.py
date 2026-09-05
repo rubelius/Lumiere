@@ -23,7 +23,8 @@ from django.conf import settings
 
 from apps.integrations.jellyfin import JellyfinClient
 from apps.integrations.plex import PlexClient
-from apps.integrations.realdebrid import RealDebridClient
+from apps.integrations.realdebrid import (RealDebridClient,
+                                             chave_do_usuario)
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class PlaybackSource:
 
 async def _from_realdebrid(movie, user) -> Optional[PlaybackSource]:
     """Melhor release do acervo já presente no Real-Debrid."""
-    api_key = getattr(user, 'realdebrid_api_key', '') or settings.REAL_DEBRID_API_KEY
+    api_key = chave_do_usuario(user)
     if not api_key:
         return None
 

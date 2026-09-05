@@ -1,6 +1,7 @@
 import asyncio
 
-from apps.integrations.realdebrid import RealDebridClient
+from apps.integrations.realdebrid import (RealDebridClient,
+                                             chave_do_usuario)
 from apps.movies.models import TorrentRelease
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
@@ -38,7 +39,7 @@ class Command(BaseCommand):
             )
             return
         
-        if not user.realdebrid_api_key:
+        if not chave_do_usuario(user):
             self.stdout.write(
                 self.style.ERROR('✗ Real-Debrid não configurado para este usuário')
             )
@@ -58,7 +59,7 @@ class Command(BaseCommand):
         async def check_batch(batch):
             hashes = [r.info_hash for r in batch]
             
-            client = RealDebridClient(user.realdebrid_api_key)
+            client = RealDebridClient(chave_do_usuario(user))
             try:
                 availability = await client.check_instant_availability(hashes)
                 return availability

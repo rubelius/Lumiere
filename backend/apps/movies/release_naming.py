@@ -8,6 +8,7 @@ None e o item fica como "não casado" para inspeção humana.
 """
 
 import re
+import unicodedata
 from typing import Optional, Tuple
 
 # Marcadores que aparecem DEPOIS do ano num nome de release. Servem para
@@ -78,3 +79,30 @@ def extrai_titulo_e_ano(nome: str) -> Optional[Tuple[str, int]]:
     posicao, ano = candidatos[-1]
     titulo = limpo[:posicao].strip(' -–')
     return (titulo, ano) if titulo else None
+
+
+def normaliza_titulo(titulo: str) -> str:
+    """
+    Forma comparável de um título: sem acento, sem pontuação, caixa baixa.
+
+    O nome de um release perde a pontuação no caminho — os pontos separadores
+    viram espaços, e "Avatar.The.Way.of.Water" não tem como saber que o acervo
+    guarda "Avatar: The Way of Water". Comparar as duas formas cruas falha por
+    causa de um dois-pontos.
+
+    Normalizar não afrouxa o casamento: a comparação segue sendo igualdade
+    exata, e continua exigindo o ano bater. O que muda é só deixar de tratar
+    pontuação e acento como diferença de conteúdo.
+    """
+    if not titulo:
+        return ''
+    sem_acento = ''.join(
+        c for c in unicodedata.normalize('NFKD', titulo)
+        if not unicodedata.combining(c)
+    )
+    # Apóstrofo some, o resto da pontuação vira espaço. Se o apóstrofo também
+    # virasse espaço, "Toro's" daria "toro s" e não alcançaria "Toros"; se a
+    # pontuação toda sumisse, "Spider-Man" daria "spiderman" e deixaria de
+    # alcançar "Spider Man".
+    sem_apostrofo = re.sub(r"['\u2019\u02bc`]", '', sem_acento.lower())
+    return re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', ' ', sem_apostrofo)).strip()

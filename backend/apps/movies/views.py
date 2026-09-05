@@ -20,7 +20,8 @@ from asgiref.sync import async_to_sync, sync_to_async
 from apps.core.core_cache import CacheManager
 from apps.core.throttling import ExpensiveOperationThrottle
 from apps.integrations.prowlarr import ProwlarrClient
-from apps.integrations.realdebrid import RealDebridClient
+from apps.integrations.realdebrid import (RealDebridClient,
+                                             chave_do_usuario)
 from apps.movies.playback import resolve_playback
 from apps.movies.subtitle_service import busca_legendas, obtem_vtt
 from apps.movies.utils import calculate_quality_score, parse_quality_from_title
@@ -331,13 +332,13 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
         async def _executar():
             release = await sync_to_async(self.get_object)()
             user = request.user
-            if not user.realdebrid_api_key:
+            if not chave_do_usuario(user):
                 return Response({'error': 'Real-Debrid not configured'}, status=status.HTTP_400_BAD_REQUEST)
             
             if release.in_realdebrid and release.realdebrid_id and release.realdebrid_status not in ('error', 'dead'):
                 return Response({'message': 'Release is already active in Real-Debrid.', 'torrent_id': release.realdebrid_id, 'status': release.realdebrid_status})
         
-            client = RealDebridClient(user.realdebrid_api_key)
+            client = RealDebridClient(chave_do_usuario(user))
             try:
                 torrent_id = await client.add_magnet(release.magnet_link)
                 info = await client.get_torrent_info(torrent_id)
