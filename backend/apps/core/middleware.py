@@ -8,16 +8,29 @@ from .rate_limit import RateLimiter
 from urllib.parse import parse_qs
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
-from rest_framework_simplejwt.tokens import AccessToken
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
 
 logger = logging.getLogger('apps.requests')
 
 class JWTAuthMiddleware:
     """
-    Channels middleware that authenticates via JWT token in query string.
-    Usage: ws://host/ws/path/?token=<access_token>
+    Autentica a conexão WebSocket pelo ticket de uso único.
+
+    Uso: ws://host/ws/caminho/?ticket=<ticket>
+
+    O ticket é emitido por POST /api/auth/ws-ticket/, vale 30 segundos e vale
+    uma vez só. Ele existe porque URL de WebSocket aparece em log de servidor,
+    de proxy e no histórico do navegador — e um JWT ali dentro vaza junto,
+    válido por toda a sua vida útil. O ticket vaza sem serventia: já foi
+    consumido.
+
+    Esta classe lia `?token=`, que é exatamente o que o ticket veio evitar, e
+    o cliente nunca mandou esse parâmetro. Resultado: toda conexão caía em
+    AnonymousUser e nada em tempo real funcionava.
     """
+
+    PREFIXO = 'ws_ticket:'
 
     def __init__(self, inner):
         self.inner = inner
@@ -25,25 +38,31 @@ class JWTAuthMiddleware:
     async def __call__(self, scope, receive, send):
         # Transforma o scope em dict para podermos alterá-lo
         scope = dict(scope)
-        query_string = scope.get('query_string', b'').decode()
-        params = parse_qs(query_string)
-        token_list = params.get('token', [])
+        params = parse_qs(scope.get('query_string', b'').decode())
+        tickets = params.get('ticket', [])
 
-        if token_list:
-            scope['user'] = await self._get_user(token_list[0])
-        else:
-            scope['user'] = AnonymousUser()
+        scope['user'] = (
+            await self._usuario_do_ticket(tickets[0]) if tickets else AnonymousUser()
+        )
 
         return await self.inner(scope, receive, send)
 
     @database_sync_to_async
-    def _get_user(self, raw_token: str):
+    def _usuario_do_ticket(self, ticket: str):
         from django.contrib.auth import get_user_model
-        User = get_user_model()
+
+        chave = f'{self.PREFIXO}{ticket}'
+        user_id = cache.get(chave)
+        if not user_id:
+            return AnonymousUser()
+
+        # Uso único: apagar antes de resolver o usuário fecha a janela em que
+        # duas conexões simultâneas aproveitariam o mesmo ticket.
+        cache.delete(chave)
+
         try:
-            validated = AccessToken(raw_token)
-            return User.objects.get(id=validated['user_id'])
-        except (InvalidToken, TokenError, User.DoesNotExist):
+            return get_user_model().objects.get(id=user_id)
+        except (get_user_model().DoesNotExist, ValueError, ValidationError):
             return AnonymousUser()
 
 class RateLimitHeadersMiddleware(MiddlewareMixin):

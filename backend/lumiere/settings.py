@@ -11,6 +11,8 @@ CORRIGIDO E OTIMIZADO - Todos os problemas resolvidos:
 """
 
 import os
+
+from django.core.exceptions import ImproperlyConfigured
 from datetime import timedelta
 from pathlib import Path
 
@@ -27,6 +29,8 @@ load_dotenv(dotenv_path=env_path)
 # CORE SETTINGS
 # ==============================================================================
 
+# O valor de exemplo é comparado em CHAVE_DE_EXEMPLO, mais abaixo, para
+# impedir que ele chegue a produção.
 SECRET_KEY = os.getenv(
     'SECRET_KEY',
     'django-insecure-CHANGE-THIS-IN-PRODUCTION-min-50-characters-long'
@@ -56,6 +60,10 @@ INSTALLED_APPS = [
     # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    # Exigido por BLACKLIST_AFTER_ROTATION. Sem este app o simplejwt não
+    # tem onde gravar a lista, e a rotação apenas emite um refresh novo
+    # enquanto o antigo segue válido até expirar — em silêncio.
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
     'drf_spectacular',
@@ -193,9 +201,19 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # As classes precisam estar aqui: só as taxas, sem elas, é configuração
+    # decorativa — o DRF não aplica limite nenhum.
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
+        # Login é o único endpoint onde tentar de novo, muito e rápido, é o
+        # ataque em si. 100/hora de anônimo é generoso demais para isso.
+        'login': '10/min',
     },
     'EXCEPTION_HANDLER': 'apps.core.exceptions.custom_exception_handler',
 }
@@ -279,7 +297,20 @@ CORS_ALLOW_CREDENTIALS = True
 # SECURITY
 # ==============================================================================
 
+CHAVE_DE_EXEMPLO = 'django-insecure-CHANGE-THIS-IN-PRODUCTION-min-50-characters-long'
+
 if not DEBUG:
+    # A SECRET_KEY é a chave de assinatura dos JWT (SIMPLE_JWT.SIGNING_KEY
+    # abaixo). Subir em produção com o valor de exemplo — que está versionado
+    # neste arquivo — permite a qualquer um forjar um token para qualquer
+    # usuário. Não há aviso automático: o Django sobe normalmente, e o
+    # security.W009 nem dispara, porque a string de exemplo tem 64 caracteres.
+    if SECRET_KEY == CHAVE_DE_EXEMPLO:
+        raise ImproperlyConfigured(
+            'SECRET_KEY não configurada: com DEBUG desligado, a chave de '
+            'exemplo versionada no repositório assinaria os JWT de produção.'
+        )
+
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

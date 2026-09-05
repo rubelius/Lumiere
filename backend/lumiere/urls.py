@@ -31,6 +31,16 @@ router.register(r'sessions', CinemaSessionViewSet, basename='session')
 router.register(r'themes', SessionThemeViewSet, basename='theme')
 router.register(r'users', UserViewSet, basename='user')
 
+class LoginThrottled(TokenObtainPairView):
+    """
+    Login com limite próprio.
+
+    O limite de anônimo (100/hora) vale para navegar; para adivinhar senha ele
+    é convite. Este endpoint é o único onde repetir a chamada É o ataque.
+    """
+    throttle_scope = 'login'
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home), # Rota para a raiz
@@ -43,7 +53,7 @@ urlpatterns = [
     
     # Authentication & Security
     path('api/auth/register/', UserViewSet.as_view({'post': 'create'}), name='register'),
-    path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/token/', LoginThrottled.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     
