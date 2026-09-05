@@ -25,6 +25,7 @@ from apps.movies.playback import resolve_playback
 from apps.movies.subtitle_service import busca_legendas, obtem_vtt
 from apps.movies.utils import calculate_quality_score, parse_quality_from_title
 from apps.ml.models import MovieSimilarity
+from apps.ml.similarity import diversifica
 
 from .filters import MovieFilter
 from .models import Movie, TorrentRelease
@@ -229,9 +230,13 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['get'])
     def recommendations(self, request, pk=None):
         movie = self.get_object()
-        similarities = MovieSimilarity.objects.filter(
-            movie=movie
-        ).select_related('similar_movie').order_by('-overall_similarity')[:20]
+        # Diversifica antes de cortar: metade dos filmes de diretor canônico
+        # recebia uma lista que era, em maioria, a própria filmografia.
+        similarities = diversifica(
+            MovieSimilarity.objects.filter(movie=movie)
+            .select_related('similar_movie').order_by('-overall_similarity'),
+            limite=20,
+        )
         recommendations = [{
             'movie': MovieListSerializer(sim.similar_movie).data,
             'similarity_score': float(sim.overall_similarity),

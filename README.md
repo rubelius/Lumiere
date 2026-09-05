@@ -139,6 +139,41 @@ warning from Postgres. `apps/ml/similarity.py` now raises the beam per query
 via a transaction-local `set_config`, and logs a warning whenever a list comes
 back shorter than asked.
 
+### What the neighbour lists actually look like
+
+Retrieval scores are not curation. `benchmark_embeddings` scores by collection
+and by director because the archive already knows both — but those are exactly
+the two things that spoil a *similar films* list. `manage.py
+diagnostica_vizinhanca` measures the spoilage instead, over the 6,000
+highest-ranked films:
+
+| recipe | shared title word | same director | canonical directors' lists dominated |
+| --- | --- | --- | --- |
+| `atual` (title + director) | 6.5% | 11.4% | 51% |
+| `sem_titulo` (neither) | 1.6% | 2.9% | 4% |
+| `sem_titulo_com_diretor` | 1.7% | 13.0% | 66% |
+
+Two distinct defects, with different fixes.
+
+**The title pulls a film towards films *about* it.** *Citizen Kane*'s nearest
+neighbours are the TV drama about its production, a documentary about Welles,
+and *Mank*. Title-word overlap runs 50× above the 0.2% chance baseline. Only
+dropping the title from the embedded text fixes this, and that means
+re-embedding the archive.
+
+**The director pulls in the whole filmography.** Half of all films by a
+director with 25+ entries got a list that was mostly that director. This one is
+fixed at serving time — `diversifica()` caps repeats per director — with no
+re-embedding.
+
+But dropping the director costs something real: films whose identity is formal
+rather than narrative lose their anchor, because an overview describes plot.
+Without it, *2001* lands next to *Sunshine* and *Avatar*, and *Stalker* drifts
+into horror. Meanwhile *Cidade de Deus* improves sharply — it gains *La Haine*
+and *Los Olvidados*. The text alone cannot separate "this director's style"
+from "this director's filmography", so the recipe stays where it is until
+someone decides that trade deliberately.
+
 Changing the model means re-embedding the whole archive and recomputing every
 neighbour list:
 

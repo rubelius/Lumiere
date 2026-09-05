@@ -116,9 +116,20 @@ class MovieDetailSerializer(serializers.ModelSerializer):
     @extend_schema_field(SimilarMovieSerializer(many=True))
     def get_similar_movies(self, obj):
         from apps.ml.models import MovieSimilarity
-        similarities = MovieSimilarity.objects.filter(
-            movie=obj
-        ).select_related('similar_movie')[:10]
+        from apps.ml.similarity import diversifica
+
+        # Sem order_by o Postgres devolve na ordem que quiser. Hoje sai certo
+        # porque as linhas foram inseridas em ordem de similaridade, mas isso
+        # é acidente do arranjo físico, não garantia — e o acidente acaba na
+        # primeira vez que uma dessas linhas for reescrita.
+        #
+        # Busca as 50 e corta para 10 depois de diversificar: cortar antes
+        # deixaria a cota de diretor sem nada para escolher.
+        similarities = diversifica(
+            MovieSimilarity.objects.filter(movie=obj)
+            .select_related('similar_movie').order_by('-overall_similarity'),
+            limite=10,
+        )
         
         return [{
             'movie': MovieListSerializer(sim.similar_movie).data,

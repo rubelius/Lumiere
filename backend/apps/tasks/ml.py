@@ -160,7 +160,12 @@ def train_user_taste_profile(self, user_id: str):
         ratings = []
         
         for entry in diary_entries:
-            if entry.movie.embedding:
+            # `is not None`, não teste booleano: o VectorField devolve ndarray,
+            # e avaliar um array de 1024 posições como verdade levanta
+            # ValueError. O queryset acima filtra embedding__isnull=False, então
+            # a primeira volta do laço sempre trazia vetor real e sempre
+            # estourava — nenhum perfil de gosto jamais foi gravado.
+            if entry.movie.embedding is not None:
                 embeddings.append(entry.movie.embedding)
                 # Use rating if available, otherwise neutral 3.0
                 ratings.append(float(entry.rating) if entry.rating else 3.0)

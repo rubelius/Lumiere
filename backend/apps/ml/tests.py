@@ -240,3 +240,99 @@ def test_feixe_de_busca_nunca_fica_menor_que_a_lista_pedida(top_n):
 
     assert ef_search_para(top_n) >= top_n
     assert ef_search_para(top_n) >= 200
+
+
+def test_vetor_nunca_e_usado_como_condicao_booleana():
+    """
+    O VectorField do pgvector devolve numpy.ndarray. Avaliar um array de 1024
+    posições em contexto booleano levanta ValueError — não devolve False.
+
+    `if entry.movie.embedding:` derrubou o treino do perfil de gosto em toda
+    execução, para todo usuário, e o erro morria num `except Exception` que
+    fazia retry da mesma falha determinística. Nenhum perfil foi gravado, e
+    portanto a recomendação personalizada nunca funcionou.
+
+    A forma correta, usada em apps/ml/similarity.py, é comparar com None.
+    """
+    campos = {'embedding', 'taste_profile_embedding'}
+    achados = []
+
+    for rel, caminho in fontes():
+        for no in ast.walk(ast.parse(caminho.read_text())):
+            if not isinstance(no, (ast.If, ast.IfExp, ast.While)):
+                continue
+            teste = no.test
+            # Cobre tanto `if x.embedding:` quanto `if not x.embedding:`.
+            if isinstance(teste, ast.UnaryOp) and isinstance(teste.op, ast.Not):
+                teste = teste.operand
+            if isinstance(teste, ast.Attribute) and teste.attr in campos:
+                achados.append(f'{rel}:{teste.lineno} -> .{teste.attr}')
+
+    assert not achados, (
+        'campo vetorial em contexto booleano; compare com None:\n  '
+        + '\n  '.join(achados))
+
+
+class _Falso:
+    """Um par (filme, vizinho) com só o que `diversifica` olha."""
+    def __init__(self, diretor, titulo=''):
+        self.similar_movie = type('M', (), {'director': diretor, 'title': titulo})()
+
+
+def _diretores(resultado):
+    return [s.similar_movie.director for s in resultado]
+
+
+def test_diversifica_limita_repeticao_de_diretor():
+    """
+    Metade dos filmes de diretor canônico recebia uma lista que era, em
+    maioria, a própria filmografia — a vizinhança certa, exibida crua.
+    """
+    from apps.ml.similarity import diversifica
+
+    lista = [_Falso('Hitchcock') for _ in range(8)] + [
+        _Falso('Kurosawa'), _Falso('Ford'), _Falso('Lang'), _Falso('Wilder')]
+
+    saida = _diretores(diversifica(lista, limite=6, max_por_diretor=3))
+    assert saida.count('Hitchcock') == 3
+    assert len(saida) == 6
+
+
+def test_diversifica_preserva_a_ordem_de_similaridade():
+    """Diversificar reordena por cota, nunca por gosto: o mais parecido vem primeiro."""
+    from apps.ml.similarity import diversifica
+
+    lista = [_Falso('A'), _Falso('B'), _Falso('A'), _Falso('C'), _Falso('A'), _Falso('D')]
+    assert _diretores(diversifica(lista, limite=4, max_por_diretor=2)) == ['A', 'B', 'A', 'C']
+
+
+def test_diversifica_completa_em_vez_de_devolver_lista_curta():
+    """
+    Se a cota não deixar preencher o limite, é melhor repetir diretor do que
+    entregar meia lista — um acervo pequeno tem pouca escolha e a tela precisa
+    do mesmo tanto de cards.
+    """
+    from apps.ml.similarity import diversifica
+
+    saida = diversifica([_Falso('A') for _ in range(9)], limite=5, max_por_diretor=2)
+    assert len(saida) == 5
+
+
+def test_diversifica_nao_agrupa_filmes_sem_diretor():
+    """
+    Diretor em branco não é uma filmografia. Tratá-lo como chave faria os
+    filmes sem ficha técnica competirem por uma cota que não existe, e um
+    quarto parecido sem ficha cederia a vez para um menos parecido que tem.
+
+    Só contar o tamanho da saída não prova nada: o preenchimento com sobras
+    devolve cinco itens de qualquer jeito. O que distingue é QUEM fica.
+    """
+    from apps.ml.similarity import diversifica
+
+    lista = [_Falso('', 'a'), _Falso('', 'b'), _Falso('', 'c'), _Falso('Ford', 'd')]
+    saida = [s.similar_movie.title
+             for s in diversifica(lista, limite=3, max_por_diretor=2)]
+
+    # Com a guarda: os três mais parecidos, todos sem ficha.
+    # Sem ela: 'c' perderia a vez para 'd', que é menos parecido.
+    assert saida == ['a', 'b', 'c']

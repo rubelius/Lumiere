@@ -160,3 +160,46 @@ def ids_para_calcular(refazer: bool = False, limite: Optional[int] = None):
 
     qs = qs.order_by('ranking_current').values_list('id', flat=True)
     return list(qs[:limite] if limite else qs)
+
+
+# Quantos filmes do mesmo diretor cabem numa lista de parecidos. Medido com
+# `manage.py diagnostica_vizinhanca` sobre os 6 mil filmes mais bem
+# classificados do acervo, contando o top-10 de cada:
+#
+#     filmografia do diretor    mesmo diretor   listas dominadas
+#     1-2 filmes                        1.0%                 0%
+#     3-9 filmes                       11.5%                 1%
+#     10-24 filmes                     28.9%                25%
+#     25+ filmes                       48.9%                51%
+#
+# Ou seja: metade dos filmes de diretor canônico recebia uma lista que era, em
+# maioria, a própria filmografia. Num acervo montado sobre o TSPDT isso atinge
+# justamente Hitchcock, Godard, Bergman — o assunto de uma cinemateca. A
+# vizinhança em si está certa; o que não serve é mostrá-la crua.
+MAX_POR_DIRETOR = 3
+
+
+def diversifica(similaridades, limite: int, max_por_diretor: int = MAX_POR_DIRETOR):
+    """
+    Reduz uma lista de parecidos já ordenada, limitando repetição de diretor.
+
+    Preserva a ordem de similaridade: um filme só é descartado se o diretor
+    dele já apareceu `max_por_diretor` vezes. Se sobrar espaço no fim — acervo
+    pequeno, ou vizinhança concentrada demais — completa com os descartados,
+    porque devolver uma lista curta é pior que devolver uma repetitiva.
+    """
+    escolhidos, sobras = [], []
+    quantos = {}
+
+    for s in similaridades:
+        diretor = getattr(s.similar_movie, 'director', '') or ''
+        # Sem diretor não há filmografia para concentrar; não conta na cota.
+        if diretor and quantos.get(diretor, 0) >= max_por_diretor:
+            sobras.append(s)
+            continue
+        quantos[diretor] = quantos.get(diretor, 0) + 1
+        escolhidos.append(s)
+        if len(escolhidos) == limite:
+            return escolhidos
+
+    return escolhidos + sobras[:limite - len(escolhidos)]

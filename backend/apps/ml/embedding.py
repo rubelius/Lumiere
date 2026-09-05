@@ -37,6 +37,37 @@ RECEITAS: Dict[str, tuple] = {
         ('genres', 'Genres', None),
         ('keywords', 'Keywords', 10),
     ),
+    # O título carrega o nome próprio da obra, e é ele que aproxima um filme
+    # dos filmes SOBRE ele: Cidadão Kane devolvia 'RKO 281: A Batalha de
+    # Cidadão Kane', 'Mank' e um documentário sobre Welles antes de qualquer
+    # filme parecido com Cidadão Kane. Esta receita existe para medir quanto
+    # do sinal é entidade nomeada e quanto é a obra em si.
+    'sem_titulo': (
+        ('overview', 'Overview', None),
+        ('genres', 'Genres', None),
+        ('keywords', 'Keywords', 10),
+    ),
+    # O diretor tem o mesmo efeito, uma casa acima: aproxima a filmografia
+    # inteira. Num acervo montado sobre o TSPDT os canônicos têm dezenas de
+    # filmes, e a lista vira filmografia.
+    # O meio-termo. Medir mostrou que título e diretor têm efeitos opostos:
+    # o título aproxima o filme dos filmes SOBRE ele, e é só ruído; o diretor
+    # aproxima a filmografia inteira, mas é a única âncora de FORMA que o
+    # texto tem — a sinopse de 2001 não o distingue de qualquer ficção
+    # científica. Esta receita tira um e mantém o outro.
+    'sem_titulo_com_diretor': (
+        ('overview', 'Overview', None),
+        ('director', 'Director', None),
+        ('genres', 'Genres', None),
+        ('keywords', 'Keywords', 10),
+    ),
+    'sem_nomes_proprios': (
+        ('overview', 'Overview', None),
+        ('year', 'Year', None),
+        ('country', 'Country', None),
+        ('genres', 'Genres', None),
+        ('keywords', 'Keywords', 10),
+    ),
     'com_ano_e_pais': (
         ('title', 'Title', None),
         ('year', 'Year', None),
