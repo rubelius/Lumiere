@@ -99,14 +99,21 @@ class Command(BaseCommand):
                     # Credits
                     if details.get('credits'):
                         # Cast
-                        cast = details['credits'].get('cast', [])[:10]
-                        movie.tmdb_data = {
-                            'cast': [
-                                {'name': c['name'], 'character': c['character']}
-                                for c in cast
-                            ],
-                            'crew': details['credits'].get('crew', [])[:20]
-                        }
+                        # Escrevia em movie.tmdb_data, campo apagado na migração
+                        # 0002. Atribuir não levanta erro — o Python só cria um
+                        # atributo solto na instância — então o save() ignorava
+                        # e o elenco buscado no TMDB era descartado em silêncio.
+                        #
+                        # Só preenche o que está vazio: sync_crew grava a forma
+                        # rica (profile_url, tmdb_person_id) e não pode ser
+                        # sobrescrita por esta, que traz só nome e personagem.
+                        if not movie.cast:
+                            movie.cast = [
+                                {'name': c['name'], 'character': c.get('character', '')}
+                                for c in details['credits'].get('cast', [])[:10]
+                            ]
+                        if not movie.crew:
+                            movie.crew = details['credits'].get('crew', [])[:20]
                     
                     movie.save()
                     found += 1

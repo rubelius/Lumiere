@@ -13,8 +13,8 @@ def warm_popular_movies_cache():
     """
     # Top 100 TSPDT
     popular_movies = Movie.objects.filter(
-        ranking_2026__lte=100
-    ).order_by('ranking_2026')
+        ranking_current__lte=100
+    ).order_by('ranking_current')
     
     warmed = 0
     

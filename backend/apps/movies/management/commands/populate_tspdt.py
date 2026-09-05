@@ -73,15 +73,22 @@ class Command(BaseCommand):
             updated = 0
             
             for film in films_data:
-                movie, created_flag = Movie.objects.update_or_create(
+                # O modelo guarda a posição mais recente em ranking_current e a
+                # série inteira em tspdt_history. Os campos por ano
+                # (ranking_2025/2026) foram removidos na migração 0002, e
+                # gravar neles derrubava este comando na primeira linha.
+                movie, created_flag = Movie.objects.get_or_create(
                     title=film['title'],
                     year=film['year'],
-                    defaults={
-                        'director': film['director'],
-                        'ranking_2026': film['ranking'] if year == 2026 else None,
-                        'ranking_2025': film['ranking'] if year == 2025 else None,
-                    }
+                    defaults={'director': film['director']},
                 )
+                movie.director = film['director'] or movie.director
+                movie.ranking_current = film['ranking']
+                historico = dict(movie.tspdt_history or {})
+                historico[str(year)] = film['ranking']
+                movie.tspdt_history = historico
+                movie.save(update_fields=[
+                    'director', 'ranking_current', 'tspdt_history'])
                 
                 if created_flag:
                     created += 1

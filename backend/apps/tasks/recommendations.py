@@ -136,9 +136,9 @@ def generate_content_based_recs(user, profile, watched_ids, count):
         
         # Boost by ranking (TSPDT films get bonus)
         score = similarity
-        if movie.ranking_2026 and movie.ranking_2026 <= 100:
+        if movie.ranking_current and movie.ranking_current <= 100:
             score *= 1.2
-        elif movie.ranking_2026 and movie.ranking_2026 <= 1000:
+        elif movie.ranking_current and movie.ranking_current <= 1000:
             score *= 1.1
         
         recommendations.append({
@@ -149,7 +149,7 @@ def generate_content_based_recs(user, profile, watched_ids, count):
             'explanation': f"Based on your taste profile ({int(similarity * 100)}% match)",
             'reasoning': {
                 'similarity': float(similarity),
-                'ranking': movie.ranking_2026
+                'ranking': movie.ranking_current
             }
         })
     
@@ -247,7 +247,11 @@ def generate_director_recs(user, profile, watched_ids, count):
         director__in=favorite_directors
     ).exclude(
         id__in=watched_ids
-    ).order_by('-ranking_2026', '-tmdb_rating')[:count * 2]
+    # Ranking do TSPDT: 1 é o melhor. Ordenar decrescente trazia os PIORES
+    # primeiro, contradizendo o cálculo três linhas abaixo, que pontua
+    # `1.0 - ranking/1000`. O erro ficou escondido enquanto o campo nem
+    # existia e a consulta inteira levantava FieldError.
+    ).order_by('ranking_current', '-tmdb_rating')[:count * 2]
     
     for movie in director_films:
         # Score based on director preference
@@ -255,8 +259,8 @@ def generate_director_recs(user, profile, watched_ids, count):
         
         # Boost by TSPDT ranking
         ranking_score = 0
-        if movie.ranking_2026:
-            ranking_score = 1.0 - (movie.ranking_2026 / 1000.0)
+        if movie.ranking_current:
+            ranking_score = 1.0 - (movie.ranking_current / 1000.0)
         
         # STUB 5: Normalização de Pesos Resolvida
         score = (director_score * 0.7) + (ranking_score * 0.3)
@@ -283,15 +287,15 @@ def generate_hidden_gems(watched_ids, count):
     # Find highly rated films with lower TSPDT rankings (hidden gems)
     hidden_gems = Movie.objects.filter(
         tmdb_rating__gte=7.5,
-        ranking_2026__gte=500  # Not in top 500
+        ranking_current__gte=500  # Not in top 500
     ).exclude(
         id__in=watched_ids
-    ).order_by('-tmdb_rating', 'ranking_2026')[:count]
+    ).order_by('-tmdb_rating', 'ranking_current')[:count]
     
     for movie in hidden_gems:
         # Score based on rating and obscurity
         rating_score = (movie.tmdb_rating - 7.0) / 3.0  # Normalize from 7-10
-        obscurity_score = 1.0 - (movie.ranking_2026 / 2000.0) if movie.ranking_2026 else 0.5
+        obscurity_score = 1.0 - (movie.ranking_current / 2000.0) if movie.ranking_current else 0.5
         
         # STUB 5: Normalização
         score = (rating_score * 0.6) + (obscurity_score * 0.4)
@@ -304,7 +308,7 @@ def generate_hidden_gems(watched_ids, count):
             'explanation': f"Hidden gem: {movie.tmdb_rating}/10 rating but not widely known",
             'reasoning': {
                 'tmdb_rating': float(movie.tmdb_rating) if movie.tmdb_rating else 0,
-                'ranking': movie.ranking_2026
+                'ranking': movie.ranking_current
             }
         })
     

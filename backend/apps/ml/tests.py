@@ -336,3 +336,68 @@ def test_diversifica_nao_agrupa_filmes_sem_diretor():
     # Com a guarda: os três mais parecidos, todos sem ficha.
     # Sem ela: 'c' perderia a vez para 'd', que é menos parecido.
     assert saida == ['a', 'b', 'c']
+
+
+def campos_removidos():
+    """
+    Campos que as migrações apagaram e ninguém recriou depois.
+
+    Percorre as migrações em ordem: RemoveField marca o campo como ausente,
+    AddField ou um CreateModel posterior o traz de volta.
+    """
+    estado = {}
+    for migracoes in sorted(APPS.glob('*/migrations')):
+        app = migracoes.parent.name
+        for arquivo in sorted(migracoes.glob('[0-9]*.py')):
+            for no in ast.walk(ast.parse(arquivo.read_text())):
+                if not isinstance(no, ast.Call):
+                    continue
+                op = getattr(no.func, 'attr', '')
+                kw = {k.arg: k.value for k in no.keywords}
+
+                if op in ('RemoveField', 'AddField') and 'name' in kw:
+                    chave = (app, ast.literal_eval(kw['model_name']).lower(),
+                             ast.literal_eval(kw['name']))
+                    estado[chave] = (op == 'RemoveField')
+                elif op == 'CreateModel' and 'fields' in kw:
+                    modelo = ast.literal_eval(kw['name']).lower()
+                    for par in kw['fields'].elts:
+                        estado[(app, modelo, ast.literal_eval(par.elts[0]))] = False
+
+    return {campo for (_, _, campo), sumiu in estado.items() if sumiu}
+
+
+def test_nenhum_codigo_usa_campo_que_a_migracao_apagou():
+    """
+    Campo removido não some do código junto. `ranking_2026` foi apagado na
+    migração 0002 e continuou sendo usado em 15 lugares: o módulo inteiro de
+    recomendações e a task de cache. Nas consultas isso vira FieldError, no
+    acesso a atributo vira AttributeError — e as duas coisas morriam dentro
+    de `except Exception` que fazia retry.
+
+    Nada avisa: o Django não valida nomes de campo até a consulta rodar, e
+    ninguém rodava.
+    """
+    removidos = campos_removidos()
+    assert removidos, 'nenhuma migração de RemoveField encontrada'
+
+    achados = []
+    for rel, caminho in fontes():
+        if '/migrations/' in rel:
+            continue
+        for no in ast.walk(ast.parse(caminho.read_text())):
+            # movie.ranking_2026
+            if isinstance(no, ast.Attribute) and no.attr in removidos:
+                achados.append(f'{rel}:{no.lineno} -> .{no.attr}')
+            # filter(ranking_2026__lte=100)
+            elif isinstance(no, ast.keyword) and no.arg:
+                nome = no.arg.split('__')[0]
+                if nome in removidos:
+                    achados.append(f'{rel}:{getattr(no.value, "lineno", 0)} -> {no.arg}=')
+            # order_by('-ranking_2026')
+            elif isinstance(no, ast.Constant) and isinstance(no.value, str):
+                if no.value.lstrip('-') in removidos:
+                    achados.append(f'{rel}:{no.lineno} -> {no.value!r}')
+
+    assert not achados, (
+        'campo apagado por migração ainda em uso:\n  ' + '\n  '.join(achados))
