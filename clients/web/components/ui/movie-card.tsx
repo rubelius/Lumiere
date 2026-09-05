@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
+import { SeloAssistido } from '@/components/ui/SeloAssistido'
 import { cn } from "@/lib/utils"
 
 /* ============================================
@@ -77,9 +78,12 @@ interface MovieCardProps {
   className?: string
   index?: number
   priority?: boolean
+  /** Se este usuário já assistiu. Marca o card e esmaece o pôster. */
+  watched?: boolean
 }
 
 export function MovieCard({ 
+  watched = false,
   id, 
   title, 
   year, 
@@ -124,10 +128,15 @@ export function MovieCard({
             className={cn(
               "object-cover transition-all duration-700 ease-out z-10",
               "group-hover:scale-105 group-focus-visible:scale-105",
-              !imageLoaded ? "opacity-0" : "opacity-100"
+              !imageLoaded ? "opacity-0" : "opacity-100",
+              // Já visto entra apagado e volta ao normal no hover: some da
+              // varredura sem sumir do acervo.
+              watched && "grayscale-[60%] brightness-[0.62] group-hover:grayscale-0 group-hover:brightness-100"
             )}
             onLoad={() => setImageLoaded(true)}
           />
+
+          {watched && <SeloAssistido />}
           
           {/* Subtle gradient overlays */}
           <div className="absolute inset-0 z-20 pointer-events-none bg-linear-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity duration-500" />

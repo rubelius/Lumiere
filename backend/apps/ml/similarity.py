@@ -203,3 +203,50 @@ def diversifica(similaridades, limite: int, max_por_diretor: int = MAX_POR_DIRET
             return escolhidos
 
     return escolhidos + sobras[:limite - len(escolhidos)]
+
+
+def desprioriza_assistidos(similaridades, assistidos: set):
+    """
+    Empurra para o fim o que o usuário já viu, sem descartar.
+
+    Sugerir de novo o que a pessoa acabou de assistir gasta o espaço mais
+    valioso da tela com informação que ela já tem. Mas remover seria pior: a
+    seção de parecidos também serve para reconhecer o que se conhece — é o que
+    dá confiança de que a recomendação entendeu o filme. Então desce, não some.
+
+    A ordem relativa dentro de cada grupo é preservada: quem estava mais
+    parecido continua mais parecido.
+    """
+    if not assistidos:
+        return list(similaridades)
+
+    novos, vistos = [], []
+    for s in similaridades:
+        (vistos if s.similar_movie_id in assistidos else novos).append(s)
+    return novos + vistos
+
+
+def agenda_retreino_do_gosto(user) -> bool:
+    """
+    Pede o retreino do perfil de gosto deste usuário. Devolve se foi enfileirado.
+
+    O retreino roda em segundo plano porque codificar dezenas de vetores
+    demora e o player está esperando resposta para continuar tocando.
+
+    Falha de broker não pode derrubar a gravação do progresso: sem worker no
+    ar — que é o estado normal de uma instância caseira — o filme continua
+    marcado como visto e o perfil se atualiza na próxima rodada do beat. Um
+    request de progresso que devolve 500 porque o Redis caiu perde a posição
+    do filme, que é o dado que o usuário realmente não quer perder.
+    """
+    from apps.tasks.ml import train_user_taste_profile
+
+    try:
+        train_user_taste_profile.apply_async(args=[str(user.id)])
+        return True
+    except Exception as e:
+        logger.warning(
+            'Retreino do gosto não enfileirado para %s (%s: %s). O histórico '
+            'foi gravado; o perfil se atualiza na próxima rodada agendada.',
+            user, type(e).__name__, str(e)[:120])
+        return False

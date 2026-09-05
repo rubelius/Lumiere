@@ -13,6 +13,51 @@ from pgvector.django import CosineDistance, L2Distance
 
 logger = logging.getLogger(__name__)
 
+# Abaixo disto o perfil descreveria ruído, não gosto: meia dúzia de filmes faz
+# o vetor médio pender para o acaso do que se viu primeiro.
+MINIMO_PARA_PERFIL = 10
+
+# Nota atribuída a um filme visto sem avaliação. Neutra de propósito: o sinal
+# ali é "assistiu", não "gostou".
+NOTA_NEUTRA = 3.0
+
+
+def amostras_de_gosto(user):
+    """
+    Pares (embedding, nota) que descrevem o gosto do usuário.
+
+    Junta o histórico do próprio Lumière com o diário importado do Letterboxd.
+    Quando o mesmo filme aparece nos dois, vale o registro local: ele traz a
+    contagem de revisões, e rever é sinal mais forte que assistir uma vez.
+
+    Rever eleva a nota, sem passar do teto — é a única forma de sinal implícito
+    que o projeto tem, já que a maioria dos registros não traz avaliação.
+    """
+    from apps.movies.models import WatchHistory
+
+    por_filme = {}
+
+    for entrada in (LetterboxdDiary.objects
+                    .filter(user=user, matched=True, movie__embedding__isnull=False)
+                    .select_related('movie')):
+        if entrada.movie.embedding is not None:
+            por_filme[entrada.movie_id] = (
+                entrada.movie.embedding,
+                float(entrada.rating) if entrada.rating else NOTA_NEUTRA,
+            )
+
+    for visto in (WatchHistory.objects
+                  .filter(user=user, completed=True, movie__embedding__isnull=False)
+                  .select_related('movie')):
+        if visto.movie.embedding is None:
+            continue
+        nota = float(visto.rating) if visto.rating else NOTA_NEUTRA
+        if visto.times_watched > 1:
+            nota = min(5.0, nota + 0.5 * (visto.times_watched - 1))
+        por_filme[visto.movie_id] = (visto.movie.embedding, nota)
+
+    return list(por_filme.values())
+
 
 @shared_task(bind=True)
 def generate_movie_embeddings(self, movie_ids: list = None, batch_size: int = 32):
@@ -144,31 +189,18 @@ def train_user_taste_profile(self, user_id: str):
     try:
         user = User.objects.get(id=user_id)
         
-        # Get watched movies from Letterboxd diary
-        diary_entries = LetterboxdDiary.objects.filter(
-            user=user,
-            matched=True,
-            movie__embedding__isnull=False
-        ).select_related('movie')
-        
-        if diary_entries.count() < 10:
-            logger.warning(f"User {user_id} has insufficient data (<10 movies)")
-            return {'error': 'Insufficient data', 'entries': diary_entries.count()}
-        
-        # Collect embeddings and ratings
-        embeddings = []
-        ratings = []
-        
-        for entry in diary_entries:
-            # `is not None`, não teste booleano: o VectorField devolve ndarray,
-            # e avaliar um array de 1024 posições como verdade levanta
-            # ValueError. O queryset acima filtra embedding__isnull=False, então
-            # a primeira volta do laço sempre trazia vetor real e sempre
-            # estourava — nenhum perfil de gosto jamais foi gravado.
-            if entry.movie.embedding is not None:
-                embeddings.append(entry.movie.embedding)
-                # Use rating if available, otherwise neutral 3.0
-                ratings.append(float(entry.rating) if entry.rating else 3.0)
+        # O gosto vem de duas fontes: o que foi visto DENTRO do Lumière e o
+        # que o Letterboxd importou. Treinar só com o diário externo deixava o
+        # perfil surdo ao próprio player — a pessoa assistia no Lumière e a
+        # recomendação não aprendia nada com isso.
+        amostras = amostras_de_gosto(user)
+
+        if len(amostras) < MINIMO_PARA_PERFIL:
+            logger.warning(f"User {user_id} has insufficient data (<{MINIMO_PARA_PERFIL} movies)")
+            return {'error': 'Insufficient data', 'entries': len(amostras)}
+
+        embeddings = [a[0] for a in amostras]
+        ratings = [a[1] for a in amostras]
         
         # Generate user embedding
         generator = UserTasteEmbeddingGenerator()

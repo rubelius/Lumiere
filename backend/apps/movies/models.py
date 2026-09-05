@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.db import models
@@ -240,3 +241,98 @@ class TorrentRelease(models.Model):
     @property
     def size_gb(self):
         return round(self.size_bytes / (1024**3), 2)
+
+class WatchHistory(models.Model):
+    """
+    O que este usuário já viu, e onde parou.
+
+    O projeto só sabia o que o Letterboxd importou — sinal de fora, que chega
+    atrasado e depende de o usuário manter um diário lá. Sem registro próprio
+    não dá para marcar um filme como visto na tela, nem para tirar da frente o
+    que já foi visto quando o recomendador sugere, nem para o perfil de gosto
+    aprender com o que aconteceu no próprio player.
+
+    Uma linha por (usuário, filme): rever é comum numa cinemateca e conta como
+    sinal mais forte, então revisão incrementa `times_watched` em vez de criar
+    linha nova. Assim a pergunta "já vi?", que roda em toda listagem, continua
+    sendo um EXISTS barato.
+    """
+
+    ORIGENS = [
+        ('player', 'Assistido no player'),
+        ('letterboxd', 'Importado do diário Letterboxd'),
+        ('manual', 'Marcado à mão'),
+    ]
+
+    # Fração da duração a partir da qual o filme conta como visto. Créditos,
+    # pós-crédito e o costume de parar antes do fim fazem 100% quase nunca
+    # acontecer; exigir o fim exato deixaria o histórico praticamente vazio.
+    FRACAO_PARA_CONCLUIR = 0.9
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='watch_history')
+    movie = models.ForeignKey(
+        'Movie', on_delete=models.CASCADE, related_name='watches')
+
+    first_watched_at = models.DateTimeField(auto_now_add=True)
+    last_watched_at = models.DateTimeField(auto_now=True)
+    times_watched = models.PositiveIntegerField(default=0)
+
+    # Onde parou, para retomar. Guardado em segundos porque é o que o elemento
+    # <video> entrega, e converter na gravação perderia precisão à toa.
+    progress_seconds = models.PositiveIntegerField(default=0)
+    runtime_seconds = models.PositiveIntegerField(
+        default=0, help_text='Duração real do arquivo, que costuma divergir do metadado.')
+
+    completed = models.BooleanField(
+        default=False,
+        help_text='Passou de FRACAO_PARA_CONCLUIR. É isto que a interface chama de "assistido".')
+    source = models.CharField(max_length=20, choices=ORIGENS, default='player')
+    rating = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = 'Watch histories'
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'movie'], name='um_registro_por_filme_por_usuario'),
+        ]
+        indexes = [
+            # A listagem pergunta "quais destes filmes este usuário já viu?"
+            # para cada página do acervo; sem índice isso varre a tabela.
+            models.Index(fields=['user', 'completed']),
+            models.Index(fields=['user', '-last_watched_at']),
+        ]
+
+    def __str__(self):
+        estado = 'visto' if self.completed else f'{self.fracao_assistida:.0%}'
+        return f'{self.user} — {self.movie} ({estado})'
+
+    @property
+    def fracao_assistida(self) -> float:
+        """Quanto do filme foi visto, de 0 a 1. Zero quando a duração é desconhecida."""
+        if not self.runtime_seconds:
+            return 0.0
+        return min(1.0, self.progress_seconds / self.runtime_seconds)
+
+    def registra_progresso(self, segundos: int, duracao: int) -> bool:
+        """
+        Anota onde o usuário está e devolve se ISTO concluiu o filme agora.
+
+        Devolver "concluiu agora" em vez de "está concluído" é o que permite
+        ao chamador reagir uma única vez — retreinar o perfil de gosto a cada
+        ping de progresso de um filme já visto seria trabalho repetido sem
+        nenhuma informação nova.
+        """
+        self.progress_seconds = max(0, int(segundos))
+        if duracao > 0:
+            self.runtime_seconds = int(duracao)
+
+        concluiu_agora = (
+            not self.completed
+            and self.fracao_assistida >= self.FRACAO_PARA_CONCLUIR
+        )
+        if concluiu_agora:
+            self.completed = True
+            self.times_watched += 1
+
+        return concluiu_agora

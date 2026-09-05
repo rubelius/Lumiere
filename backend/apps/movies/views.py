@@ -26,13 +26,16 @@ from apps.movies.playback import resolve_playback
 from apps.movies.subtitle_service import busca_legendas, obtem_vtt
 from apps.movies.utils import calculate_quality_score, parse_quality_from_title
 from apps.ml.models import MovieSimilarity
-from apps.ml.similarity import diversifica
+from apps.ml.similarity import agenda_retreino_do_gosto, diversifica
 
 from .filters import MovieFilter
-from .models import Movie, TorrentRelease
+from .models import Movie, TorrentRelease, WatchHistory
 from .utils import passa_no_filtro
 from .serializers import (
     campos_da_listagem,
+    ids_assistidos,
+    ProgressoSerializer,
+    WatchHistorySerializer,
     MovieDetailSerializer, 
     MovieListSerializer,
     MovieSerializer,
@@ -48,7 +51,35 @@ class AsyncMovieViewSet(viewsets.ViewSet):
             movies.append(movie)
         return Response({'count': len(movies), 'results': [movie.title for movie in movies]})
 
-class MovieViewSet(viewsets.ReadOnlyModelViewSet):
+class MarcaAssistidos:
+    """
+    Põe no contexto do serializer o conjunto de filmes que este usuário já viu.
+
+    Fica num mixin porque a resposta precisa ser a mesma em toda superfície —
+    listagem, busca, detalhe, parecidos. Foi a regra de disponibilidade
+    repetida em quatro telas que envelheceu nas quatro ao mesmo tempo, e o
+    indicador de assistido tem exatamente a mesma forma de espalhar.
+
+    Uma consulta por resposta, não por filme.
+    """
+
+    def get_serializer(self, *args, **kwargs):
+        serializer = super().get_serializer(*args, **kwargs)
+
+        instancia = args[0] if args else None
+        if instancia is None:
+            return serializer
+
+        filmes = instancia if isinstance(instancia, (list, tuple)) else None
+        if filmes is None:
+            filmes = list(instancia) if kwargs.get('many') else [instancia]
+
+        serializer.context['assistidos'] = ids_assistidos(
+            getattr(self.request, 'user', None), filmes)
+        return serializer
+
+
+class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
     """
     ViewSet para filmes - MOTOR HÍBRIDO DEFINITIVO (Trigramas + Força-Bruta)
     """
@@ -175,6 +206,74 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
             'Devolve a primeira fonte que responder.'
         ),
     )
+    @extend_schema(
+        request=ProgressoSerializer,
+        responses={200: WatchHistorySerializer},
+        summary='Registra onde o usuário parou, e marca como visto ao chegar ao fim.',
+        description=(
+            'Chamado periodicamente pelo player. Grava a posição para permitir '
+            'retomar, e ao cruzar o limite de conclusão marca o filme como '
+            'assistido — o que o retira da frente nas sugestões e realimenta o '
+            'perfil de gosto do usuário.'
+        ),
+    )
+    @action(detail=True, methods=['post'])
+    def progress(self, request, pk=None):
+        entrada = ProgressoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        movie = self.get_object()
+        registro, _ = WatchHistory.objects.get_or_create(
+            user=request.user, movie=movie,
+            defaults={'source': 'player'},
+        )
+
+        # A duração do arquivo é a verdade; o metadado do acervo é aproximação
+        # e diverge em minutos num REMUX. Só cai nele se o player não souber.
+        duracao = entrada.validated_data.get('duration') or 0
+        if not duracao and movie.length_minutes:
+            duracao = movie.length_minutes * 60
+
+        concluiu_agora = registro.registra_progresso(
+            segundos=entrada.validated_data['position'], duracao=duracao)
+        registro.save()
+
+        if concluiu_agora:
+            # Só na travessia. A cada ping de um filme já visto isto seria
+            # trabalho repetido sem nenhuma informação nova para aprender.
+            agenda_retreino_do_gosto(request.user)
+
+        return Response(WatchHistorySerializer(registro).data)
+
+    @extend_schema(
+        request=None,
+        responses={200: WatchHistorySerializer},
+        summary='Marca ou desmarca o filme como assistido, à mão.',
+        description=(
+            'Para o que foi visto fora do Lumière. POST marca, DELETE desmarca. '
+            'Desmarcar não apaga o histórico: zera a conclusão e devolve o filme '
+            'às sugestões, preservando quantas vezes já foi visto.'
+        ),
+    )
+    @action(detail=True, methods=['post', 'delete'], url_path='watched')
+    def watched(self, request, pk=None):
+        movie = self.get_object()
+        registro, _ = WatchHistory.objects.get_or_create(
+            user=request.user, movie=movie, defaults={'source': 'manual'})
+
+        if request.method == 'DELETE':
+            registro.completed = False
+            registro.save(update_fields=['completed', 'last_watched_at'])
+            return Response(WatchHistorySerializer(registro).data)
+
+        if not registro.completed:
+            registro.completed = True
+            registro.times_watched += 1
+            registro.save(update_fields=['completed', 'times_watched', 'last_watched_at'])
+            agenda_retreino_do_gosto(request.user)
+
+        return Response(WatchHistorySerializer(registro).data)
+
     @action(detail=True, methods=['get'])
     def playback(self, request, pk=None):
         # Ação síncrona de propósito: o dispatch desta ViewSet é síncrono

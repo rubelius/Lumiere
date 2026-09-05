@@ -66,3 +66,33 @@ def test_listagem_nao_faz_consulta_extra_por_filme():
     assert len(ctx.captured_queries) == 1, (
         f'{len(ctx.captured_queries)} consultas para 5 filmes: algum campo lido '
         f'pelo serializer ficou fora de campos_da_listagem()')
+
+
+@pytest.mark.django_db
+def test_campos_da_listagem_ignora_campo_calculado():
+    """
+    `watched` é SerializerMethodField, não coluna. Pedi-lo ao `.only()`
+    derruba a listagem inteira com FieldDoesNotExist — foi o que aconteceu na
+    primeira versão deste indicador.
+    """
+    from apps.movies.models import Movie
+    from apps.movies.serializers import campos_da_listagem
+
+    colunas = {f.name for f in Movie._meta.get_fields()}
+    for campo in campos_da_listagem():
+        assert campo in colunas, f'{campo} nao e coluna do modelo'
+
+
+@pytest.mark.django_db
+def test_campos_da_listagem_cobre_o_que_o_serializer_le():
+    """
+    O outro lado do contrato: coluna lida pelo serializer e ausente do
+    `.only()` vira consulta extra por filme — resultado certo, cem vezes mais
+    caro, e nada acusa.
+    """
+    from apps.movies.models import Movie
+    from apps.movies.serializers import MovieListSerializer, campos_da_listagem
+
+    colunas = {f.name for f in Movie._meta.get_fields()}
+    lidos = {c for c in MovieListSerializer.Meta.fields if c in colunas}
+    assert lidos == set(campos_da_listagem())

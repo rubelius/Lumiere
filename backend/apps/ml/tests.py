@@ -401,3 +401,133 @@ def test_nenhum_codigo_usa_campo_que_a_migracao_apagou():
 
     assert not achados, (
         'campo apagado por migração ainda em uso:\n  ' + '\n  '.join(achados))
+
+
+class _Vizinho:
+    """Uma linha de similaridade com só o que a despriorização olha."""
+    def __init__(self, movie_id, diretor=''):
+        self.similar_movie_id = movie_id
+        self.similar_movie = type('M', (), {'director': diretor, 'title': str(movie_id)})()
+
+
+def _ids(resultado):
+    return [s.similar_movie_id for s in resultado]
+
+
+def test_assistidos_descem_sem_sumir():
+    """
+    Sugerir de novo o que a pessoa acabou de ver gasta o espaço mais valioso
+    da tela com informação que ela já tem. Remover seria pior: reconhecer um
+    filme conhecido na lista é o que dá confiança de que a recomendação
+    entendeu o original.
+    """
+    from apps.ml.similarity import desprioriza_assistidos
+
+    lista = [_Vizinho(n) for n in (1, 2, 3, 4, 5)]
+    saida = _ids(desprioriza_assistidos(lista, {2, 4}))
+
+    assert saida == [1, 3, 5, 2, 4]
+    assert len(saida) == 5, 'nada pode ser descartado'
+
+
+def test_despriorizar_preserva_a_ordem_dentro_de_cada_grupo():
+    """Quem estava mais parecido continua mais parecido, dos dois lados."""
+    from apps.ml.similarity import desprioriza_assistidos
+
+    lista = [_Vizinho(n) for n in (1, 2, 3, 4, 5, 6)]
+    assert _ids(desprioriza_assistidos(lista, {1, 2, 3})) == [4, 5, 6, 1, 2, 3]
+
+
+def test_sem_nada_assistido_a_lista_nao_muda():
+    from apps.ml.similarity import desprioriza_assistidos
+
+    lista = [_Vizinho(n) for n in (1, 2, 3)]
+    assert _ids(desprioriza_assistidos(lista, set())) == [1, 2, 3]
+
+
+def test_tudo_assistido_ainda_devolve_a_lista_inteira():
+    """
+    Um cinéfilo que já viu a vizinhança inteira precisa ver alguma coisa; uma
+    seção vazia é pior que uma seção só de conhecidos.
+    """
+    from apps.ml.similarity import desprioriza_assistidos
+
+    lista = [_Vizinho(n) for n in (1, 2, 3)]
+    assert _ids(desprioriza_assistidos(lista, {1, 2, 3})) == [1, 2, 3]
+
+
+@pytest.mark.django_db
+def test_perfil_de_gosto_aprende_com_o_player(django_user_model):
+    """
+    O perfil treinava só com o diário importado do Letterboxd. Quem assistia
+    dentro do Lumière não ensinava nada ao recomendador — a fonte mais direta
+    de sinal era a única que não contava.
+    """
+    from apps.movies.models import Movie, WatchHistory
+    from apps.tasks.ml import amostras_de_gosto
+
+    u = django_user_model.objects.create_user(username='cinefilo', password='x')
+    vetor = [0.1] * EMBEDDING_DIMENSIONS
+    filme = Movie.objects.create(title='Solaris', year=1972, embedding=vetor)
+    WatchHistory.objects.create(user=u, movie=filme, completed=True, times_watched=1)
+
+    amostras = amostras_de_gosto(u)
+    assert len(amostras) == 1
+
+
+@pytest.mark.django_db
+def test_rever_pesa_mais_que_assistir_uma_vez(django_user_model):
+    """
+    Rever é a única forma de sinal implícito que o projeto tem: quase nenhum
+    registro traz avaliação. Sem isso, o filme que a pessoa revisita cinco
+    vezes pesaria igual ao que ela viu uma vez e esqueceu.
+    """
+    from apps.movies.models import Movie, WatchHistory
+    from apps.tasks.ml import NOTA_NEUTRA, amostras_de_gosto
+
+    u = django_user_model.objects.create_user(username='cinefilo', password='x')
+    vetor = [0.1] * EMBEDDING_DIMENSIONS
+    uma = Movie.objects.create(title='Uma vez', year=2000, embedding=vetor)
+    varias = Movie.objects.create(title='Revisitado', year=2001, embedding=vetor)
+    WatchHistory.objects.create(user=u, movie=uma, completed=True, times_watched=1)
+    WatchHistory.objects.create(user=u, movie=varias, completed=True, times_watched=4)
+
+    notas = sorted(nota for _, nota in amostras_de_gosto(u))
+    assert notas[0] == NOTA_NEUTRA
+    assert notas[1] > NOTA_NEUTRA
+    assert notas[1] <= 5.0, 'a nota nao pode passar do teto da escala'
+
+
+@pytest.mark.django_db
+def test_filme_visto_nos_dois_lugares_conta_uma_vez_so(django_user_model):
+    """
+    O mesmo filme no diário e no histórico local não é dois filmes. Duplicar
+    dobraria o peso dele no vetor médio sem nenhuma razão.
+    """
+    from apps.integrations.models import LetterboxdDiary
+    from apps.movies.models import Movie, WatchHistory
+    from apps.tasks.ml import amostras_de_gosto
+
+    u = django_user_model.objects.create_user(username='cinefilo', password='x')
+    filme = Movie.objects.create(title='Stalker', year=1979,
+                                 embedding=[0.1] * EMBEDDING_DIMENSIONS)
+    LetterboxdDiary.objects.create(user=u, movie=filme, matched=True, rating=4.5)
+    WatchHistory.objects.create(user=u, movie=filme, completed=True, times_watched=1)
+
+    assert len(amostras_de_gosto(u)) == 1
+
+
+@pytest.mark.django_db
+def test_filme_apenas_comecado_nao_ensina_nada(django_user_model):
+    """
+    Abandonar aos vinte minutos diz o contrário de gostar. Só conclusão conta.
+    """
+    from apps.movies.models import Movie, WatchHistory
+    from apps.tasks.ml import amostras_de_gosto
+
+    u = django_user_model.objects.create_user(username='cinefilo', password='x')
+    filme = Movie.objects.create(title='Abandonado', year=2000,
+                                 embedding=[0.1] * EMBEDDING_DIMENSIONS)
+    WatchHistory.objects.create(user=u, movie=filme, completed=False, progress_seconds=1200)
+
+    assert amostras_de_gosto(u) == []

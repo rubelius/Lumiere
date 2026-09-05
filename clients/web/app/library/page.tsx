@@ -14,18 +14,8 @@ import { LibraryFilters, FilterState } from "@/components/library/LibraryFilters
 import { FilmRow, FilmGridCard } from "@/components/library/FilmCards";
 
 
-export interface Movie {
-  id: string | number;
-  number: string;
-  title: string;
-  year: string;
-  img: string;
-  backgroundSrc: string; 
-  director: string;
-  qualities: string[];
-  runtime: string;
-  synopsis: string;
-}
+export type { FilmeDeCard as Movie } from '@/lib/filme-de-card';
+import type { FilmeDeCard as Movie } from '@/lib/filme-de-card';
 
 export default function Library() {
   const router = useRouter();
@@ -96,6 +86,7 @@ export default function Library() {
           director: movie.director || "Diretor Desconhecido",
           qualities: etiquetasDeDisponibilidade(movie),
           runtime: movie.length_minutes ? `${hours}h ${mins}m` : "--h --m",
+          watched: movie.watched ?? false,
           synopsis: movie.overview || "Fita magnética preservada nos arquivos da fundação. Registros adicionais aguardando decodificação do servidor principal.",
         };
       });

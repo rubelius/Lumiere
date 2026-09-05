@@ -9,6 +9,7 @@ import { Tv, MonitorPlay } from "lucide-react";
 
 import { PlayerTopBar, PlayerBottomControls, PlayerDiagnosticPanel } from "@/components/player/PlayerUI";
 import { useMovie, usePlayback, useSubtitles } from "@/features/movies/hooks/useMovies";
+import { useProgressoDeExibicao } from '@/features/movies/hooks/useProgressoDeExibicao';
 
 
 function PlayerExperience() {
@@ -16,6 +17,7 @@ function PlayerExperience() {
   const searchParams = useSearchParams();
   const movieId = searchParams.get('id') || '';
   const { data: movie } = useMovie(movieId);
+  const { reporta: reportaProgresso, reportaAgora } = useProgressoDeExibicao(movieId);
   // Real-Debrid > Jellyfin > Plex, resolvido no backend.
   const { data: fonte, isLoading: resolvendoFonte } = usePlayback(movieId);
   const { data: legendas } = useSubtitles(movieId);
@@ -204,6 +206,11 @@ function PlayerExperience() {
       const curr = videoRef.current.currentTime;
       setCurrentTime(curr);
       if (totalTime > 0) setProgress((curr / totalTime) * 100);
+
+      // O hook decide quando de fato envia: `timeupdate` dispara umas quatro
+      // vezes por segundo. A duração vem do arquivo, não do metadado do
+      // acervo — num REMUX os dois divergem em minutos.
+      reportaProgresso(curr, videoRef.current.duration || totalTime);
     }
   };
 
@@ -254,7 +261,8 @@ function PlayerExperience() {
               filter: 'grayscale(30%) contrast(1.1) brightness(0.6)'
             }}
             onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
+            onPause={() => { setIsPlaying(false); reportaAgora(); }}
+            onEnded={reportaAgora}
             onTimeUpdate={handleTimeUpdate}
             onProgress={handleProgress}
             onLoadedMetadata={() => {

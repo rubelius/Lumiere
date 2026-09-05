@@ -3,9 +3,10 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { FINE_ART_EASE } from '@/lib/motion';
 import { etiquetasDeDisponibilidade } from '@/lib/disponibilidade';
+import { SeloAssistido } from '@/components/ui/SeloAssistido';
 import { MotionImage } from '@/components/system/MotionImage';
 import Image from 'next/image';
-import { ArrowUp, Loader2, Globe } from "lucide-react";
+import { ArrowUp, Loader2, Globe, Eye } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from "react";
 import { useMovies } from '@/features/movies/hooks/useMovies';
@@ -13,18 +14,7 @@ import Link from 'next/link';
 
 
 // 1. Interface
-interface Movie {
-  id: string | number;
-  number: string;
-  title: string;
-  year: string;
-  img: string;
-  backgroundSrc: string;
-  director: string;
-  qualities: string[];
-  runtime: string;
-  synopsis: string;
-}
+import type { FilmeDeCard as Movie } from '@/lib/filme-de-card';
 
 // ── O DOSSIÊ DE 100+ PLACEHOLDERS INSPIRADORES ──
 const SEARCH_SUGGESTIONS = [
@@ -68,6 +58,11 @@ const SEARCH_SUGGESTIONS = [
 
 // ── COMPONENTES REUTILIZADOS DA LIBRARY ──
 
+// NOTA: FilmRow e FilmGridCard são cópias das versões exportadas por
+// components/library/FilmCards.tsx, e já divergiram — a de lá ganhou
+// otimização de contentVisibility que esta não tem. Trocar por um import
+// resolveria; ficou de fora por não ser possível verificar a busca
+// visualmente, e uma regressão aqui custa mais que a duplicação.
 function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, router }: any) {
   return (
     <div
@@ -91,6 +86,13 @@ function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClick, rout
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--bg) 0%, transparent 100%)', zIndex: 1 }} />
           <Image src={film.img} alt="" fill sizes="50vw" style={{ objectFit: 'cover' }} />
         </motion.div>
+
+        {film.watched && (
+          <div style={{ position: 'absolute', left: 68, top: 26, zIndex: 12 }}
+               title="Já projetado" aria-label="Já projetado">
+            <Eye style={{ width: 11, height: 11, color: 'var(--gold)' }} strokeWidth={1.5} />
+          </div>
+        )}
 
         <motion.div animate={{ color: isHovered ? 'var(--gold)' : 'var(--m4)' }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
           {film.number}
@@ -157,7 +159,8 @@ function FilmGridCard({ film, router, setExpandedId, onHover }: any) {
         [{film.number}]
       </div>
       <div style={{ position: 'relative', aspectRatio: '2/3', overflow: 'hidden', backgroundColor: 'var(--void)', border: isHovered ? '1px solid rgba(191,143,60,0.3)' : '1px solid rgba(237,232,220,0.05)', transition: 'border-color 0.6s ease' }}>
-        <MotionImage src={film.img} alt="" fill sizes="(max-width: 768px) 50vw, 20vw" animate={{ scale: isHovered ? 1.05 : 1, filter: isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)' }} transition={{ duration: 0.8, ease: FINE_ART_EASE }} style={{ objectFit: 'cover' }} />
+        <MotionImage src={film.img} alt="" fill sizes="(max-width: 768px) 50vw, 20vw" animate={{ scale: isHovered ? 1.05 : 1, filter: film.watched ? (isHovered ? 'grayscale(35%) brightness(0.8)' : 'grayscale(70%) brightness(0.55)') : (isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)') }} transition={{ duration: 0.8, ease: FINE_ART_EASE }} style={{ objectFit: 'cover' }} />
+        {film.watched && <SeloAssistido />}
         <motion.div animate={{ opacity: isHovered ? 1 : 0 }} transition={{ duration: 0.6, ease: FINE_ART_EASE }} style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--bg) 0%, rgba(8,8,6,0.9) 35%, transparent 100%)', pointerEvents: 'none' }} />
         <motion.div initial={false} animate={{ y: isHovered ? 0 : 20, opacity: isHovered ? 1 : 0 }} transition={{ duration: 0.6, ease: FINE_ART_EASE }} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -266,6 +269,7 @@ export default function GlobalSearch() {
           director: movie.director || "Diretor Desconhecido",
           qualities: etiquetasDeDisponibilidade(movie),
           runtime: movie.length_minutes ? `${hours}h ${mins}m` : "--h --m",
+          watched: movie.watched ?? false,
           synopsis: movie.overview || "Iniciando varredura em trackers externos para decodificação da obra.",
         };
       });

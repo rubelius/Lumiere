@@ -31,8 +31,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Takes a set of user credentials and returns an access and refresh JSON web
-         *     token pair to prove the authentication of those credentials.
+         * @description Login com limite próprio.
+         *
+         *     O limite de anônimo (100/hora) vale para navegar; para adivinhar senha ele
+         *     é convite. Este endpoint é o único onde repetir a chamada É o ataque.
          */
         post: operations["auth_token_create"];
         delete?: never;
@@ -156,10 +158,30 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Resolve onde tocar o filme, na ordem Real-Debrid > Jellyfin > Plex. Devolve a primeira fonte que responder. */
+        /** @description ViewSet para filmes - MOTOR HÍBRIDO DEFINITIVO (Trigramas + Força-Bruta) */
         get: operations["movies_playback_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/movies/{id}/progress/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Registra onde o usuário parou, e marca como visto ao chegar ao fim.
+         * @description Resolve onde tocar o filme, na ordem Real-Debrid > Jellyfin > Plex. Devolve a primeira fonte que responder.
+         */
+        post: operations["movies_progress_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -212,6 +234,30 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/movies/{id}/watched/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marca ou desmarca o filme como assistido, à mão.
+         * @description Para o que foi visto fora do Lumière. POST marca, DELETE desmarca. Desmarcar não apaga o histórico: zera a conclusão e devolve o filme às sugestões, preservando quantas vezes já foi visto.
+         */
+        post: operations["movies_watched_create"];
+        /**
+         * Marca ou desmarca o filme como assistido, à mão.
+         * @description Para o que foi visto fora do Lumière. POST marca, DELETE desmarca. Desmarcar não apaga o histórico: zera a conclusão e devolve o filme às sugestões, preservando quantas vezes já foi visto.
+         */
+        delete: operations["movies_watched_destroy"];
         options?: never;
         head?: never;
         patch?: never;
@@ -945,6 +991,7 @@ export interface components {
          *     mas deixa listas gigantes (cast, alternative_titles) de fora para não pesar a rede.
          */
         MovieList: {
+            readonly watched: boolean;
             /** Format: uuid */
             id?: string;
             title: string;
@@ -1196,6 +1243,23 @@ export interface components {
             container: string | null;
             quality: string;
         };
+        /**
+         * @description O que o player reporta enquanto o filme roda.
+         *
+         *     Os dois valores vêm do elemento <video> (`currentTime` e `duration`), em
+         *     segundos e fracionários. A duração vem do arquivo, não do metadado do
+         *     acervo: um REMUX costuma divergir do `length_minutes` do TMDB em minutos,
+         *     e é a do arquivo que diz onde o filme de fato acaba.
+         */
+        Progresso: {
+            /** Format: double */
+            position: number;
+            /**
+             * Format: double
+             * @default 0
+             */
+            duration: number;
+        };
         /** @description Serializer para filmes dentro de uma sessão */
         SessionMovie: {
             /** Format: uuid */
@@ -1232,6 +1296,7 @@ export interface components {
             /** Format: double */
             readonly similarity: number;
             readonly type: string;
+            readonly watched: boolean;
         };
         /**
          * @description * `realdebrid` - realdebrid
@@ -1360,6 +1425,21 @@ export interface components {
             password: string;
             password_confirm: string;
             display_name?: string;
+        };
+        /** @description Estado de exibição devolvido ao player depois de gravar o progresso. */
+        WatchHistory: {
+            /** Format: uuid */
+            readonly movie: string;
+            /** @description Passou de FRACAO_PARA_CONCLUIR. É isto que a interface chama de "assistido". */
+            readonly completed: boolean;
+            readonly times_watched: number;
+            readonly progress_seconds: number;
+            /** @description Duração real do arquivo, que costuma divergir do metadado. */
+            readonly runtime_seconds: number;
+            /** Format: double */
+            readonly fraction: number;
+            /** Format: date-time */
+            readonly last_watched_at: string;
         };
         WebSocketTicket: {
             ticket: string;
@@ -1585,6 +1665,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["Movie"];
+                };
+            };
+        };
+    };
+    movies_progress_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Progresso"];
+                "application/x-www-form-urlencoded": components["schemas"]["Progresso"];
+                "multipart/form-data": components["schemas"]["Progresso"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["PlaybackSource"];
                 };
             };
@@ -1683,6 +1791,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedSubtitleList"];
+                };
+            };
+        };
+    };
+    movies_watched_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchHistory"];
+                };
+            };
+        };
+    };
+    movies_watched_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchHistory"];
                 };
             };
         };

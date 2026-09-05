@@ -483,7 +483,7 @@ export default function MovieClient() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '32px' }}> 
                 {similarMovies.map(({ movie: parecido }, i: number) => ( 
                   <motion.div key={parecido.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ delay: i * 0.1, duration: 0.6, ease: FINE_ART_EASE }}> 
-                    <MovieCard id={parecido.id as string} title={parecido.title} year={parecido.year ? String(parecido.year) : undefined} imageUrl={parecido.poster_url ?? ''} index={i} /> 
+                    <MovieCard id={parecido.id as string} title={parecido.title} year={parecido.year ? String(parecido.year) : undefined} imageUrl={parecido.poster_url ?? ''} watched={parecido.watched} index={i} /> 
                   </motion.div> 
                 ))} 
               </div> 

@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from .models import Movie, TorrentRelease
+from .models import Movie, TorrentRelease, WatchHistory
 from .utils import calculate_quality_score, parse_quality_from_title
 
 
@@ -12,8 +12,36 @@ def campos_da_listagem() -> list:
     Derivada de MovieListSerializer para não haver duas listas divergindo: um
     campo lido pelo serializer e ausente do `.only()` vira consulta extra por
     filme, sem erro e com o resultado certo — só cem vezes mais caro.
+
+    Campo calculado fica de fora: `watched` não é coluna, e pedi-lo ao
+    `.only()` derruba a listagem inteira com FieldDoesNotExist. Filtrar pelo
+    modelo preserva a derivação — continua não havendo duas listas para manter
+    em sincronia — e ainda protege de qualquer campo calculado futuro.
     """
-    return list(MovieListSerializer.Meta.fields)
+    colunas = {f.name for f in Movie._meta.get_fields()}
+    return [c for c in MovieListSerializer.Meta.fields if c in colunas]
+
+
+def ids_assistidos(user, filmes) -> set:
+    """
+    Quais destes filmes o usuário já viu, numa consulta só.
+
+    A alternativa óbvia — perguntar por filme dentro do serializer — é o N+1
+    que já custou caro nesta listagem antes: uma página de 20 cards viraria 21
+    consultas, e o resultado sairia correto, que é justamente o que faz esse
+    tipo de defeito passar despercebido.
+    """
+    if not (user and getattr(user, 'is_authenticated', False)):
+        return set()
+
+    ids = [f.id for f in filmes if getattr(f, 'id', None)]
+    if not ids:
+        return set()
+
+    return set(
+        WatchHistory.objects.filter(user=user, movie_id__in=ids, completed=True)
+        .values_list('movie_id', flat=True)
+    )
 
 
 class MovieListSerializer(serializers.ModelSerializer):
@@ -22,9 +50,24 @@ class MovieListSerializer(serializers.ModelSerializer):
     Traz apenas o essencial para montar cards bonitos e ricos em detalhes visuais,
     mas deixa listas gigantes (cast, alternative_titles) de fora para não pesar a rede.
     """
+    watched = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_watched(self, obj) -> bool:
+        """
+        Se este usuário já viu o filme.
+
+        Lê o conjunto que a view montou numa consulta só. Sem esse conjunto no
+        contexto responde False, e não vai ao banco: um fallback silencioso por
+        filme reintroduziria exatamente o N+1 que o `only()` desta listagem já
+        causou uma vez — resultado certo, custo cem vezes maior, nada acusando.
+        """
+        return obj.id in self.context.get('assistidos', frozenset())
+
     class Meta:
         model = Movie
         fields = [
+            'watched',
             'id', 'title', 'original_title', 'overview', 'year', 'director', 
             'poster_url', 'ranking_current', 'tmdb_rating',
             'length_minutes', 'background_url', 'country', 'tagline', 'in_plex', 'genres', 'trailer_url',
@@ -93,6 +136,7 @@ class SimilarMovieSerializer(serializers.Serializer):
     movie = MovieListSerializer(read_only=True)
     similarity = serializers.FloatField(read_only=True)
     type = serializers.CharField(read_only=True)
+    watched = serializers.BooleanField(read_only=True)
 
 
 class MovieDetailSerializer(serializers.ModelSerializer):
@@ -127,25 +171,35 @@ class MovieDetailSerializer(serializers.ModelSerializer):
     @extend_schema_field(SimilarMovieSerializer(many=True))
     def get_similar_movies(self, obj):
         from apps.ml.models import MovieSimilarity
-        from apps.ml.similarity import diversifica
+        from apps.ml.similarity import desprioriza_assistidos, diversifica
 
         # Sem order_by o Postgres devolve na ordem que quiser. Hoje sai certo
         # porque as linhas foram inseridas em ordem de similaridade, mas isso
         # é acidente do arranjo físico, não garantia — e o acidente acaba na
         # primeira vez que uma dessas linhas for reescrita.
-        #
-        # Busca as 50 e corta para 10 depois de diversificar: cortar antes
-        # deixaria a cota de diretor sem nada para escolher.
-        similarities = diversifica(
+        vizinhos = list(
             MovieSimilarity.objects.filter(movie=obj)
-            .select_related('similar_movie').order_by('-overall_similarity'),
+            .select_related('similar_movie').order_by('-overall_similarity')
+        )
+
+        # Uma consulta para as 50 vizinhanças, não uma por card.
+        usuario = getattr(self.context.get('request'), 'user', None)
+        assistidos = ids_assistidos(usuario, [v.similar_movie for v in vizinhos])
+
+        # O que já foi visto desce ANTES de diversificar e cortar: descer
+        # depois do corte não mudaria nada, porque o que interessa é quem
+        # ocupa as dez vagas.
+        similarities = diversifica(
+            desprioriza_assistidos(vizinhos, assistidos),
             limite=10,
         )
-        
+
         return [{
-            'movie': MovieListSerializer(sim.similar_movie).data,
+            'movie': MovieListSerializer(
+                sim.similar_movie, context={'assistidos': assistidos}).data,
             'similarity': float(sim.overall_similarity) if sim.overall_similarity is not None else 0.0,
-            'type': str(sim.similarity_type)
+            'type': str(sim.similarity_type),
+            'watched': sim.similar_movie_id in assistidos,
         } for sim in similarities]
 
 
@@ -172,3 +226,30 @@ class TorrentReleaseCreateSerializer(serializers.Serializer):
             instances_to_create, ignore_conflicts=True, batch_size=500
         )
         return TorrentReleaseSerializer(created_instances, many=True).data
+
+class ProgressoSerializer(serializers.Serializer):
+    """
+    O que o player reporta enquanto o filme roda.
+
+    Os dois valores vêm do elemento <video> (`currentTime` e `duration`), em
+    segundos e fracionários. A duração vem do arquivo, não do metadado do
+    acervo: um REMUX costuma divergir do `length_minutes` do TMDB em minutos,
+    e é a do arquivo que diz onde o filme de fato acaba.
+    """
+    position = serializers.FloatField(min_value=0)
+    duration = serializers.FloatField(min_value=0, required=False, default=0)
+
+
+class WatchHistorySerializer(serializers.ModelSerializer):
+    """Estado de exibição devolvido ao player depois de gravar o progresso."""
+    fraction = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WatchHistory
+        fields = ['movie', 'completed', 'times_watched', 'progress_seconds',
+                  'runtime_seconds', 'fraction', 'last_watched_at']
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.FloatField)
+    def get_fraction(self, obj) -> float:
+        return round(obj.fracao_assistida, 4)

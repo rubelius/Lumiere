@@ -8,18 +8,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 
 // 1. Exportamos a Interface para o page.tsx poder usar também
-export interface Movie {
-  id: string | number;
-  number: string;
-  title: string;
-  year: string;
-  img: string;
-  backgroundSrc: string;
-  director: string;
-  qualities: string[];
-  runtime: string;
-  synopsis: string;
-}
+import { Eye } from 'lucide-react';
+import { SeloAssistido } from '@/components/ui/SeloAssistido';
+import type { FilmeDeCard as Movie } from '@/lib/filme-de-card';
+export type { FilmeDeCard as Movie } from '@/lib/filme-de-card';
 
 // ============================================================================
 // COMPONENTE: ROW (Visão em Lista)
@@ -60,6 +52,15 @@ export function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClic
           <Image src={film.img} alt="" fill sizes="50vw" style={{ objectFit: 'cover' }} />
         </motion.div>
 
+        {/* A lista não mostra pôster em repouso, então o sinal vai junto do
+            número: é o que o olho percorre ao varrer a coluna. */}
+        {film.watched && (
+          <div style={{ position: 'absolute', left: 68, top: 26, zIndex: 12 }}
+               title="Já projetado" aria-label="Já projetado">
+            <Eye style={{ width: 11, height: 11, color: 'var(--gold)' }} strokeWidth={1.5} />
+          </div>
+        )}
+
         <motion.div animate={{ color: isHovered ? 'var(--gold)' : 'var(--m4)' }} style={{ position: 'absolute', left: 40, top: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px' }}>
           {film.number}
         </motion.div>
@@ -78,7 +79,7 @@ export function FilmRow({ film, isHovered, isDimmed, isExpanded, onHover, onClic
         <motion.h3
           animate={{
             scale: isExpanded ? 2.5 : isHovered ? 1.35 : 1,
-            color: isExpanded ? '#FFFFFF' : isHovered ? 'var(--film)' : 'var(--m2)',
+            color: isExpanded ? '#FFFFFF' : isHovered ? 'var(--film)' : (film.watched ? 'var(--m3)' : 'var(--m2)'),
             y: isExpanded ? '30vh' : isHovered ? 12 : 0,
             x: isExpanded ? '10vw' : 0
           }}
@@ -154,10 +155,17 @@ export function FilmGridCard({ film, router, setExpandedId, onHover }: { film: M
           alt=""
           fill
           sizes="(max-width: 768px) 50vw, 20vw"
-          animate={{ scale: isHovered ? 1.05 : 1, filter: isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)' }}
+          animate={{
+            scale: isHovered ? 1.05 : 1,
+            // Já visto entra mais apagado, e continua distinguível no hover.
+            filter: film.watched
+              ? (isHovered ? 'grayscale(35%) brightness(0.8)' : 'grayscale(70%) brightness(0.55)')
+              : (isHovered ? 'grayscale(0%) contrast(1.1)' : 'grayscale(35%) contrast(1)'),
+          }}
           transition={{ duration: 0.8, ease: FINE_ART_EASE }}
           style={{ objectFit: 'cover' }}
         />
+        {film.watched && <SeloAssistido />}
 
         <motion.div
           animate={{ opacity: isHovered ? 1 : 0 }}
