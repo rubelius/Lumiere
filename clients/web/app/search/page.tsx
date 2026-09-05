@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { FINE_ART_EASE } from '@/lib/motion';
+import { etiquetasDeDisponibilidade } from '@/lib/disponibilidade';
 import { MotionImage } from '@/components/system/MotionImage';
 import Image from 'next/image';
 import { ArrowUp, Loader2, Globe } from "lucide-react";
@@ -263,7 +264,7 @@ export default function GlobalSearch() {
           img: movie.poster_url || "/images/poster-1.png",
           backgroundSrc: movie.background_url || movie.poster_url, 
           director: movie.director || "Diretor Desconhecido",
-          qualities: movie.in_plex ? ["PLEX"] : ["OFFLINE", "SEARCHING"],
+          qualities: etiquetasDeDisponibilidade(movie),
           runtime: movie.length_minutes ? `${hours}h ${mins}m` : "--h --m",
           synopsis: movie.overview || "Iniciando varredura em trackers externos para decodificação da obra.",
         };

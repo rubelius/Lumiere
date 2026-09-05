@@ -206,6 +206,11 @@ def _atualiza_resumo_dos_filmes(ids):
     Reflete no filme a melhor cópia que ele passou a ter. Sem isto o player
     mostra "SEM MÍDIA" enquanto toca um REMUX 2160p: best_quality_available é
     o que a interface lê, e ficava vazio.
+
+    `available_instantly` é o que responde "o que dá para ver agora" — o
+    endpoint /api/movies/available/ e o filtro da biblioteca leem esse campo.
+    Nada no projeto o escrevia: ficava no default False para todo o acervo, e
+    as duas telas devolviam vazio mesmo com filme pronto para tocar.
     """
     for filme in Movie.objects.filter(id__in=ids):
         melhor = filme.torrent_releases.order_by('-quality_score').first()
@@ -213,4 +218,18 @@ def _atualiza_resumo_dos_filmes(ids):
             continue
         filme.best_quality_available = rotulo_de_qualidade(melhor)
         filme.current_quality_score = melhor.quality_score
-        filme.save(update_fields=['best_quality_available', 'current_quality_score'])
+        filme.available_instantly = toca_agora(filme)
+        filme.save(update_fields=['best_quality_available', 'current_quality_score',
+                                  'available_instantly'])
+
+
+def toca_agora(filme) -> bool:
+    """
+    Se o filme tem cópia que reproduz neste instante.
+
+    Mesma regra de apps/movies/playback.py: presente no Real-Debrid e com
+    links. Prometer disponibilidade por um critério e reproduzir por outro
+    produz filme marcado como disponível que falha ao dar play.
+    """
+    return filme.torrent_releases.filter(
+        in_realdebrid=True).exclude(realdebrid_links=[]).exists()

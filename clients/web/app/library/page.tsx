@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { FINE_ART_EASE } from '@/lib/motion';
+import { etiquetasDeDisponibilidade } from '@/lib/disponibilidade';
 import Image from 'next/image';
 import { ArrowUp, Loader2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
@@ -93,7 +94,7 @@ export default function Library() {
           img: movie.poster_url || "/images/poster-1.png",
           backgroundSrc: movie.background_url || movie.poster_url, 
           director: movie.director || "Diretor Desconhecido",
-          qualities: movie.in_plex ? ["PLEX", "DISPONÍVEL"] : ["OFFLINE"],
+          qualities: etiquetasDeDisponibilidade(movie),
           runtime: movie.length_minutes ? `${hours}h ${mins}m` : "--h --m",
           synopsis: movie.overview || "Fita magnética preservada nos arquivos da fundação. Registros adicionais aguardando decodificação do servidor principal.",
         };

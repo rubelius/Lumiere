@@ -2,6 +2,7 @@
 
 import { HeroProgramme } from '@/components/home/HeroProgramme'
 import { FINE_ART_EASE } from '@/lib/motion';
+import { etiquetasDeDisponibilidade } from '@/lib/disponibilidade';
 import Image from 'next/image';
 import { CinemaMarquee, FilmProgramme, FilmEntry } from '@/components/home/FilmProgramme'
 import { NowProjecting, AdmitOne, LibraryCount, SessionRow } from '@/components/home/Sections'
@@ -176,7 +177,7 @@ export default function HomePage() {
     year: String(movie.year || '----'),
     country: movie.country || 'N/A',
     runtime: getRuntimeStr(movie.length_minutes),
-    qualities: movie.in_plex ? ['PLEX'] : ['OFFLINE'],
+    qualities: etiquetasDeDisponibilidade(movie),
     posterSrc: movie.poster_url || '/images/poster-1.png',
     backgroundSrc: movie.background_url || movie.poster_url || '/images/poster-1.png',
     genre: movie.genres?.[0] || 'Cinema',
@@ -228,7 +229,7 @@ export default function HomePage() {
             country={heroMovie.country || 'N/A'}
             runtime={getRuntimeStr(heroMovie.length_minutes)}
             synopsis={heroMovie.overview || 'Sinopse não preservada no registro principal.'}
-            qualities={heroMovie.in_plex ? ['PLEX'] : ['OFFLINE']}
+            qualities={etiquetasDeDisponibilidade(heroMovie)}
             backgroundSrc={heroMovie.background_url || ''} 
             posterSrc={heroMovie.poster_url || '/images/posters/2001.jpg'}
             trailerUrl={heroMovie.trailer_url} 
