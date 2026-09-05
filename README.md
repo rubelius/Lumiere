@@ -171,8 +171,14 @@ rather than narrative lose their anchor, because an overview describes plot.
 Without it, *2001* lands next to *Sunshine* and *Avatar*, and *Stalker* drifts
 into horror. Meanwhile *Cidade de Deus* improves sharply — it gains *La Haine*
 and *Los Olvidados*. The text alone cannot separate "this director's style"
-from "this director's filmography", so the recipe stays where it is until
-someone decides that trade deliberately.
+from "this director's filmography".
+
+**Decided: the recipe keeps the title.** The entity leak is the price of
+keeping the archive's canonical films anchored to their own form, and
+re-embedding 26k films buys a trade that is better on plot-driven films and
+worse on the ones a cinematheque exists for. The director-domination half of
+the problem is handled at serving time instead, by `diversifica()`, which
+costs nothing to change.
 
 Changing the model means re-embedding the whole archive and recomputing every
 neighbour list:
