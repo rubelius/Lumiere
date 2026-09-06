@@ -811,6 +811,7 @@ export interface components {
             estimated_duration_minutes?: number | null;
             readonly all_downloads_ready: boolean;
             readonly all_movies_selected: boolean;
+            readonly all_torrents_found: boolean;
             playlist_created?: boolean;
             readonly session_movies: components["schemas"]["SessionMovie"][] | null;
             movie_ids?: string[];
@@ -1211,6 +1212,7 @@ export interface components {
             estimated_duration_minutes?: number | null;
             readonly all_downloads_ready?: boolean;
             readonly all_movies_selected?: boolean;
+            readonly all_torrents_found?: boolean;
             playlist_created?: boolean;
             readonly session_movies?: components["schemas"]["SessionMovie"][] | null;
             movie_ids?: string[];

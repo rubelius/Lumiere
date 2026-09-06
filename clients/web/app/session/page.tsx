@@ -4,7 +4,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FINE_ART_EASE } from '@/lib/motion';
 import { MotionImage } from '@/components/system/MotionImage';
 import { Play, Cast, SlidersHorizontal, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useProximasSessoes, useSessao } from "@/features/sessions/hooks/useSessoes";
+import type { CinemaSession, SessionMovie } from "@/features/sessions/hooks/useSessoes";
 import { useRouter } from "next/navigation";
 
 
@@ -87,7 +90,7 @@ function TelemetryStep({ step, index }: any) {
            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
            style={{ color: isActive ? 'var(--gold)' : 'var(--m3)' }}
         >
-           {step.time}
+           {step.time || '\u00a0'}
         </motion.div>
       </div>
 
@@ -118,21 +121,84 @@ function TelemetryStep({ step, index }: any) {
   )
 }
 
+/**
+ * As quatro etapas da preparação, lidas do estado real da sessão.
+ *
+ * Eram fixas, com horários inventados: "Planejamento 19:00", "Busca de Mídia
+ * 19:02", "Download Agora", "Sessão Pronta ~19:45". Os mesmos quatro horários
+ * em qualquer visita, para qualquer conta, sem sessão nenhuma existir.
+ *
+ * O servidor guarda cada etapa como uma flag, e é delas que o painel sai. Uma
+ * etapa fica 'active' quando a anterior terminou e ela não: é onde a
+ * preparação está parada agora.
+ */
+function etapasDaPreparacao(sessao?: CinemaSession) {
+  const marcos = [
+    { label: 'Planejamento', pronto: Boolean(sessao?.all_movies_selected) },
+    { label: 'Busca de Mídia', pronto: Boolean(sessao?.all_torrents_found) },
+    { label: 'Download', pronto: Boolean(sessao?.all_downloads_ready) },
+    { label: 'Sessão Pronta', pronto: Boolean(sessao?.playlist_created) },
+  ];
+
+  const primeiraPendente = marcos.findIndex((m) => !m.pronto);
+  return marcos.map((m, i) => ({
+    label: m.label,
+    status: m.pronto ? 'done' : i === primeiraPendente ? 'active' : 'pending',
+    // O componente já desenha o rótulo do status logo abaixo; este campo era
+    // o horário da etapa ("19:00", "~19:45"), inventado. O servidor não
+    // guarda horário por etapa, então só o que existe aparece: a
+    // porcentagem do download, quando é essa a etapa em curso.
+    time: m.label === 'Download' && sessao && !m.pronto
+      ? `${sessao.download_progress ?? 0}%`
+      : '',
+  }));
+}
+
+/** Especificação técnica da cópia escolhida, do release e não de um literal. */
+function especificacao(release: SessionMovie['selected_release']): string {
+  if (!release) return 'CÓPIA AINDA NÃO ESCOLHIDA';
+  const video = [release.resolution, release.is_remux ? 'REMUX' : null,
+                 release.video_codec, release.has_dolby_vision ? 'DV' : release.has_hdr ? 'HDR' : null]
+    .filter(Boolean).join(' ');
+  const audio = [release.audio_codec, release.has_atmos ? 'ATMOS' : null]
+    .filter(Boolean).join(' ');
+  return [video && `VIDEO: ${video}`, audio && `AUDIO: ${audio}`].filter(Boolean).join(' // ')
+    || 'ESPECIFICAÇÃO INDISPONÍVEL';
+}
+
+/** "SÁB, 20:00" a partir da data agendada. */
+function formataAgendamento(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const dia = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase();
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `${dia}, ${hora}`;
+}
+
+
+/** Um item de `session_movies` na forma que a linha da fila desenha. */
+function paraLinhaDaFila(sm: SessionMovie) {
+  const release = sm.selected_release;
+  return {
+    id: sm.id,
+    movieId: sm.movie?.id,
+    title: sm.movie?.title ?? 'Sem título',
+    poster: sm.movie?.poster_url || '/images/poster-1.png',
+    status: sm.download_status ?? 'pending',
+    progress: sm.download_progress ?? 0,
+    size: release?.size_gb ? `${release.size_gb.toFixed(1)} GB` : '—',
+    specs: especificacao(release),
+  };
+}
+
 function SessionMovieRow({ movie, index, router }: any) {
   const [isHovered, setIsHovered] = useState(false);
-  const [currentSpeed, setCurrentSpeed] = useState(14.2);
 
-  // O "Motor de Vida": Flutua a velocidade do download para parecer real
-  useEffect(() => {
-    if (movie.status !== 'downloading') return;
-    const interval = setInterval(() => {
-      setCurrentSpeed(prev => {
-        const fluctuation = (Math.random() * 1.5) - 0.5; 
-        return Math.max(9.5, Math.min(18.4, prev + fluctuation)); 
-      });
-    }, 1200);
-    return () => clearInterval(interval);
-  }, [movie.status]);
+  // Aqui havia um "Motor de Vida" que sorteava a velocidade do download a
+  // cada 1,2 s com Math.random(), pelo comentário original, "para parecer
+  // real". Não havia download: os três filmes da fila eram literais no
+  // código. A velocidade instantânea não tem campo no servidor, então some —
+  // o progresso, que existe, é o que a barra mostra.
 
   return (
     <motion.div 
@@ -233,12 +299,11 @@ function SessionMovieRow({ movie, index, router }: any) {
           {movie.status === 'ready' ? 'INTEGRIDADE VERIFICADA' : movie.status === 'downloading' ? `AQUISIÇÃO... ${movie.progress}%` : 'AGUARDANDO'}
         </motion.span>
         
-        {/* A Mágica do Speed: O número flutua no HTML! */}
-        {movie.status === 'downloading' && (
-          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m2)', letterSpacing: '0.2em' }}>
-            {currentSpeed.toFixed(1)} MB/S
-          </span>
-        )}
+        {/* Aqui ficava a velocidade em MB/S, sorteada no cliente a cada
+            1,2 s "para parecer real", conforme o comentário original. O
+            servidor não informa velocidade instantânea e não há o que pôr no
+            lugar: o rótulo ao lado já diz a porcentagem, e repeti-la aqui só
+            duplicava o mesmo número. */}
 
         {movie.status === 'ready' && (
           <motion.button 
@@ -263,18 +328,13 @@ export default function Session() {
 
   const router = useRouter();
 
-  const steps = [
-    { label: "Planejamento", status: "done", time: "19:00" },
-    { label: "Busca de Mídia", status: "done", time: "19:02" },
-    { label: "Download", status: "active", time: "Agora" },
-    { label: "Sessão Pronta", status: "pending", time: "~19:45" },
-  ];
+  const { data: sessoes, isLoading: carregandoLista } = useProximasSessoes();
+  // A lista não traz a fila de filmes; o detalhe traz.
+  const { data: sessao, isLoading: carregandoDetalhe } = useSessao(sessoes?.[0]?.id);
+  const isLoading = carregandoLista || carregandoDetalhe;
 
-  const movies = [
-    { id: 1, title: "L'Avventura", poster: "/images/posters/lavventura.jpg", status: "ready", progress: 100, size: "86.4 GB", specs: "VIDEO: 4K REMUX HEVC 10-BIT // AUDIO: DTS-HD MA 1.0 Mono" },
-    { id: 2, title: "Stalker", poster: "/images/posters/stalker.jpg", status: "downloading", progress: 68, size: "75.2 GB", specs: "VIDEO: 4K HDR10 HEVC // AUDIO: RUSSIAN LPCM 2.0" },
-    { id: 3, title: "Persona", poster: "/images/posters/persona.jpg", status: "pending", progress: 0, size: "45.1 GB", specs: "VIDEO: 1080P REMUX AVC // AUDIO: SWEDISH LPCM 2.0" },
-  ];
+  const steps = etapasDaPreparacao(sessao);
+  const movies = (sessao?.session_movies ?? []).map(paraLinhaDaFila);
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', color: 'var(--film)', paddingBottom: 120 }}>
@@ -296,17 +356,20 @@ export default function Session() {
                 [ MANIFESTO DA SESSÃO ]
               </div>
               <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 'clamp(4rem, 6vw, 5.5rem)', fontWeight: 400, margin: 0, lineHeight: 1, letterSpacing: '-0.02em' }}>
-                Noite Atmosférica.
+                {sessao ? `${sessao.emoji ?? ''} ${sessao.name}`.trim() : 'Sem sessão agendada.'}
               </h1>
             </div>
             <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', textTransform: 'uppercase', textAlign: 'right' }}>
+              {/* Era "HOJE, 19:45", literal, mesmo sem sessão nenhuma. */}
               <div>PROJEÇÃO AGENDADA</div>
-              <div style={{ color: 'var(--film)', marginTop: 4 }}>HOJE, 19:45</div>
+              <div style={{ color: 'var(--film)', marginTop: 4 }}>
+                {sessao?.scheduled_date ? formataAgendamento(sessao.scheduled_date) : '—'}
+              </div>
             </div>
           </div>
           
           <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: 'var(--m2)', fontStyle: 'italic', margin: '32px 0 0 0', maxWidth: 800 }}>
-            Uma jornada por filmes contemplativos e visualmente impressionantes.
+            {sessao?.description || 'Sem descrição.'}
           </p>
         </motion.div>
 
@@ -341,6 +404,36 @@ export default function Session() {
           
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {isLoading && (
+              <div style={{ padding: '48px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)', letterSpacing: '0.2em' }}>
+                CONSULTANDO AGENDA...
+              </div>
+            )}
+
+            {!isLoading && !sessao && (
+              // Antes esta fila mostrava três filmes escritos no código, com
+              // barra de download animada. Sem sessão agendada, o honesto é
+              // dizer que não há — e apontar o caminho.
+              <div style={{ padding: '56px 0', borderTop: '1px solid rgba(237,232,220,0.05)' }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.5rem', color: 'var(--m2)', marginBottom: 12 }}>
+                  Nenhuma projeção agendada.
+                </div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)', letterSpacing: '0.15em', lineHeight: 1.8 }}>
+                  UMA SESSÃO REÚNE FILMES DO ACERVO NUMA NOITE, BUSCA AS CÓPIAS E<br />
+                  DEIXA TUDO PRONTO ANTES DA HORA MARCADA.
+                </div>
+                <Link href="/library" style={{ display: 'inline-block', marginTop: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.2em', textDecoration: 'none', borderBottom: '1px solid rgba(191,143,60,0.4)', paddingBottom: 4 }}>
+                  [ PERCORRER O ACERVO ]
+                </Link>
+              </div>
+            )}
+
+            {!isLoading && sessao && movies.length === 0 && (
+              <div style={{ padding: '48px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)', letterSpacing: '0.2em' }}>
+                SESSÃO SEM FILMES SELECIONADOS.
+              </div>
+            )}
+
             {movies.map((movie, i) => (
               <SessionMovieRow 
                 key={movie.id} 

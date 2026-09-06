@@ -48,7 +48,10 @@ class CinemaSessionSerializer(serializers.ModelSerializer):
             'status', 'theme_type', 'theme', 'movie_count',
             'first_movie_poster', 'preparation_progress', 'download_progress',
             'estimated_duration_minutes', 'all_downloads_ready',
-            'all_movies_selected', 'playlist_created',
+            # all_torrents_found estava só em read_only_fields, fora de
+            # `fields` — declarado somente-leitura e nunca serializado. É a
+            # etapa "Busca de Mídia" do painel de preparação.
+            'all_movies_selected', 'all_torrents_found', 'playlist_created',
             'session_movies', 'movie_ids', 'created_at', 'updated_at',
         ]
         read_only_fields = [
