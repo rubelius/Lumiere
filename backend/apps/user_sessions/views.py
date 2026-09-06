@@ -34,11 +34,11 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
     #
     # A escrita da sessão — preparar, iniciar, convidar, revogar — continua
     # exigindo ser dono.
-    ACTIONS_DE_PARTICIPANTE = ('retrieve', 'participants', 'messages')
+    ACTIONS_DE_PARTICIPANTE = ('retrieve', 'participants', 'messages', 'current', 'relevant')
 
     def get_permissions(self):
         """Define permissões por action"""
-        if self.action in ('list', 'upcoming', 'past', 'join'):
+        if self.action in ('list', 'upcoming', 'past', 'join', 'current', 'relevant'):
             return [IsAuthenticated()]
         if self.action in self.ACTIONS_DE_PARTICIPANTE:
             # O queryset já limita a dono ou participante; IsOwner aqui
@@ -91,6 +91,61 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(sessions, many=True)
         return Response(serializer.data)
     
+    @extend_schema(
+        responses={200: CinemaSessionSerializer},
+        summary='A sessão que importa agora: a em curso, ou a próxima agendada.',
+        description=(
+            'Uma pergunta, uma consulta. A tela precisava dividir isso entre '
+            '/current/ e /upcoming/, e a sessão MUDA de endpoint no instante '
+            'em que é iniciada — sai de upcoming, entra em current. Nesse '
+            'instante a tela via as duas listas discordarem e anunciava '
+            '"nenhuma projeção agendada" logo depois de a pessoa ter começado '
+            'uma. Com um endpoint só não há duas respostas para conciliar.'
+        ),
+    )
+    @action(detail=False, url_path='relevant')
+    def relevant(self, request):
+        agora = timezone.now()
+        base = self.get_queryset()
+
+        # Em curso ganha da agendada: uma projeção acontecendo agora é mais
+        # relevante que qualquer coisa no futuro.
+        sessao = base.filter(status='in_progress').order_by('-actual_start_time').first()
+        if not sessao:
+            sessao = (
+                base.filter(scheduled_date__gte=agora,
+                            status__in=['planning', 'preparing', 'ready'])
+                .order_by('scheduled_date').first()
+            )
+
+        if not sessao:
+            return Response(None)
+        return Response(self.get_serializer(
+            sessao, context={'request': request, 'detail': True}).data)
+
+    @extend_schema(
+        responses={200: CinemaSessionSerializer},
+        summary='A sessão em curso, se houver alguma.',
+        description=(
+            'Separada de /upcoming/ de propósito: uma sessão em andamento não '
+            'é futura, e incluí-la lá distorceria o significado do endpoint. '
+            'Sem esta rota a sessão sumia da tela no instante em que começava, '
+            'e a ação de encerrá-la ficava inalcançável.'
+        ),
+    )
+    @action(detail=False, methods=['get'])
+    def current(self, request):
+        sessao = (
+            self.get_queryset()
+            .filter(status='in_progress')
+            .order_by('-actual_start_time')
+            .first()
+        )
+        if not sessao:
+            return Response(None)
+        return Response(self.get_serializer(
+            sessao, context={'request': request, 'detail': True}).data)
+
     @action(detail=False, methods=['get'])
     def past(self, request):
         """Sessões passadas"""

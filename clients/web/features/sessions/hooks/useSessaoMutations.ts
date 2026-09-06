@@ -63,3 +63,35 @@ export function useEntrarComCodigo() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionKeys.all }),
   });
 }
+
+/**
+ * As três transições da sessão, na ordem em que acontecem.
+ *
+ * A máquina de estados vive no servidor e recusa salto: `prepare` só sai de
+ * `planning`, `start` só de `ready`, `complete` só de `in_progress`. A tela
+ * oferece uma ação por vez porque tentar a errada devolve 400 — e um botão
+ * que só existe para dar erro não é uma opção, é uma armadilha.
+ */
+function acaoDaSessao(acao: 'prepare' | 'start' | 'complete') {
+  return function useAcao() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (sessionId: string) =>
+        http.post<{ message: string; session: CinemaSession }>(
+          `/api/sessions/${sessionId}/${acao}/`, {}),
+      // `refetchQueries`, não `invalidateQueries`: a transição muda em qual
+      // endpoint a sessão aparece — ao iniciar, ela sai de /upcoming/ e entra
+      // em /current/. Com invalidação, /current/ não era rebuscado e a tela
+      // dizia "nenhuma projeção agendada" no segundo seguinte a a pessoa ter
+      // iniciado a projeção. Rebuscar é o que garante o estado consistente.
+      //
+      // A promessa é devolvida de propósito: a mutação só se dá por concluída
+      // quando os dados novos chegaram, e o botão só volta do "iniciando...".
+      onSuccess: () => queryClient.refetchQueries({ queryKey: sessionKeys.all }),
+    });
+  };
+}
+
+export const usePrepararSessao = acaoDaSessao('prepare');
+export const useIniciarSessao = acaoDaSessao('start');
+export const useEncerrarSessao = acaoDaSessao('complete');

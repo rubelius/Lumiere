@@ -57,3 +57,36 @@ export function useSessao(id: string | undefined) {
     refetchInterval: 15_000,
   });
 }
+
+/**
+ * A sessão em curso, se houver.
+ *
+ * /upcoming/ devolve só planning, preparing e ready — uma sessão em
+ * andamento não é futura. Sem esta consulta a tela perdia a sessão no
+ * instante em que ela era iniciada, e a ação de encerrá-la ficava
+ * inalcançável.
+ */
+export function useSessaoEmCurso() {
+  return useQuery({
+    queryKey: [...sessionKeys.all, 'em-curso'] as const,
+    queryFn: () => http.get<CinemaSession | null>('/api/sessions/current/'),
+    refetchInterval: 15_000,
+  });
+}
+
+/**
+ * A sessão que importa agora: a em curso, ou a próxima agendada.
+ *
+ * Uma pergunta, uma consulta. A tela dividia isso entre /current/ e
+ * /upcoming/, e a sessão MUDA de endpoint no instante em que é iniciada —
+ * sai de upcoming, entra em current. Nesse instante as duas respostas
+ * discordavam e a tela anunciava "nenhuma projeção agendada" logo depois de a
+ * pessoa ter começado uma. Com uma consulta só não há o que conciliar.
+ */
+export function useSessaoRelevante() {
+  return useQuery({
+    queryKey: [...sessionKeys.all, 'relevante'] as const,
+    queryFn: () => http.get<CinemaSession | null>('/api/sessions/relevant/'),
+    refetchInterval: 15_000,
+  });
+}

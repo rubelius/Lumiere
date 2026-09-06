@@ -533,6 +533,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{id}/invite/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cria um convite para a sessão. Só o dono.
+         * @description Devolve um código que dá a uma conta existente acesso à sessão. O código é a credencial: expira e pode ser revogado, porque um convite eterno vira uma porta que ninguém lembra que deixou aberta.
+         */
+        post: operations["sessions_invite_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{id}/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lê e escreve o chat da sessão.
+         * @description Cada fala guarda o ponto do filme em que foi dita: numa projeção coletiva o comentário só faz sentido junto da cena, e quem chega atrasado precisa ver a conversa no ponto certo em vez de levar spoiler do terceiro ato.
+         */
+        get: operations["sessions_messages_list"];
+        put?: never;
+        /**
+         * Lê e escreve o chat da sessão.
+         * @description Cada fala guarda o ponto do filme em que foi dita: numa projeção coletiva o comentário só faz sentido junto da cena, e quem chega atrasado precisa ver a conversa no ponto certo em vez de levar spoiler do terceiro ato.
+         */
+        post: operations["sessions_messages_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{id}/participants/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Quem está assistindo, e onde cada um está no filme.
+         * @description ViewSet para sessões de cinema
+         */
+        get: operations["sessions_participants_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{id}/prepare/": {
         parameters: {
             query?: never;
@@ -544,6 +608,26 @@ export interface paths {
         put?: never;
         /** @description ViewSet para sessões de cinema */
         post: operations["sessions_prepare_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{id}/revoke-invites/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoga todos os convites em aberto da sessão. Só o dono.
+         * @description ViewSet para sessões de cinema
+         */
+        post: operations["sessions_revoke_invites_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -567,6 +651,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/current/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A sessão em curso, se houver alguma.
+         * @description Separada de /upcoming/ de propósito: uma sessão em andamento não é futura, e incluí-la lá distorceria o significado do endpoint. Sem esta rota a sessão sumia da tela no instante em que começava, e a ação de encerrá-la ficava inalcançável.
+         */
+        get: operations["sessions_current_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/join/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Entra numa sessão usando o código do convite.
+         * @description Não leva o id da sessão: quem recebe um convite tem o código, não o identificador. O código é resolvido no servidor.
+         */
+        post: operations["sessions_join_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/past/": {
         parameters: {
             query?: never;
@@ -576,6 +700,26 @@ export interface paths {
         };
         /** @description Sessões passadas */
         get: operations["sessions_past_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/relevant/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A sessão que importa agora: a em curso, ou a próxima agendada.
+         * @description Uma pergunta, uma consulta. A tela precisava dividir isso entre /current/ e /upcoming/, e a sessão MUDA de endpoint no instante em que é iniciada — sai de upcoming, entra em current. Nesse instante a tela via as duas listas discordarem e anunciava "nenhuma projeção agendada" logo depois de a pessoa ter começado uma. Com um endpoint só não há duas respostas para conciliar.
+         */
+        get: operations["sessions_relevant_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1132,6 +1276,51 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["MovieList"][];
         };
+        PaginatedSessionInviteList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["SessionInvite"][];
+        };
+        PaginatedSessionMessageList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["SessionMessage"][];
+        };
+        PaginatedSessionParticipantList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["SessionParticipant"][];
+        };
         PaginatedSessionThemeList: {
             /** @example 123 */
             count: number;
@@ -1318,6 +1507,13 @@ export interface components {
             quality: string;
         };
         /**
+         * @description * `playing` - Tocando
+         *     * `paused` - Pausado
+         *     * `buffering` - Carregando
+         * @enum {string}
+         */
+        PlaybackStateEnum: "playing" | "paused" | "buffering";
+        /**
          * @description O que o player reporta enquanto o filme roda.
          *
          *     Os dois valores vêm do elemento <video> (`currentTime` e `duration`), em
@@ -1334,6 +1530,43 @@ export interface components {
              */
             duration: number;
         };
+        /**
+         * @description * `host` - Anfitrião
+         *     * `guest` - Convidado
+         * @enum {string}
+         */
+        RoleEnum: "host" | "guest";
+        /**
+         * @description O convite devolvido a quem o criou.
+         *
+         *     `code` só aparece aqui, para o anfitrião copiar. Ele é a credencial de
+         *     acesso à sessão, e não tem por que circular em nenhuma outra resposta.
+         */
+        SessionInvite: {
+            readonly code: string;
+            /** Format: date-time */
+            readonly expires_at: string;
+            readonly valid: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description Uma fala do chat.
+         *
+         *     `author` é o nome de quem falou, não o id do participante: a tela mostra
+         *     gente, e resolver id em nome no cliente exigiria carregar a lista inteira
+         *     de participantes só para desenhar uma linha de conversa.
+         */
+        SessionMessage: {
+            /** Format: uuid */
+            readonly id: string;
+            text: string;
+            readonly author: string;
+            readonly is_self: boolean;
+            playback_position_seconds?: number;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         /** @description Serializer para filmes dentro de uma sessão */
         SessionMovie: {
             /** Format: uuid */
@@ -1346,6 +1579,21 @@ export interface components {
             download_status?: components["schemas"]["DownloadStatusEnum"];
             download_progress?: number;
             notes?: string;
+        };
+        /** @description Quem está assistindo, e onde cada um está no filme. */
+        SessionParticipant: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly username: string;
+            readonly display_name: string;
+            readonly role: components["schemas"]["RoleEnum"];
+            readonly present: boolean;
+            readonly playback_position_seconds: number;
+            readonly playback_state: components["schemas"]["PlaybackStateEnum"];
+            /** Format: date-time */
+            readonly joined_at: string;
+            /** Format: date-time */
+            readonly last_seen_at: string;
         };
         /** @description Serializer para temas de sessão */
         SessionTheme: {
@@ -2525,6 +2773,170 @@ export interface operations {
             };
         };
     };
+    sessions_invite_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este cinema session. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionInvite"];
+                };
+            };
+        };
+    };
+    sessions_messages_list: {
+        parameters: {
+            query?: {
+                /** @description Um número de página dentro do conjunto de resultados paginado. */
+                page?: number;
+                /**
+                 * @description * `planning` - Planning
+                 *     * `preparing` - Preparing
+                 *     * `ready` - Ready
+                 *     * `in_progress` - In Progress
+                 *     * `completed` - Completed
+                 *     * `cancelled` - Cancelled
+                 */
+                status?: "cancelled" | "completed" | "in_progress" | "planning" | "preparing" | "ready";
+                /**
+                 * @description * `predefined` - Predefined
+                 *     * `custom` - Custom
+                 *     * `ai_generated` - AI Generated
+                 */
+                theme_type?: "ai_generated" | "custom" | "predefined";
+            };
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este cinema session. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSessionMessageList"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionMessage"];
+                };
+            };
+        };
+    };
+    sessions_messages_create: {
+        parameters: {
+            query?: {
+                /** @description Um número de página dentro do conjunto de resultados paginado. */
+                page?: number;
+                /**
+                 * @description * `planning` - Planning
+                 *     * `preparing` - Preparing
+                 *     * `ready` - Ready
+                 *     * `in_progress` - In Progress
+                 *     * `completed` - Completed
+                 *     * `cancelled` - Cancelled
+                 */
+                status?: "cancelled" | "completed" | "in_progress" | "planning" | "preparing" | "ready";
+                /**
+                 * @description * `predefined` - Predefined
+                 *     * `custom` - Custom
+                 *     * `ai_generated` - AI Generated
+                 */
+                theme_type?: "ai_generated" | "custom" | "predefined";
+            };
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este cinema session. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CinemaSession"];
+                "application/x-www-form-urlencoded": components["schemas"]["CinemaSession"];
+                "multipart/form-data": components["schemas"]["CinemaSession"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSessionMessageList"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionMessage"];
+                };
+            };
+        };
+    };
+    sessions_participants_list: {
+        parameters: {
+            query?: {
+                /** @description Um número de página dentro do conjunto de resultados paginado. */
+                page?: number;
+                /**
+                 * @description * `planning` - Planning
+                 *     * `preparing` - Preparing
+                 *     * `ready` - Ready
+                 *     * `in_progress` - In Progress
+                 *     * `completed` - Completed
+                 *     * `cancelled` - Cancelled
+                 */
+                status?: "cancelled" | "completed" | "in_progress" | "planning" | "preparing" | "ready";
+                /**
+                 * @description * `predefined` - Predefined
+                 *     * `custom` - Custom
+                 *     * `ai_generated` - AI Generated
+                 */
+                theme_type?: "ai_generated" | "custom" | "predefined";
+            };
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este cinema session. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSessionParticipantList"];
+                };
+            };
+        };
+    };
     sessions_prepare_create: {
         parameters: {
             query?: never;
@@ -2549,6 +2961,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CinemaSession"];
+                };
+            };
+        };
+    };
+    sessions_revoke_invites_create: {
+        parameters: {
+            query?: {
+                /** @description Um número de página dentro do conjunto de resultados paginado. */
+                page?: number;
+                /**
+                 * @description * `planning` - Planning
+                 *     * `preparing` - Preparing
+                 *     * `ready` - Ready
+                 *     * `in_progress` - In Progress
+                 *     * `completed` - Completed
+                 *     * `cancelled` - Cancelled
+                 */
+                status?: "cancelled" | "completed" | "in_progress" | "planning" | "preparing" | "ready";
+                /**
+                 * @description * `predefined` - Predefined
+                 *     * `custom` - Custom
+                 *     * `ai_generated` - AI Generated
+                 */
+                theme_type?: "ai_generated" | "custom" | "predefined";
+            };
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este cinema session. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSessionInviteList"];
                 };
             };
         };
@@ -2581,7 +3033,64 @@ export interface operations {
             };
         };
     };
+    sessions_current_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CinemaSession"];
+                };
+            };
+        };
+    };
+    sessions_join_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CinemaSession"];
+                };
+            };
+        };
+    };
     sessions_past_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CinemaSession"];
+                };
+            };
+        };
+    };
+    sessions_relevant_retrieve: {
         parameters: {
             query?: never;
             header?: never;

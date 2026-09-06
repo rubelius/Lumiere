@@ -6,8 +6,9 @@ import { MotionImage } from '@/components/system/MotionImage';
 import { Play, Cast, SlidersHorizontal, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useProximasSessoes, useSessao } from "@/features/sessions/hooks/useSessoes";
-import { useEntrarComCodigo } from "@/features/sessions/hooks/useSessaoMutations";
+import { useSessaoRelevante } from "@/features/sessions/hooks/useSessoes";
+import { useEncerrarSessao, useEntrarComCodigo, useIniciarSessao,
+         usePrepararSessao } from "@/features/sessions/hooks/useSessaoMutations";
 import type { CinemaSession, SessionMovie } from "@/features/sessions/hooks/useSessoes";
 import { useRouter } from "next/navigation";
 
@@ -325,18 +326,109 @@ function SessionMovieRow({ movie, index, router }: any) {
   );
 }
 
+/**
+ * O que a barra mostra quando não há transição a oferecer.
+ *
+ * O caso que importa é `preparing`: a preparação roda numa task do Celery, e
+ * numa instância caseira o worker costuma não estar no ar. Sem ele a sessão
+ * fica parada em 0% para sempre. Um spinner eterno seria a mesma mentira que
+ * esta tela vinha contando; dizer há quanto tempo não avança é o que permite
+ * à pessoa concluir que falta subir o worker.
+ */
+function EstadoSemAcao({ sessao }: { sessao?: CinemaSession }) {
+  const monoclaro = {
+    fontFamily: "'DM Mono', monospace", fontSize: '10px',
+    letterSpacing: '0.2em', color: 'var(--m3)',
+  } as const;
+
+  if (!sessao) return <span style={monoclaro}>NENHUMA SESSÃO SELECIONADA</span>;
+
+  if (sessao.status === 'preparing') {
+    const desde = sessao.updated_at ? new Date(sessao.updated_at) : null;
+    const minutos = desde ? Math.floor((Date.now() - desde.getTime()) / 60000) : 0;
+    const progresso = sessao.preparation_progress ?? 0;
+    const parada = progresso === 0 && minutos >= 2;
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <span style={{ ...monoclaro, color: 'var(--gold)' }}>
+          PREPARANDO — {progresso}%
+        </span>
+        {parada && (
+          <span style={{ ...monoclaro, fontSize: '9px', lineHeight: 1.7 }}>
+            SEM AVANÇO HÁ {minutos} MIN. A PREPARAÇÃO RODA NUM WORKER DO CELERY;<br />
+            SE NENHUM ESTIVER NO AR, ELA FICA NA FILA ATÉ QUE UM SUBA.
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (sessao.status === 'completed') {
+    return <span style={monoclaro}>SESSÃO ENCERRADA</span>;
+  }
+
+  return <span style={monoclaro}>{String(sessao.status || '').toUpperCase()}</span>;
+}
+
 export default function Session() {
 
   const router = useRouter();
 
-  const { data: sessoes, isLoading: carregandoLista } = useProximasSessoes();
-  // A lista não traz a fila de filmes; o detalhe traz.
-  const { data: sessao, isLoading: carregandoDetalhe } = useSessao(sessoes?.[0]?.id);
-  const isLoading = carregandoLista || carregandoDetalhe;
+  // Uma consulta só. Isto vinha de duas — /current/ e /upcoming/ — e a sessão
+  // muda de endpoint no instante em que é iniciada: sai de upcoming, entra em
+  // current. Nesse instante as duas discordavam e a tela dizia "nenhuma
+  // projeção agendada" logo depois de a pessoa ter começado uma. Não era um
+  // problema de invalidação de cache; era a pergunta partida em duas.
+  const { data: sessaoOuNulo, isLoading } = useSessaoRelevante();
+  // O endpoint devolve `null` quando não há sessão; o resto da tela trabalha
+  // com `undefined`. Normalizar aqui evita espalhar a diferença.
+  const sessao = sessaoOuNulo ?? undefined;
 
   const [codigo, setCodigo] = useState('');
   const [erroDoConvite, setErroDoConvite] = useState('');
   const entrarNaSessao = useEntrarComCodigo();
+
+  const preparar = usePrepararSessao();
+  const iniciar = useIniciarSessao();
+  const encerrar = useEncerrarSessao();
+  const [erroDaAcao, setErroDaAcao] = useState('');
+
+  /**
+   * A ação disponível agora, conforme o estado da sessão.
+   *
+   * A máquina de estados vive no servidor e recusa salto. Oferecer só a
+   * transição válida evita o botão que existe para dar 400 — e o antigo
+   * "[ INICIAR PROJEÇÃO ]" era pior: navegava para /player sem id, sem
+   * chamar /start/, em qualquer estado.
+   */
+  const acao = (() => {
+    if (!sessao) return null;
+    switch (sessao.status) {
+      case 'planning':
+        return { rotulo: 'PREPARAR SESSÃO', mutacao: preparar, pendente: 'PREPARANDO...' };
+      case 'ready':
+        return { rotulo: 'INICIAR PROJEÇÃO', mutacao: iniciar, pendente: 'INICIANDO...' };
+      case 'in_progress':
+        return { rotulo: 'ENCERRAR SESSÃO', mutacao: encerrar, pendente: 'ENCERRANDO...' };
+      default:
+        return null;
+    }
+  })();
+
+  const executaAcao = async () => {
+    if (!acao || !sessao) return;
+    setErroDaAcao('');
+    try {
+      await acao.mutacao.mutateAsync(sessao.id as string);
+    } catch (e) {
+      // O servidor devolve a razão no envelope de erro; repeti-la é mais
+      // útil que "algo deu errado".
+      const detalhe = (e as { data?: { error?: { fields?: Record<string, string> } } })
+        ?.data?.error?.fields?.status;
+      setErroDaAcao(detalhe || 'Não foi possível concluir a ação.');
+    }
+  };
 
   const entrar = async () => {
     if (!codigo.trim()) return;
@@ -502,22 +594,40 @@ export default function Session() {
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8, duration: 1, ease: FINE_ART_EASE }}
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(237,232,220,0.05)', paddingTop: 40 }}
         >
-          {/* Botão Primário (Agora funciona e tem gravidade) */}
-          <motion.button 
-            onClick={() => router.push('/player')}
-            whileHover={{ scale: 1.02, backgroundColor: '#d4a34b' }}
-            whileTap={{ scale: 0.98 }}
-            style={{ 
-              backgroundColor: 'var(--gold)', color: 'var(--bg)', border: 'none', padding: '16px 32px', cursor: 'pointer',
-              fontFamily: "'DM Mono', monospace", fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase',
-              display: 'flex', alignItems: 'center', gap: 12
-            }}
-          >
-            [ INICIAR PROJEÇÃO ] 
-            <motion.div animate={{ x: [0, 4, 0] }} transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}>
-              <ArrowRight style={{ width: 14, height: 14 }} />
-            </motion.div>
-          </motion.button>
+          {/* O botão dizia sempre "[ INICIAR PROJEÇÃO ]" e navegava para
+              /player sem id, em qualquer estado da sessão — nunca chamou
+              /start/. Agora oferece a transição que o servidor aceita agora. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {acao ? (
+              <motion.button
+                onClick={executaAcao}
+                disabled={acao.mutacao.isPending}
+                whileHover={{ scale: acao.mutacao.isPending ? 1 : 1.02, backgroundColor: acao.mutacao.isPending ? 'var(--gold)' : '#d4a34b' }}
+                whileTap={{ scale: 0.98 }}
+                style={{
+                  backgroundColor: 'var(--gold)', color: 'var(--bg)', border: 'none', padding: '16px 32px',
+                  cursor: acao.mutacao.isPending ? 'wait' : 'pointer', opacity: acao.mutacao.isPending ? 0.7 : 1,
+                  fontFamily: "'DM Mono', monospace", fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase',
+                  display: 'flex', alignItems: 'center', gap: 12
+                }}
+              >
+                [ {acao.mutacao.isPending ? acao.pendente : acao.rotulo} ]
+                {!acao.mutacao.isPending && (
+                  <motion.div animate={{ x: [0, 4, 0] }} transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}>
+                    <ArrowRight style={{ width: 14, height: 14 }} />
+                  </motion.div>
+                )}
+              </motion.button>
+            ) : (
+              <EstadoSemAcao sessao={sessao} />
+            )}
+
+            {erroDaAcao && (
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.12em' }}>
+                {erroDaAcao.toUpperCase()}
+              </span>
+            )}
+          </div>
 
           {/* Configurações de Sistema (Com hover sutil de escala e cor) */}
           <div style={{ display: 'flex', gap: 32 }}>

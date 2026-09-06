@@ -201,3 +201,78 @@ def test_o_chat_tem_duas_barreiras_e_so_uma_e_testavel():
 
     fonte = inspect.getsource(CinemaSessionViewSet.messages)
     assert 'if not participacao:' in fonte
+
+
+@pytest.mark.django_db
+def test_sessao_em_curso_nao_some_da_tela(sessao, dono):
+    """
+    /upcoming/ devolve só planning, preparing e ready. Sem uma rota para a
+    sessão em andamento, ela sumia no instante em que era iniciada — e a ação
+    de encerrá-la ficava inalcançável, porque a tela perdia a sessão.
+    """
+    c = cliente(dono)
+    assert c.get('/api/sessions/current/').data is None
+
+    sessao.status = 'in_progress'
+    sessao.save(update_fields=['status'])
+
+    assert c.get('/api/sessions/upcoming/').data == []
+    assert c.get('/api/sessions/current/').data['id'] == str(sessao.id)
+
+
+@pytest.mark.django_db
+def test_current_traz_a_fila_de_filmes(sessao, dono):
+    """A tela em curso precisa da fila; /upcoming/ é leve e não a traz."""
+    sessao.status = 'in_progress'
+    sessao.save(update_fields=['status'])
+    assert cliente(dono).get('/api/sessions/current/').data['session_movies'] is not None
+
+
+@pytest.mark.django_db
+def test_current_nao_vaza_sessao_de_outro(sessao, estranho):
+    sessao.status = 'in_progress'
+    sessao.save(update_fields=['status'])
+    assert cliente(estranho).get('/api/sessions/current/').data is None
+
+
+@pytest.mark.django_db
+def test_relevant_prefere_a_em_curso(sessao, dono):
+    """
+    A tela dividia esta pergunta entre /current/ e /upcoming/, e a sessão muda
+    de endpoint no instante em que é iniciada. Nesse instante as duas listas
+    discordavam e a tela anunciava "nenhuma projeção agendada" logo depois de
+    a pessoa ter começado uma.
+    """
+    from datetime import timedelta as td
+
+    futura = CinemaSession.objects.create(
+        user=dono, name='Depois', theme_type='custom',
+        scheduled_date=timezone.now() + td(days=5))
+    sessao.status = 'in_progress'
+    sessao.save(update_fields=['status'])
+
+    r = cliente(dono).get('/api/sessions/relevant/')
+    assert r.data['id'] == str(sessao.id)
+    assert r.data['id'] != str(futura.id)
+
+
+@pytest.mark.django_db
+def test_relevant_cai_na_proxima_agendada(sessao, dono):
+    assert cliente(dono).get('/api/sessions/relevant/').data['id'] == str(sessao.id)
+
+
+@pytest.mark.django_db
+def test_relevant_ignora_encerrada(sessao, dono):
+    sessao.status = 'completed'
+    sessao.save(update_fields=['status'])
+    assert cliente(dono).get('/api/sessions/relevant/').data is None
+
+
+@pytest.mark.django_db
+def test_relevant_nao_vaza_de_outro(sessao, estranho):
+    assert cliente(estranho).get('/api/sessions/relevant/').data is None
+
+
+@pytest.mark.django_db
+def test_relevant_traz_a_fila(sessao, dono):
+    assert cliente(dono).get('/api/sessions/relevant/').data['session_movies'] is not None
