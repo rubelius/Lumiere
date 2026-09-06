@@ -153,3 +153,21 @@ export function useContinuarAssistindo() {
     staleTime: 30_000,
   });
 }
+
+/**
+ * Números do acervo: quantos filmes, quantas horas, quantos países.
+ *
+ * A home exibia os três sob a legenda "métricas em tempo real". Dois eram
+ * inventados: as horas saíam de multiplicar a contagem por 1.8, e os países
+ * eram a constante 92 para qualquer acervo com ao menos um filme.
+ */
+export function useEstatisticasDoAcervo() {
+  return useQuery({
+    queryKey: [...movieKeys.all, 'estatisticas'] as const,
+    queryFn: () =>
+      http.get<{ movies: number; hours: number; countries: number }>(
+        '/api/movies/archive-stats/',
+      ),
+    staleTime: 5 * 60_000,
+  });
+}

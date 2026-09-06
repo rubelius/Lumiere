@@ -10,7 +10,7 @@ import { AfinidadeAferida } from '@/components/home/AfinidadeAferida'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
-import { useContinuarAssistindo, useMovies } from '@/features/movies/hooks/useMovies';
+import { useContinuarAssistindo, useEstatisticasDoAcervo, useMovies } from '@/features/movies/hooks/useMovies';
 
 
 // ── TIPAGEM SEGURA PARA ACALMAR O TYPESCRIPT ──
@@ -61,6 +61,7 @@ export default function HomePage() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [randomHeroMovies, setRandomHeroMovies] = useState<HomeMovie[]>([]);
   const { data: continuar } = useContinuarAssistindo();
+  const { data: estatisticas } = useEstatisticasDoAcervo();
   const emCurso = continuar?.results?.[0];
 
   const { data, isLoading, isError, refetch } = useMovies({ page: 1 });
@@ -277,6 +278,7 @@ export default function HomePage() {
             director={emCurso.movie.director || 'Desconhecido'}
             year={String(emCurso.movie.year || '----')}
             progress={Math.round(emCurso.fraction * 100)}
+            positionSeconds={emCurso.progress_seconds}
             remainingTime={formataRestante(emCurso.runtime_seconds - emCurso.progress_seconds)}
             frameSrc={emCurso.movie.background_url || emCurso.movie.poster_url || ''}
             href={`/player?id=${emCurso.movie.id}`}
@@ -327,7 +329,7 @@ export default function HomePage() {
           filmList={topDirectorMovies.slice(0,3).map((m) => m.title)} 
         />
 
-        <LibraryCount count={data?.count || 0} />
+        <LibraryCount count={estatisticas?.movies ?? 0} hours={estatisticas?.hours ?? 0} countries={estatisticas?.countries ?? 0} />
 
         <footer style={{ padding: '120px 72px 40px', background: 'var(--void)', borderTop: '1px solid rgba(237,232,220,0.05)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 64, borderBottom: '1px solid rgba(237,232,220,0.05)', paddingBottom: 64, marginBottom: 32, alignItems: 'end' }}>

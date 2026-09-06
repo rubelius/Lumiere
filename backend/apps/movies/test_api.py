@@ -96,3 +96,42 @@ def test_campos_da_listagem_cobre_o_que_o_serializer_le():
     colunas = {f.name for f in Movie._meta.get_fields()}
     lidos = {c for c in MovieListSerializer.Meta.fields if c in colunas}
     assert lidos == set(campos_da_listagem())
+
+
+@pytest.mark.django_db
+def test_archive_stats_soma_duracoes_em_vez_de_multiplicar(authenticated_client):
+    """
+    A home calculava as horas do acervo como `contagem * 1.8`. Nenhum filme
+    era medido, e o número ficava ao lado de um contador verdadeiro, herdando
+    a credibilidade dele.
+    """
+    from apps.movies.models import Movie
+
+    # As durações são escolhidas para as duas fórmulas DISCORDAREM: a soma dá
+    # 3h, a multiplicação daria 5h. Com valores que coincidem, o teste passaria
+    # com a fórmula errada — foi o que aconteceu na primeira versão dele.
+    for i in range(3):
+        Movie.objects.create(title=f'Filme {i}', year=2000 + i,
+                             length_minutes=60, country='BRA')
+
+    dados = authenticated_client.get('/api/movies/archive-stats/').data
+    assert dados['movies'] == 3
+    assert dados['hours'] == 3            # 180 / 60. A multiplicação daria 5.
+    assert dados['countries'] == 1        # não 92
+
+
+@pytest.mark.django_db
+def test_archive_stats_conta_paises_distintos(authenticated_client):
+    from apps.movies.models import Movie
+
+    for pais in ('BRA', 'FRA', 'FRA', 'JPN'):
+        Movie.objects.create(title=f'F{pais}{Movie.objects.count()}', year=2000,
+                             length_minutes=60, country=pais)
+    assert authenticated_client.get('/api/movies/archive-stats/').data['countries'] == 3
+
+
+@pytest.mark.django_db
+def test_archive_stats_com_acervo_vazio_nao_estoura(authenticated_client):
+    """Sum() devolve None num acervo vazio, e None/60 levantaria TypeError."""
+    dados = authenticated_client.get('/api/movies/archive-stats/').data
+    assert dados == {'movies': 0, 'hours': 0, 'countries': 0}

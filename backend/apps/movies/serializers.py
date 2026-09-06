@@ -285,3 +285,15 @@ class WatchHistorySerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.FloatField)
     def get_fraction(self, obj) -> float:
         return round(obj.fracao_assistida, 4)
+
+
+class ArchiveStatsSerializer(serializers.Serializer):
+    """
+    Números do acervo, para a home poder exibi-los sem inventá-los.
+
+    `hours` é a soma real das durações, não a contagem de filmes vezes 1.8;
+    `countries` é a contagem distinta, não a constante 92.
+    """
+    movies = serializers.IntegerField(read_only=True)
+    hours = serializers.IntegerField(read_only=True)
+    countries = serializers.IntegerField(read_only=True)

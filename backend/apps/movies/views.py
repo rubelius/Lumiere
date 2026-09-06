@@ -9,7 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, F, Value, FloatField, CharField
+from django.db.models import Count, Q, F, Sum, Value, FloatField, CharField
 from django.db.models.functions import Coalesce, Greatest
 from django.contrib.postgres.search import TrigramSimilarity
 from django.utils.decorators import method_decorator
@@ -31,8 +31,10 @@ from apps.ml.similarity import (agenda_retreino_do_gosto, diversifica,
 
 from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
+from .paises import origens_distintas
 from .utils import passa_no_filtro
 from .serializers import (
+    ArchiveStatsSerializer,
     campos_da_listagem,
     ids_assistidos,
     ProgressoSerializer,
@@ -274,6 +276,40 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
             agenda_retreino_do_gosto(request.user)
 
         return Response(WatchHistorySerializer(registro).data)
+
+    @extend_schema(
+        responses={200: ArchiveStatsSerializer},
+        summary='Números do acervo: quantos filmes, quantas horas, quantos países.',
+        description=(
+            'A home exibia estes três como "métricas em tempo real". Dois eram '
+            'inventados: as horas vinham de multiplicar a contagem de filmes '
+            'por 1.8, e os países eram a constante 92 para qualquer acervo com '
+            'ao menos um filme. Agora são agregações de verdade.'
+        ),
+    )
+    @action(detail=False, url_path='archive-stats')
+    def archive_stats(self, request):
+        # Três agregações numa consulta cada, sobre colunas indexadas. A home
+        # pede isto uma vez por carga.
+        agregado = Movie.objects.aggregate(
+            filmes=Count('id'), minutos=Sum('length_minutes'))
+        # DISTINCT sobre a coluna crua conta COMBINAÇÕES de coprodução, não
+        # países: 'UK-Germany-Sweden' é um valor só, e 'US' e 'USA' são dois
+        # valores para o mesmo lugar. Bastava isso para publicar 423 países
+        # num mundo que tem menos de 200.
+        #
+        # Traz só os valores distintos (algumas centenas), não uma linha por
+        # filme: a normalização é em memória e não precisa do acervo inteiro.
+        combinacoes = (
+            Movie.objects.exclude(country='').exclude(country__isnull=True)
+            .values_list('country', flat=True).distinct()
+        )
+        paises = len(origens_distintas(combinacoes))
+        return Response({
+            'movies': agregado['filmes'] or 0,
+            'hours': round((agregado['minutos'] or 0) / 60),
+            'countries': paises,
+        })
 
     @extend_schema(
         responses={200: MovieListSerializer(many=True)},

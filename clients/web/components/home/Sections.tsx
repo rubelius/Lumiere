@@ -14,13 +14,22 @@ interface NowProjectingProps {
   director: string
   year: string
   progress: number
+  /** Onde o usuário parou, em segundos. É daqui que sai o timecode. */
+  positionSeconds: number
   remainingTime: string
   frameSrc: string
   href: string
 }
 
+/** Segundos em HH:MM:SS, que é o que um timecode é. */
+function timecode(segundos: number): string {
+  const s = Math.max(0, Math.floor(segundos))
+  const partes = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
+  return partes.map((p) => String(p).padStart(2, '0')).join(':')
+}
+
 export function NowProjecting({
-  title, director, year, progress, remainingTime, frameSrc, href
+  title, director, year, progress, positionSeconds, remainingTime, frameSrc, href
 }: NowProjectingProps) {
   const [isHovered, setIsHovered] = useState(false)
   const totalDots = 20
@@ -137,7 +146,11 @@ export function NowProjecting({
                 padding: '4px 10px', border: '1px solid rgba(191,143,60,0.2)'
               }}
             >
-              TC {progress.toString().padStart(2, '0')}:00 // PLAYING
+              {/* Era `TC {progress}:00 // PLAYING`: a PORCENTAGEM com ":00"
+                  colado atrás, que se lê como minutos e não tem relação com
+                  onde a pessoa parou. E "PLAYING" num painel cujo botão ao
+                  lado diz RETOMAR — nada estava tocando. */}
+              TC {timecode(positionSeconds)} // PAUSADO
             </motion.div>
           </motion.div>
 
@@ -147,7 +160,11 @@ export function NowProjecting({
               Rolo 01 / 35MM
             </span>
             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', color: 'var(--m3)' }}>
-              FRAME {Math.round((progress / 100) * 168000).toLocaleString('pt-BR')} / 168.000
+              {/* Aqui vinha `FRAME x / 168.000`, o mesmo total para todo
+                  filme — um curta e Satantango teriam a mesma metragem. Sem
+                  taxa de quadros no acervo não há como contar fotograma;
+                  a fração assistida é o que se pode dizer de verdade. */}
+              {progress}% DO ROLO
             </span>
           </div>
         </div>
@@ -574,10 +591,14 @@ function AnimatedCounter({ to, duration = 2.5 }: { to: number, duration?: number
   return <motion.span>{rounded}</motion.span>
 }
 
-export function LibraryCount({ count = 0 }: { count: number }) {
-  const estimatedHours = Math.round(count * 1.8); 
-  // Valor estético que em breve virá do Django (ex: data.countries_count)
-  const countries = count > 0 ? 92 : 0; 
+export function LibraryCount({ count = 0, hours = 0, countries = 0 }: {
+  count?: number; hours?: number; countries?: number;
+}) {
+  // As horas vinham de `count * 1.8` e os países da constante 92 — um acervo
+  // de três filmes brasileiros anunciava 92 países. Os três números agora vêm
+  // de /api/movies/archive-stats/, ao lado da legenda que promete "métricas
+  // em tempo real".
+  const estimatedHours = hours;
   
   return (
     <section 

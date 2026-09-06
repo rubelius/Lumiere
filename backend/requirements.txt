@@ -130,3 +130,4 @@ urllib3==2.6.3
 vine==5.1.0
 wcwidth==0.6.0
 zope.interface==8.2
+pycountry==26.2.16

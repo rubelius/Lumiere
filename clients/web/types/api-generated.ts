@@ -263,6 +263,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/archive-stats/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Números do acervo: quantos filmes, quantas horas, quantos países.
+         * @description A home exibia estes três como "métricas em tempo real". Dois eram inventados: as horas vinham de multiplicar a contagem de filmes por 1.8, e os países eram a constante 92 para qualquer acervo com ao menos um filme. Agora são agregações de verdade.
+         */
+        get: operations["movies_archive_stats_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/available/": {
         parameters: {
             query?: never;
@@ -760,6 +780,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Números do acervo, para a home poder exibi-los sem inventá-los.
+         *
+         *     `hours` é a soma real das durações, não a contagem de filmes vezes 1.8;
+         *     `countries` é a contagem distinta, não a constante 92.
+         */
+        ArchiveStats: {
+            readonly movies: number;
+            readonly hours: number;
+            readonly countries: number;
+        };
         /** @description Serializer unificado e otimizado contra queries N+1 */
         CinemaSession: {
             /** Format: uuid */
@@ -1889,6 +1920,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WatchHistory"];
+                };
+            };
+        };
+    };
+    movies_archive_stats_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveStats"];
                 };
             };
         };
