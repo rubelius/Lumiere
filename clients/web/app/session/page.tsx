@@ -7,6 +7,7 @@ import { Play, Cast, SlidersHorizontal, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useProximasSessoes, useSessao } from "@/features/sessions/hooks/useSessoes";
+import { useEntrarComCodigo } from "@/features/sessions/hooks/useSessaoMutations";
 import type { CinemaSession, SessionMovie } from "@/features/sessions/hooks/useSessoes";
 import { useRouter } from "next/navigation";
 
@@ -333,6 +334,24 @@ export default function Session() {
   const { data: sessao, isLoading: carregandoDetalhe } = useSessao(sessoes?.[0]?.id);
   const isLoading = carregandoLista || carregandoDetalhe;
 
+  const [codigo, setCodigo] = useState('');
+  const [erroDoConvite, setErroDoConvite] = useState('');
+  const entrarNaSessao = useEntrarComCodigo();
+
+  const entrar = async () => {
+    if (!codigo.trim()) return;
+    setErroDoConvite('');
+    try {
+      await entrarNaSessao.mutateAsync(codigo);
+      setCodigo('');
+    } catch {
+      // A mesma mensagem para código inexistente, expirado e revogado — o
+      // servidor já não distingue os três de propósito, e distinguir aqui
+      // desfaria isso.
+      setErroDoConvite('CONVITE INVÁLIDO OU EXPIRADO.');
+    }
+  };
+
   const steps = etapasDaPreparacao(sessao);
   const movies = (sessao?.session_movies ?? []).map(paraLinhaDaFila);
 
@@ -422,9 +441,41 @@ export default function Session() {
                   UMA SESSÃO REÚNE FILMES DO ACERVO NUMA NOITE, BUSCA AS CÓPIAS E<br />
                   DEIXA TUDO PRONTO ANTES DA HORA MARCADA.
                 </div>
-                <Link href="/library" style={{ display: 'inline-block', marginTop: 28, fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.2em', textDecoration: 'none', borderBottom: '1px solid rgba(191,143,60,0.4)', paddingBottom: 4 }}>
-                  [ PERCORRER O ACERVO ]
-                </Link>
+                <div style={{ display: 'flex', gap: 32, marginTop: 28, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <Link href="/party" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.2em', textDecoration: 'none', borderBottom: '1px solid rgba(191,143,60,0.4)', paddingBottom: 4 }}>
+                    [ AGENDAR UMA SESSÃO ]
+                  </Link>
+                  <Link href="/library" style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)', letterSpacing: '0.2em', textDecoration: 'none', borderBottom: '1px solid rgba(86,84,80,0.4)', paddingBottom: 4 }}>
+                    [ PERCORRER O ACERVO ]
+                  </Link>
+                </div>
+
+                {/* Quem recebe um convite tem o código, não o endereço da
+                    sessão — o id é resolvido no servidor a partir dele. Sem
+                    este campo o convite não tinha onde ser usado, e a
+                    funcionalidade só existia por API. */}
+                <div style={{ marginTop: 56, paddingTop: 32, borderTop: '1px solid rgba(237,232,220,0.05)' }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', marginBottom: 16 }}>
+                    RECEBEU UM CONVITE?
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, maxWidth: 460 }}>
+                    <input
+                      type="text" value={codigo} onChange={(e) => { setCodigo(e.target.value); setErroDoConvite(''); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') entrar(); }}
+                      placeholder="COLE O CÓDIGO AQUI"
+                      style={{ flex: 1, background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid var(--m3)', padding: '12px 8px', color: 'var(--film)', fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.12em', outline: 'none' }}
+                    />
+                    <button onClick={entrar} disabled={entrarNaSessao.isPending}
+                      style={{ background: 'rgba(0,0,0,0)', border: '1px solid rgba(191,143,60,0.5)', color: 'var(--gold)', padding: '12px 20px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: entrarNaSessao.isPending ? 'wait' : 'pointer' }}>
+                      {entrarNaSessao.isPending ? '[ ENTRANDO... ]' : '[ ENTRAR ]'}
+                    </button>
+                  </div>
+                  {erroDoConvite && (
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.15em', marginTop: 14 }}>
+                      {erroDoConvite}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

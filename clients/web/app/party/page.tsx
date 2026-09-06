@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { Users, Link as LinkIcon, Play, CalendarPlus, X, Search, TerminalSquare, Radio, CheckCircle2, Activity, Settings2, Share2, SkipBack, SkipForward, Pause, Volume2, Subtitles, Maximize } from "lucide-react";
 import { http } from '@/services/http/client';
 import { useProximasSessoes } from '@/features/sessions/hooks/useSessoes';
+import { useCriarConvite, useCriarSessao } from '@/features/sessions/hooks/useSessaoMutations';
+import { useMovies } from '@/features/movies/hooks/useMovies';
 import { useCanalDaSessao } from '@/features/sessions/hooks/useCanalDaSessao';
 import type { Fala, Participante } from '@/features/sessions/hooks/useCanalDaSessao';
 import { useState, useRef, useEffect } from "react";
@@ -49,6 +51,23 @@ export default function Party() {
   
   // Estados de Interface
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+
+  // O formulário de agendamento existia na tela com os campos soltos — sem
+  // `value`, sem `onChange` — e o botão de confirmar sem `onClick`. Preencher
+  // e confirmar não fazia absolutamente nada.
+  const [novoTitulo, setNovoTitulo] = useState('');
+  const [novaData, setNovaData] = useState('');
+  const [novaHora, setNovaHora] = useState('20:00');
+  const [buscaDeFilme, setBuscaDeFilme] = useState('');
+  const [escolhidos, setEscolhidos] = useState<{ id: string; title: string }[]>([]);
+  const [erroDoForm, setErroDoForm] = useState('');
+  const [conviteGerado, setConviteGerado] = useState('');
+  const [erroDoConvite, setErroDoConvite] = useState('');
+
+  const criarSessao = useCriarSessao();
+  const criarConvite = useCriarConvite();
+  const { data: resultadosDaBusca } = useMovies(
+    buscaDeFilme.length >= 3 ? { page: 1, search: buscaDeFilme } : { page: 1 });
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -72,7 +91,7 @@ export default function Party() {
   useEffect(() => {
     if (!sessionId) return;
     let cancelado = false;
-    http.get<Fala[]>(`/api/sessions/${sessionId}/falas/`)
+    http.get<Fala[]>(`/api/sessions/${sessionId}/messages/`)
       .then((antigas) => { if (!cancelado) setFalas(antigas); })
       .catch(() => {});
     return () => { cancelado = true; };
@@ -112,10 +131,53 @@ export default function Party() {
   }));
 
   // Lógica de Comandos
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
+  const handleCriarSessao = async () => {
+    setErroDoForm('');
+    if (!novoTitulo.trim()) return setErroDoForm('A sessão precisa de um nome.');
+    if (!novaData) return setErroDoForm('Escolha a data da projeção.');
+
+    // O <input type="date"> devolve a data no fuso local; montar o ISO com o
+    // Date local e converter preserva a hora que a pessoa escolheu. Concatenar
+    // com 'Z' marcaria 20:00 como UTC e a sessão apareceria três horas fora.
+    const quando = new Date(`${novaData}T${novaHora || '20:00'}`);
+    if (Number.isNaN(quando.getTime())) return setErroDoForm('Data inválida.');
+
+    try {
+      await criarSessao.mutateAsync({
+        name: novoTitulo.trim(),
+        scheduled_date: quando.toISOString(),
+        movie_ids: escolhidos.map((f) => f.id),
+      });
+      setIsScheduleOpen(false);
+      setNovoTitulo(''); setNovaData(''); setEscolhidos([]); setBuscaDeFilme('');
+    } catch {
+      setErroDoForm('Não foi possível agendar. Tente de novo.');
+    }
+  };
+
+  const handleCopyLink = async () => {
+    // Copiava `window.location.href` — a URL da própria página, que não dá
+    // acesso nenhum a quem a receba. O convite é um código que autoriza uma
+    // conta a entrar na sessão, e que expira.
+    if (!sessionId) return;
+    try {
+      const { code } = await criarConvite.mutateAsync(sessionId);
+      // O código vai para a TELA antes de ir para a área de transferência.
+      // A cópia falha em situações banais — permissão negada, aba sem foco —
+      // e, se ela fosse o único caminho, a pessoa ficaria sem o convite e
+      // sem saber que ele existe.
+      setConviteGerado(code);
+      try {
+        await navigator.clipboard.writeText(code);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 4000);
+      } catch {
+        // O código está na tela; copiar era conveniência.
+      }
+    } catch {
+      setConviteGerado('');
+      setErroDoConvite('Não foi possível gerar o convite.');
+    }
   };
 
   const handleSendMessage = () => {
@@ -230,31 +292,75 @@ export default function Party() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                 <div>
                   <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m2)', letterSpacing: '0.2em', display: 'block', marginBottom: '12px' }}>TÍTULO DA SESSÃO</label>
-                  <input type="text" placeholder="EX: ANÁLISE DE KUBRICK" style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid var(--m3)', padding: '16px', color: 'var(--film)', fontFamily: "'DM Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', outline: 'none', transition: 'border-color 0.3s' }} onFocus={e => e.currentTarget.style.borderColor = 'var(--gold)'} onBlur={e => e.currentTarget.style.borderColor = 'var(--m3)'} />
+                  <input type="text" placeholder="EX: ANÁLISE DE KUBRICK" value={novoTitulo} onChange={(e) => setNovoTitulo(e.target.value)} style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid var(--m3)', padding: '16px', color: 'var(--film)', fontFamily: "'DM Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', outline: 'none', transition: 'border-color 0.3s' }} onFocus={e => e.currentTarget.style.borderColor = 'var(--gold)'} onBlur={e => e.currentTarget.style.borderColor = 'var(--m3)'} />
                 </div>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                   <div>
                     <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m2)', letterSpacing: '0.2em', display: 'block', marginBottom: '12px' }}>DATA TEMPORAL</label>
-                    <input type="date" style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid var(--m3)', padding: '16px', color: 'var(--m2)', fontFamily: "'DM Mono', monospace", fontSize: '12px', outline: 'none', colorScheme: 'dark' }} />
+                    <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid var(--m3)', padding: '16px', color: 'var(--m2)', fontFamily: "'DM Mono', monospace", fontSize: '12px', outline: 'none', colorScheme: 'dark' }} />
                   </div>
                   <div>
                     <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m2)', letterSpacing: '0.2em', display: 'block', marginBottom: '12px' }}>HORÁRIO DE INÍCIO</label>
-                    <input type="time" style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid var(--m3)', padding: '16px', color: 'var(--m2)', fontFamily: "'DM Mono', monospace", fontSize: '12px', outline: 'none', colorScheme: 'dark' }} />
+                    <input type="time" value={novaHora} onChange={(e) => setNovaHora(e.target.value)} style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid var(--m3)', padding: '16px', color: 'var(--m2)', fontFamily: "'DM Mono', monospace", fontSize: '12px', outline: 'none', colorScheme: 'dark' }} />
                   </div>
                 </div>
 
                 <div>
                   <label style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m2)', letterSpacing: '0.2em', display: 'block', marginBottom: '12px' }}>CÓDIGO DA OBRA</label>
-                  <motion.button whileHover={{ borderColor: 'var(--gold)', color: 'var(--film)' }} whileTap={{ scale: 0.98 }} style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: '1px dashed var(--m3)', padding: '24px', color: 'var(--m3)', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', transition: 'all 0.3s' }}>
-                    <Search style={{ width: 16, height: 16 }} /> [ BUSCAR DIRETÓRIO DE MÍDIA ]
-                  </motion.button>
+                  {/* Este botão não abria nada: era um retângulo tracejado com
+                      um ícone de lupa. A busca agora é no acervo de verdade. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(237,232,220,0.02)', borderBottom: '1px solid var(--m3)', padding: '12px 16px' }}>
+                    <Search style={{ width: 14, height: 14, color: 'var(--m3)' }} />
+                    <input
+                      type="text" value={buscaDeFilme} onChange={(e) => setBuscaDeFilme(e.target.value)}
+                      placeholder="BUSCAR NO ACERVO..."
+                      style={{ flex: 1, background: 'rgba(0,0,0,0)', border: 'none', color: 'var(--film)', fontFamily: "'DM Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', outline: 'none' }}
+                    />
+                  </div>
+
+                  {escolhidos.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+                      {escolhidos.map((f) => (
+                        <button key={f.id} onClick={() => setEscolhidos((a) => a.filter((x) => x.id !== f.id))}
+                          style={{ background: 'rgba(191,143,60,0.12)', border: '1px solid rgba(191,143,60,0.4)', color: 'var(--gold)', padding: '6px 10px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', cursor: 'pointer' }}>
+                          {f.title} ✕
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {buscaDeFilme.length >= 3 && (
+                    <div style={{ maxHeight: 180, overflowY: 'auto', marginTop: 12, border: '1px solid rgba(86,84,80,0.3)' }}>
+                      {(resultadosDaBusca?.results ?? []).slice(0, 12).map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            // Não deixa repetir: o mesmo filme duas vezes na
+                            // fila seria gravado duas vezes na sessão.
+                            setEscolhidos((a) => a.some((x) => x.id === m.id)
+                              ? a : [...a, { id: m.id as string, title: m.title }]);
+                            setBuscaDeFilme('');
+                          }}
+                          style={{ display: 'block', width: '100%', textAlign: 'left', background: 'rgba(0,0,0,0)', border: 'none', borderBottom: '1px solid rgba(86,84,80,0.2)', color: 'var(--m2)', padding: '10px 14px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', cursor: 'pointer' }}
+                        >
+                          {m.title} <span style={{ color: 'var(--m3)' }}>{m.year ?? ''}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {erroDoForm && (
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.15em', marginTop: 16 }}>
+                  {erroDoForm.toUpperCase()}
+                </div>
+              )}
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '16px' }}>
                 <motion.button onClick={() => setIsScheduleOpen(false)} whileHover={{ backgroundColor: 'rgba(237,232,220,0.05)' }} whileTap={{ scale: 0.95 }} style={{ background: 'rgba(0,0,0,0)', border: '1px solid rgba(86,84,80,0.5)', color: 'var(--film)', padding: '16px 24px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>[ CANCELAR ]</motion.button>
-                <motion.button whileHover={{ backgroundColor: 'rgba(0,0,0,0)', color: 'var(--gold)' }} whileTap={{ scale: 0.95 }} style={{ background: 'var(--gold)', border: '1px solid var(--gold)', color: 'var(--void)', padding: '16px 32px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', fontWeight: 'bold', cursor: 'pointer' }}>[ CONFIRMAR AGENDAMENTO ]</motion.button>
+                <motion.button onClick={handleCriarSessao} disabled={criarSessao.isPending} whileHover={{ backgroundColor: 'rgba(0,0,0,0)', color: 'var(--gold)' }} whileTap={{ scale: 0.95 }} style={{ background: 'var(--gold)', border: '1px solid var(--gold)', color: 'var(--void)', padding: '16px 32px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', fontWeight: 'bold', cursor: criarSessao.isPending ? 'wait' : 'pointer' }}>{criarSessao.isPending ? '[ AGENDANDO... ]' : '[ CONFIRMAR AGENDAMENTO ]'}</motion.button>
               </div>
             </motion.div>
           </div>
@@ -292,9 +398,35 @@ export default function Party() {
                 whileHover={{ backgroundColor: linkCopied ? 'var(--m2)' : 'var(--film)', color: 'var(--void)', borderColor: linkCopied ? 'var(--m2)' : 'var(--film)' }} whileTap={{ scale: 0.98 }}
                 style={{ background: linkCopied ? 'var(--m2)' : 'rgba(0,0,0,0)', border: `1px solid ${linkCopied ? 'var(--m2)' : 'var(--m3)'}`, color: linkCopied ? 'var(--void)' : 'var(--film)', padding: '16px 24px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.3s' }}
               >
-                <LinkIcon style={{ width: 14, height: 14 }} /> {linkCopied ? '[ Link Copiado ]' : '[ Copiar Link ]'}
+                <LinkIcon style={{ width: 14, height: 14 }} /> {linkCopied ? '[ Código Copiado ]' : criarConvite.isPending ? '[ Gerando... ]' : '[ Gerar Convite ]'}
               </motion.button>
             </div>
+
+            {(conviteGerado || erroDoConvite) && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(86,84,80,0.3)' }}>
+                {conviteGerado ? (
+                  <>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.2em', marginBottom: 10 }}>
+                      CÓDIGO DO CONVITE — VÁLIDO POR 48 HORAS
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      {/* Selecionável: se a cópia automática falhar, ainda dá
+                          para marcar com o mouse e copiar à mão. */}
+                      <code style={{ userSelect: 'all', background: 'rgba(191,143,60,0.1)', border: '1px solid rgba(191,143,60,0.35)', padding: '10px 14px', fontFamily: "'DM Mono', monospace", fontSize: '12px', color: 'var(--gold)', letterSpacing: '0.1em' }}>
+                        {conviteGerado}
+                      </code>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.15em' }}>
+                        QUEM RECEBER COLA ISTO EM SESSÕES
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.15em' }}>
+                    {erroDoConvite.toUpperCase()}
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
 
           {/* GRID PRINCIPAL */}
