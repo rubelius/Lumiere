@@ -135,3 +135,44 @@ def test_archive_stats_com_acervo_vazio_nao_estoura(authenticated_client):
     """Sum() devolve None num acervo vazio, e None/60 levantaria TypeError."""
     dados = authenticated_client.get('/api/movies/archive-stats/').data
     assert dados == {'movies': 0, 'hours': 0, 'countries': 0}
+
+
+@pytest.mark.django_db
+def test_best_releases_vem_ordenada_pela_nota(authenticated_client):
+    """
+    `list(...)[:5]` devolvia cinco cópias quaisquer, e o campo chama-se
+    `best_releases`. Um REMUX 2160p e um WEB-DL 720p tinham a mesma chance de
+    aparecer, e a tela apresentava aquilo como seleção do melhor.
+    """
+    from apps.movies.models import Movie, TorrentRelease
+
+    filme = Movie.objects.create(title='Stalker', year=1979)
+    for i, nota in enumerate([30, 95, 60, 10, 80, 45]):
+        TorrentRelease.objects.create(
+            movie=filme, title=f'Cópia {nota}', info_hash=f'{i:040d}',
+            size_bytes=1, quality_score=nota, seeders=10)
+
+    r = authenticated_client.get(f'/api/movies/{filme.id}/')
+    notas = [x['quality_score'] for x in r.data['best_releases']]
+    assert notas == sorted(notas, reverse=True)
+    assert notas[0] == 95
+
+
+@pytest.mark.django_db
+def test_copia_cacheada_desempata(authenticated_client):
+    """
+    Entre duas cópias de nota parecida, a que já está no Real-Debrid toca
+    agora — a outra exigiria baixar. A que toca vale mais.
+    """
+    from apps.movies.models import Movie, TorrentRelease
+
+    filme = Movie.objects.create(title='Solaris', year=1972)
+    TorrentRelease.objects.create(movie=filme, title='Melhor nota, sem cache',
+                                  info_hash='a' * 40, size_bytes=1,
+                                  quality_score=90, in_realdebrid=False)
+    TorrentRelease.objects.create(movie=filme, title='Nota menor, cacheada',
+                                  info_hash='b' * 40, size_bytes=1,
+                                  quality_score=85, in_realdebrid=True)
+
+    r = authenticated_client.get(f'/api/movies/{filme.id}/')
+    assert r.data['best_releases'][0]['title'] == 'Nota menor, cacheada'

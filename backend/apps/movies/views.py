@@ -19,7 +19,7 @@ from asgiref.sync import async_to_sync, sync_to_async
 
 from apps.core.core_cache import CacheManager
 from apps.core.throttling import ExpensiveOperationThrottle
-from apps.integrations.prowlarr import ProwlarrClient
+from apps.integrations.prowlarr import ProwlarrClient, ProwlarrIndisponivel
 from apps.integrations.realdebrid import (RealDebridClient,
                                              chave_do_usuario)
 from apps.movies.playback import resolve_playback
@@ -461,7 +461,13 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
         
             client = ProwlarrClient(user.prowlarr_url, user.prowlarr_api_key)
             try:
-                prowlarr_results = await client.search_movie(title=movie.title, year=movie.year, imdb_id=movie.imdb_id)
+                prowlarr_results = await client.search_movie(
+                    title=movie.title, year=movie.year, imdb_id=movie.imdb_id)
+            except ProwlarrIndisponivel as e:
+                # 502 e não 200 com lista vazia: "não achei nada" e "a
+                # integração está quebrada" são respostas diferentes, e a tela
+                # precisa poder dizer qual das duas aconteceu.
+                return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
             finally:
                 await client.close()
         

@@ -181,8 +181,22 @@ class MovieDetailSerializer(serializers.ModelSerializer):
     
     @extend_schema_field(TorrentReleaseSerializer(many=True))
     def get_best_releases(self, obj):
-        releases = list(obj.torrent_releases.all())[:5]
-        return TorrentReleaseSerializer(releases, many=True).data
+        """
+        As melhores cópias, pela nota de qualidade que o acervo já calcula.
+
+        Faltava o ORDER BY: `list(...)[:5]` devolvia cinco quaisquer, e o
+        campo chama-se `best_releases`. Um REMUX 2160p e um WEB-DL 720p têm a
+        mesma chance de aparecer numa consulta sem ordenação — e a tela
+        apresentava o resultado como se fosse a seleção do melhor.
+
+        Cacheada no Real-Debrid desempata: entre duas cópias de nota
+        parecida, a que toca agora vale mais que a que exigiria baixar.
+        """
+        melhores = (
+            obj.torrent_releases
+            .order_by('-in_realdebrid', '-quality_score', '-seeders')[:5]
+        )
+        return TorrentReleaseSerializer(melhores, many=True).data
     
     @extend_schema_field(WatchStateSerializer(allow_null=True))
     def get_watch_state(self, obj):

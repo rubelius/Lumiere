@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from apps.integrations.prowlarr import ProwlarrClient
+from apps.integrations.prowlarr import ProwlarrClient, ProwlarrIndisponivel
 from apps.movies.models import Movie, TorrentRelease
 from apps.movies.utils import passa_no_filtro, calculate_quality_score, parse_quality_from_title
 from celery import shared_task
@@ -58,8 +58,16 @@ def search_torrents_for_movie(self, movie_id: str, user_id: str, filters: dict =
         
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        prowlarr_results = loop.run_until_complete(search_async())
-        loop.close()
+        try:
+            prowlarr_results = loop.run_until_complete(search_async())
+        except ProwlarrIndisponivel as e:
+            # Erro de integração não se resolve tentando de novo: chave
+            # errada continua errada na terceira tentativa. Devolver o motivo
+            # é mais útil que três retries e um FAILURE sem explicação.
+            logger.warning('Busca de releases indisponível: %s', e)
+            return {'error': str(e), 'retryable': False}
+        finally:
+            loop.close()
         
         # Process and save releases
         new_count = 0
