@@ -1,5 +1,6 @@
 'use client'; 
-import { useState } from "react"; 
+import { useEffect, useState } from "react"; 
+import { motivoDaFalha, useBuscarReleases, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
 import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion"; 
@@ -107,7 +108,17 @@ export default function MovieClient() {
   // A API devolve `best_releases`; `releases` nunca existiu. Lido através de
   // `as any`, o campo saía undefined e o painel mostrava sempre zero cópias —
   // o mesmo `any` que escondia o defeito das obras correlatas.
+  // A API devolve `best_releases`, já ordenada por nota, com a cópia
+  // cacheada no Real-Debrid desempatando.
   const releases = movie.best_releases || [];
+
+  const buscar = useBuscarReleases(movie.id as string);
+  const [erroDaBusca, setErroDaBusca] = useState('');
+
+  useEffect(() => {
+    if (!buscar.isError) return setErroDaBusca('');
+    setErroDaBusca(motivoDaFalha(buscar.error));
+  }, [buscar.isError, buscar.error]);
   // Cada item é { movie, similarity, type } — os campos do filme moram em
   // `movie`, não na raiz. Lidos como `similar.title` saíam todos undefined e a
   // seção renderizava cards vazios apontando para /movie/undefined; o `any` no
@@ -422,33 +433,93 @@ export default function MovieClient() {
                   <motion.div key="media" variants={staggerContainer} initial="hidden" animate="visible" exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} style={{ display: 'flex', flexDirection: 'column', gap: '96px' }}> 
                      
                     <motion.div variants={fadeUpItem}> 
-                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px', borderBottom: '1px solid rgba(86,84,80,0.3)', paddingBottom: '16px' }}> 
-                        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', color: 'var(--film)', margin: 0 }}>Arquivos Disponíveis (Prowlarr)</h3> 
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em' }}>{String(releases.length).padStart(2, '0')} CÓPIAS LOCALIZADAS</span> 
-                      </div> 
-                       
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px', borderBottom: '1px solid rgba(86,84,80,0.3)', paddingBottom: '16px', gap: 16 }}>
+                        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', color: 'var(--film)', margin: 0 }}>Cópias Disponíveis</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em' }}>
+                            {String(releases.length).padStart(2, '0')} LOCALIZADAS
+                          </span>
+                          <button
+                            onClick={() => buscar.mutate({})}
+                            disabled={buscar.isPending}
+                            style={{ background: 'rgba(0,0,0,0)', border: '1px solid rgba(191,143,60,0.5)', color: 'var(--gold)', padding: '10px 18px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: buscar.isPending ? 'wait' : 'pointer' }}
+                          >
+                            {buscar.isPending ? '[ VASCULHANDO... ]' : '[ PROCURAR CÓPIAS ]'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {erroDaBusca && (
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.15em', marginBottom: 24, lineHeight: 1.8 }}>
+                          {erroDaBusca}
+                        </div>
+                      )}
+
+                      {buscar.data?.cache_check_failed && (
+                        // Sem este aviso, a coluna "toca agora" apareceria
+                        // toda em branco e pareceria que nada está cacheado,
+                        // quando na verdade não deu para perguntar.
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', marginBottom: 24 }}>
+                          NÃO FOI POSSÍVEL CONSULTAR O REAL-DEBRID — O ESTADO DE CACHE ABAIXO PODE ESTAR DESATUALIZADO.
+                        </div>
+                      )}
+
                       {releases.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid rgba(86,84,80,0.3)', backgroundColor: 'var(--void)', overflowX: 'auto' }}> 
-                          {releases.map((release: any, i: number) => ( 
-                            <motion.div key={i} whileHover={{ x: 8, backgroundColor: 'rgba(191,143,60,0.05)' }} whileTap={{ scale: 0.98 }} style={{ display: 'grid', gridTemplateColumns: '60px minmax(200px, 1fr) 1fr 100px 60px', alignItems: 'center', padding: '16px', borderBottom: i !== releases.length -1 ? '1px solid rgba(86,84,80,0.3)' : 'none', cursor: 'pointer' }} className="group"> 
-                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '14px', color: 'var(--gold)', textAlign: 'center', transition: 'transform 0.3s' }} className="group-hover:scale-110">{release.score || '--'}</div> 
-                              <div> 
-                                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: 'var(--film)', marginBottom: '8px', transition: 'color 0.3s' }} className="group-hover:text-[var(--gold)]">{release.group || 'N/A'}</div> 
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}> 
-                                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.1em', color: 'var(--m2)', border: '1px solid rgba(86,84,80,0.5)', padding: '2px 4px' }}>{release.res || 'N/A'}</span> 
-                                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.1em', color: 'var(--void)', backgroundColor: 'var(--film)', padding: '2px 4px' }}>{release.type || 'N/A'}</span> 
-                                </div> 
-                              </div> 
-                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{release.audio || 'N/A'}</div> 
-                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--film)', letterSpacing: '0.1em', textAlign: 'right', paddingRight: '16px', borderRight: '1px solid rgba(86,84,80,0.3)' }}>{release.size || '-- GB'}</div> 
-                              <div style={{ display: 'flex', justifyContent: 'center' }}> 
-                                <motion.div whileHover={{ scale: 1.2, color: 'var(--film)' }}><Play style={{ width: 16, height: 16, color: 'var(--m3)', transition: 'color 0.3s' }} className="group-hover:text-[var(--gold)]" /></motion.div> 
-                              </div> 
-                            </motion.div> 
-                          ))} 
-                        </div> 
+                        <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid rgba(86,84,80,0.3)', backgroundColor: 'var(--void)', overflowX: 'auto' }}>
+                          {releases.map((release, i) => {
+                            const specs = especificacaoDaCopia(release);
+                            const tocaAgora = release.instantly_available;
+                            return (
+                              <div key={release.id} style={{ display: 'grid', gridTemplateColumns: '64px minmax(220px, 1fr) 120px 96px 150px', alignItems: 'center', padding: '16px', borderBottom: i !== releases.length - 1 ? '1px solid rgba(86,84,80,0.3)' : 'none', gap: 12 }}>
+                                {/* A nota que o acervo já calcula, e pela qual
+                                    a lista vem ordenada. */}
+                                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '15px', color: 'var(--gold)', textAlign: 'center' }}>
+                                  {release.quality_score ?? '--'}
+                                </div>
+
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m2)', letterSpacing: '0.08em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={release.title}>
+                                    {release.title}
+                                  </div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {specs.length > 0 ? specs.map((s) => (
+                                      <span key={s} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.1em', color: 'var(--m2)', border: '1px solid rgba(86,84,80,0.5)', padding: '2px 5px' }}>{s}</span>
+                                    )) : (
+                                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>SEM ESPECIFICAÇÃO</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em' }}>
+                                  {release.seeders ?? 0} SEEDS
+                                </div>
+
+                                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--film)', letterSpacing: '0.1em', textAlign: 'right' }}>
+                                  {tamanhoLegivel(release)}
+                                </div>
+
+                                {/* A distinção que importa na hora de
+                                    escolher: tocar agora ou esperar baixar. */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                  {tocaAgora ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', color: 'var(--gold)', border: '1px solid rgba(191,143,60,0.45)', padding: '5px 9px' }}>
+                                      <Play style={{ width: 10, height: 10 }} /> TOCA AGORA
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', color: 'var(--m3)', border: '1px solid rgba(86,84,80,0.4)', padding: '5px 9px' }}>
+                                      PRECISA BAIXAR
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       ) : (
-                        <MissingData label="ARQUIVOS (RELEASES TORRENT)" />
+                        <div style={{ padding: '48px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)', letterSpacing: '0.15em', lineHeight: 1.9 }}>
+                          NENHUMA CÓPIA NO ACERVO PARA ESTA OBRA.<br />
+                          USE [ PROCURAR CÓPIAS ] PARA VASCULHAR OS INDEXADORES.
+                        </div>
                       )}
                     </motion.div> 
 

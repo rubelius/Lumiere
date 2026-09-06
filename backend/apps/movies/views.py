@@ -494,7 +494,7 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
             movie = await sync_to_async(self.get_object)()
             user = request.user
             if not user.prowlarr_url or not user.prowlarr_api_key:
-                return Response({'error': 'Prowlarr not configured.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'O Prowlarr não está configurado. Ajuste em Configurações.'}, status=status.HTTP_400_BAD_REQUEST)
         
             min_resolution = request.data.get('min_resolution', '1080p')
             prefer_remux = request.data.get('prefer_remux', False)
@@ -595,7 +595,7 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
             release = await sync_to_async(self.get_object)()
             user = request.user
             if not chave_do_usuario(user):
-                return Response({'error': 'Real-Debrid not configured'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'O Real-Debrid não está configurado. Ajuste em Configurações.'}, status=status.HTTP_400_BAD_REQUEST)
             
             if release.in_realdebrid and release.realdebrid_id and release.realdebrid_status not in ('error', 'dead'):
                 return Response({'message': 'Release is already active in Real-Debrid.', 'torrent_id': release.realdebrid_id, 'status': release.realdebrid_status})
@@ -615,7 +615,7 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
                 await sync_to_async(release.save)()
                 return Response({'message': 'Added to Real-Debrid', 'torrent_id': torrent_id})
             except Exception as e:
-                return Response({'error': f'Failed to add to Real-Debrid: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({'error': f'Não foi possível enviar ao Real-Debrid: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             finally:
                 await client.close()
 

@@ -1,4 +1,4 @@
-import { APIError, APIErrorPayload } from './errors';
+import { APIError, normalizaErro } from './errors';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -10,26 +10,24 @@ async function parseError(response: Response): Promise<never> {
   const contentType = response.headers.get('content-type') ?? '';
 
   if (!contentType.includes('application/json')) {
-    // Se o Django retornar um erro não-JSON (como 502 Bad Gateway)
-    throw new APIError({
-      code: 'SERVER_ERROR',
-      message: `Server error: HTTP ${response.status}`,
-    });
+    // Django caído, nginx no meio, proxy reclamando: nada de JSON para ler.
+    throw new APIError(
+      { code: 'SERVER_ERROR', message: `Server error: HTTP ${response.status}` },
+      response.status,
+    );
   }
 
-  let body: any;
+  let body: unknown;
   try {
     body = await response.json();
   } catch {
-    throw new APIError({
-      code: 'PARSE_ERROR',
-      message: 'Server returned malformed JSON',
-    });
+    throw new APIError(
+      { code: 'PARSE_ERROR', message: 'Server returned malformed JSON' },
+      response.status,
+    );
   }
 
-  // Joga o erro no formato exato que o seu backend Django cospe
-  // O fallback (|| body) garante que erros nativos do Django DRF como {"detail": "..."} sejam lidos
-  throw new APIError(body.error || body);
+  throw new APIError(normalizaErro(body, response.status), response.status);
 }
 
 /**
