@@ -1,8 +1,10 @@
 from datetime import timedelta
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -11,8 +13,11 @@ from rest_framework.exceptions import ValidationError
 from apps.core.permissions import IsOwner
 from apps.tasks.sessions import prepare_session  # type: ignore
 
-from .models import CinemaSession, SessionMovie, SessionTheme
-from .serializers import (CinemaSessionSerializer, SessionThemeSerializer)
+from .models import (CinemaSession, SessionInvite, SessionMessage,
+                     SessionMovie, SessionParticipant, SessionTheme)
+from .serializers import (CinemaSessionSerializer, SessionInviteSerializer,
+                          SessionMessageSerializer,
+                          SessionParticipantSerializer, SessionThemeSerializer)
 
 class CinemaSessionViewSet(viewsets.ModelViewSet):
     """
@@ -23,9 +28,21 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
     filterset_fields = ['status', 'theme_type']
     ordering = ['-scheduled_date']
     
+    # Actions que um convidado precisa alcançar. Sem isto, IsOwner barraria o
+    # participante em tudo e a projeção coletiva não sairia do papel: ele não
+    # conseguiria ver a ficha, a lista de quem está junto, nem o chat.
+    #
+    # A escrita da sessão — preparar, iniciar, convidar, revogar — continua
+    # exigindo ser dono.
+    ACTIONS_DE_PARTICIPANTE = ('retrieve', 'participants', 'messages')
+
     def get_permissions(self):
         """Define permissões por action"""
-        if self.action in ['list', 'upcoming', 'past']:
+        if self.action in ('list', 'upcoming', 'past', 'join'):
+            return [IsAuthenticated()]
+        if self.action in self.ACTIONS_DE_PARTICIPANTE:
+            # O queryset já limita a dono ou participante; IsOwner aqui
+            # excluiria justamente o convidado.
             return [IsAuthenticated()]
         return [IsAuthenticated(), IsOwner()]
         
@@ -36,9 +53,14 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
         # do parâmetro de rota, que caía para "string").
         if getattr(self, 'swagger_fake_view', False):
             return CinemaSession.objects.none()
+        # Dono OU participante convidado. Antes só o dono enxergava a
+        # sessão, o que impedia qualquer projeção coletiva de existir: o
+        # convidado não conseguia nem carregar a ficha do que ia assistir.
+        #
+        # A escrita continua restrita ao dono, por IsOwner nas outras actions.
         return CinemaSession.objects.filter(
-            user=self.request.user
-        ).prefetch_related(
+            Q(user=self.request.user) | Q(participants__user=self.request.user)
+        ).distinct().prefetch_related(
             'session_movies__movie',
             'session_movies__selected_release',
             'theme'
@@ -84,6 +106,137 @@ class CinemaSessionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(sessions, many=True)
         return Response(serializer.data)
     
+    @extend_schema(
+        request=None,
+        responses={200: CinemaSessionSerializer},
+        summary='Entra numa sessão usando o código do convite.',
+        description=(
+            'Não leva o id da sessão: quem recebe um convite tem o código, '
+            'não o identificador. O código é resolvido no servidor.'
+        ),
+    )
+    @action(detail=False, methods=['post'])
+    def join(self, request):
+        codigo = (request.data.get('code') or '').strip()
+        convite = SessionInvite.objects.filter(code=codigo).select_related('session').first()
+
+        # A mesma resposta para código inexistente, expirado e revogado: cada
+        # mensagem distinta contaria a quem estivesse tentando adivinhar se o
+        # código existe.
+        if not convite or not convite.valido:
+            return Response({'error': 'Convite inválido ou expirado.'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        sessao = convite.session
+        if sessao.user_id == request.user.id:
+            return Response({'error': 'Você é o anfitrião desta sessão.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        SessionParticipant.objects.get_or_create(
+            session=sessao, user=request.user,
+            defaults={'role': SessionParticipant.PAPEL_CONVIDADO})
+
+        return Response(CinemaSessionSerializer(
+            sessao, context={'request': request, 'detail': True}).data)
+
+    # ── projeção coletiva ────────────────────────────────────────────────
+
+    def _participacao(self, sessao, user):
+        """A participação desta pessoa, criando a do dono na primeira visita."""
+        if sessao.user_id == user.id:
+            p, _ = SessionParticipant.objects.get_or_create(
+                session=sessao, user=user,
+                defaults={'role': SessionParticipant.PAPEL_ANFITRIAO})
+            return p
+        return SessionParticipant.objects.filter(session=sessao, user=user).first()
+
+    @extend_schema(
+        request=None,
+        responses={201: SessionInviteSerializer},
+        summary='Cria um convite para a sessão. Só o dono.',
+        description=(
+            'Devolve um código que dá a uma conta existente acesso à sessão. '
+            'O código é a credencial: expira e pode ser revogado, porque um '
+            'convite eterno vira uma porta que ninguém lembra que deixou aberta.'
+        ),
+    )
+    @action(detail=True, methods=['post'])
+    def invite(self, request, pk=None):
+        sessao = self.get_object()
+        convite = SessionInvite.objects.create(
+            session=sessao, created_by=request.user,
+            code=SessionInvite.gera_codigo(),
+            expires_at=timezone.now() + timedelta(hours=SessionInvite.HORAS_DE_VALIDADE),
+        )
+        return Response(SessionInviteSerializer(convite).data,
+                        status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=None,
+        responses={200: SessionInviteSerializer(many=True)},
+        summary='Revoga todos os convites em aberto da sessão. Só o dono.',
+    )
+    @action(detail=True, methods=['post'], url_path='revoke-invites')
+    def revoke_invites(self, request, pk=None):
+        sessao = self.get_object()
+        sessao.invites.filter(revoked=False).update(revoked=True)
+        return Response(SessionInviteSerializer(sessao.invites.all(), many=True).data)
+
+    @extend_schema(
+        request=None,
+        responses={200: SessionParticipantSerializer(many=True)},
+        summary='Quem está assistindo, e onde cada um está no filme.',
+    )
+    @action(detail=True, methods=['get'])
+    def participants(self, request, pk=None):
+        sessao = self.get_object()
+        self._participacao(sessao, request.user)
+        return Response(SessionParticipantSerializer(
+            sessao.participants.select_related('user'), many=True).data)
+
+    @extend_schema(
+        responses={200: SessionMessageSerializer(many=True),
+                   201: SessionMessageSerializer},
+        summary='Lê e escreve o chat da sessão.',
+        description=(
+            'Cada fala guarda o ponto do filme em que foi dita: numa projeção '
+            'coletiva o comentário só faz sentido junto da cena, e quem chega '
+            'atrasado precisa ver a conversa no ponto certo em vez de levar '
+            'spoiler do terceiro ato.'
+        ),
+    )
+    @action(detail=True, methods=['get', 'post'])
+    def messages(self, request, pk=None):
+        sessao = self.get_object()
+        participacao = self._participacao(sessao, request.user)
+        # Hoje isto não é alcançável: o queryset já limita a dono ou
+        # participante, e quem não é nem um nem outro leva 404 no get_object.
+        # Fica como segunda barreira porque a primeira é a definição do
+        # queryset, e alargá-la — para sessão pública, por exemplo — é
+        # exatamente o tipo de mudança que este projeto já fez. Sem isto, essa
+        # mudança abriria o chat junto sem ninguém perceber.
+        if not participacao:
+            return Response({'error': 'Você não participa desta sessão.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if request.method == 'GET':
+            falas = sessao.messages.select_related('participant__user')[:200]
+            return Response(SessionMessageSerializer(
+                falas, many=True, context={'request': request}).data)
+
+        texto = (request.data.get('text') or '').strip()
+        if not texto:
+            return Response({'error': 'Mensagem vazia.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        fala = SessionMessage.objects.create(
+            session=sessao, participant=participacao, text=texto[:2000],
+            playback_position_seconds=int(request.data.get('position') or 0),
+        )
+        return Response(
+            SessionMessageSerializer(fala, context={'request': request}).data,
+            status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=['post'])
     def prepare(self, request, pk=None):
         with transaction.atomic():

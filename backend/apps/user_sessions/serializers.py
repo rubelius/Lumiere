@@ -4,7 +4,8 @@ from django.db.models import Sum
 from django.db import transaction
 from apps.movies.serializers import MovieListSerializer, TorrentReleaseSerializer
 from apps.movies.models import Movie
-from .models import CinemaSession, SessionMovie, SessionTheme
+from .models import (CinemaSession, SessionInvite, SessionMessage,
+                     SessionMovie, SessionParticipant, SessionTheme)
 
 class SessionThemeSerializer(serializers.ModelSerializer):
     """Serializer para temas de sessão"""
@@ -146,3 +147,63 @@ class CinemaSessionSerializer(serializers.ModelSerializer):
                 instance.save(update_fields=['estimated_duration_minutes', 'all_movies_selected'])
         
         return instance
+
+class SessionParticipantSerializer(serializers.ModelSerializer):
+    """Quem está assistindo, e onde cada um está no filme."""
+    username = serializers.CharField(source='user.username', read_only=True)
+    display_name = serializers.SerializerMethodField()
+    present = serializers.BooleanField(source='presente', read_only=True)
+
+    class Meta:
+        model = SessionParticipant
+        fields = ['id', 'username', 'display_name', 'role', 'present',
+                  'playback_position_seconds', 'playback_state',
+                  'joined_at', 'last_seen_at']
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.CharField)
+    def get_display_name(self, obj) -> str:
+        return obj.user.get_full_name() or obj.user.username
+
+
+class SessionMessageSerializer(serializers.ModelSerializer):
+    """
+    Uma fala do chat.
+
+    `author` é o nome de quem falou, não o id do participante: a tela mostra
+    gente, e resolver id em nome no cliente exigiria carregar a lista inteira
+    de participantes só para desenhar uma linha de conversa.
+    """
+    author = serializers.SerializerMethodField()
+    is_self = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SessionMessage
+        fields = ['id', 'text', 'author', 'is_self',
+                  'playback_position_seconds', 'created_at']
+        read_only_fields = ['id', 'author', 'is_self', 'created_at']
+
+    @extend_schema_field(serializers.CharField)
+    def get_author(self, obj) -> str:
+        usuario = obj.participant.user
+        return usuario.get_full_name() or usuario.username
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_self(self, obj) -> bool:
+        pedido = self.context.get('request')
+        return bool(pedido and obj.participant.user_id == pedido.user.id)
+
+
+class SessionInviteSerializer(serializers.ModelSerializer):
+    """
+    O convite devolvido a quem o criou.
+
+    `code` só aparece aqui, para o anfitrião copiar. Ele é a credencial de
+    acesso à sessão, e não tem por que circular em nenhuma outra resposta.
+    """
+    valid = serializers.BooleanField(source='valido', read_only=True)
+
+    class Meta:
+        model = SessionInvite
+        fields = ['code', 'expires_at', 'valid', 'created_at']
+        read_only_fields = fields

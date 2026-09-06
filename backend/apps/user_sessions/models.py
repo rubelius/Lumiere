@@ -168,3 +168,145 @@ class SessionMovie(models.Model):
     
     def __str__(self):
         return f'{self.order}. {self.movie.title} ({self.movie.year})'
+
+class SessionParticipant(models.Model):
+    """
+    Quem está assistindo uma sessão junto com o dono.
+
+    A tela de projeção coletiva mostrava três pessoas escritas no código —
+    "ANA C." sincronizada, "CARLOS M." em buffering — e um chat com mensagens
+    já digitadas. Não havia nada disso no servidor: nem participante, nem
+    convite, nem mensagem, e o WebSocket recusava qualquer um que não fosse o
+    dono da sessão.
+
+    Participante é sempre uma conta autenticada. Um link que desse acesso a
+    quem não tem conta abriria o acervo de mídia de alguém a uma conexão sem
+    identidade nenhuma por trás; o convite serve para dar acesso a uma conta
+    que já existe.
+    """
+
+    PAPEL_ANFITRIAO = 'host'
+    PAPEL_CONVIDADO = 'guest'
+    PAPEIS = [
+        (PAPEL_ANFITRIAO, 'Anfitrião'),
+        (PAPEL_CONVIDADO, 'Convidado'),
+    ]
+
+    ESTADO_TOCANDO = 'playing'
+    ESTADO_PAUSADO = 'paused'
+    ESTADO_CARREGANDO = 'buffering'
+    ESTADOS = [
+        (ESTADO_TOCANDO, 'Tocando'),
+        (ESTADO_PAUSADO, 'Pausado'),
+        (ESTADO_CARREGANDO, 'Carregando'),
+    ]
+
+    # Depois disto sem dar sinal, a pessoa é tratada como ausente. O cliente
+    # reporta posição a cada poucos segundos; um minuto é folgado o bastante
+    # para uma rede ruim não derrubar ninguém da lista.
+    SEGUNDOS_PARA_AUSENTE = 60
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(
+        CinemaSession, on_delete=models.CASCADE, related_name='participants')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='session_participations')
+
+    role = models.CharField(max_length=20, choices=PAPEIS, default=PAPEL_CONVIDADO)
+    joined_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+
+    # Posição de cada um, para a tela poder mostrar quem está adiantado ou
+    # atrasado. Guardada por participante, não por sessão: sincronizar é
+    # comparar, e sem a posição de cada um não há o que comparar.
+    playback_position_seconds = models.PositiveIntegerField(default=0)
+    playback_state = models.CharField(
+        max_length=20, choices=ESTADOS, default=ESTADO_PAUSADO)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'user'], name='uma_participacao_por_pessoa'),
+        ]
+        indexes = [models.Index(fields=['session', '-last_seen_at'])]
+        ordering = ['joined_at']
+
+    def __str__(self):
+        return f'{self.user} em {self.session}'
+
+    @property
+    def presente(self) -> bool:
+        """Se deu sinal de vida há pouco."""
+        from django.utils import timezone
+        return (timezone.now() - self.last_seen_at).total_seconds() <= self.SEGUNDOS_PARA_AUSENTE
+
+
+class SessionInvite(models.Model):
+    """
+    Código que dá a uma conta acesso a uma sessão.
+
+    O código é o segredo: quem o tem, entra. Por isso ele expira e pode ser
+    revogado — um convite eterno vira uma porta que ninguém lembra que
+    deixou aberta.
+    """
+
+    HORAS_DE_VALIDADE = 48
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(
+        CinemaSession, on_delete=models.CASCADE, related_name='invites')
+    code = models.CharField(max_length=32, unique=True, db_index=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='session_invites')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    revoked = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [models.Index(fields=['code', 'revoked'])]
+
+    def __str__(self):
+        return f'convite {self.code} para {self.session}'
+
+    @property
+    def valido(self) -> bool:
+        from django.utils import timezone
+        return not self.revoked and self.expires_at > timezone.now()
+
+    @classmethod
+    def gera_codigo(cls) -> str:
+        """
+        Código imprevisível.
+
+        `secrets` e não `random`: este código é a credencial de acesso à
+        sessão, e um gerador previsível deixaria adivinhá-lo.
+        """
+        import secrets
+        return secrets.token_urlsafe(16)[:22]
+
+
+class SessionMessage(models.Model):
+    """
+    Uma fala no chat da sessão.
+
+    Guarda a posição do filme em que foi dita: numa projeção coletiva o
+    comentário só faz sentido junto da cena, e quem chega atrasado precisa ver
+    a conversa no ponto certo em vez de levar spoiler do terceiro ato.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(
+        CinemaSession, on_delete=models.CASCADE, related_name='messages')
+    participant = models.ForeignKey(
+        SessionParticipant, on_delete=models.CASCADE, related_name='messages')
+    text = models.TextField(max_length=2000)
+    playback_position_seconds = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [models.Index(fields=['session', 'created_at'])]
+
+    def __str__(self):
+        return f'{self.participant.user}: {self.text[:40]}'
