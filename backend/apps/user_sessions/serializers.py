@@ -5,7 +5,8 @@ from django.db import transaction
 from apps.movies.serializers import MovieListSerializer, TorrentReleaseSerializer
 from apps.movies.models import Movie
 from .models import (CinemaSession, SessionInvite, SessionMessage,
-                     SessionMovie, SessionParticipant, SessionTheme)
+                     SessionMovie, SessionParticipant, SessionPoll,
+                     SessionPollOption, SessionPollVote, SessionTheme)
 
 class SessionThemeSerializer(serializers.ModelSerializer):
     """Serializer para temas de sessão"""
@@ -166,6 +167,48 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
         return obj.user.get_full_name() or obj.user.username
 
 
+class SessionPollOptionSerializer(serializers.ModelSerializer):
+    """Uma alternativa, com quantos votaram nela."""
+    votes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SessionPollOption
+        fields = ['id', 'label', 'votes']
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.IntegerField)
+    def get_votes(self, obj) -> int:
+        return obj.votes.count()
+
+
+class SessionPollSerializer(serializers.ModelSerializer):
+    """
+    A enquete como a tela precisa dela.
+
+    `my_vote` diz em que este usuário votou, ou nulo. Sem esse campo o cliente
+    teria de guardar o voto localmente — e foi assim que a versão de mentira
+    funcionava: o botão só mexia no estado do navegador, e recarregar a página
+    apagava o voto.
+    """
+    options = SessionPollOptionSerializer(many=True, read_only=True)
+    total_votes = serializers.IntegerField(source='total_de_votos', read_only=True)
+    my_vote = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SessionPoll
+        fields = ['id', 'question', 'options', 'total_votes', 'my_vote', 'closed']
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.UUIDField(allow_null=True))
+    def get_my_vote(self, obj):
+        pedido = self.context.get('request')
+        usuario = getattr(pedido, 'user', None) or self.context.get('user')
+        if not usuario:
+            return None
+        voto = obj.votes.filter(participant__user=usuario).first()
+        return str(voto.option_id) if voto else None
+
+
 class SessionMessageSerializer(serializers.ModelSerializer):
     """
     Uma fala do chat.
@@ -177,11 +220,19 @@ class SessionMessageSerializer(serializers.ModelSerializer):
     author = serializers.SerializerMethodField()
     is_self = serializers.SerializerMethodField()
 
+    poll = serializers.SerializerMethodField()
+
     class Meta:
         model = SessionMessage
-        fields = ['id', 'text', 'author', 'is_self',
+        fields = ['id', 'text', 'author', 'is_self', 'poll',
                   'playback_position_seconds', 'created_at']
-        read_only_fields = ['id', 'author', 'is_self', 'created_at']
+        read_only_fields = ['id', 'author', 'is_self', 'poll', 'created_at']
+
+    @extend_schema_field(SessionPollSerializer(allow_null=True))
+    def get_poll(self, obj):
+        # A enquete vive pendurada na mensagem: uma conversa só, uma ordem só.
+        enquete = getattr(obj, 'poll', None)
+        return SessionPollSerializer(enquete, context=self.context).data if enquete else None
 
     @extend_schema_field(serializers.CharField)
     def get_author(self, obj) -> str:

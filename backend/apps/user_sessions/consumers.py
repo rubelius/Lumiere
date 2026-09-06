@@ -87,6 +87,10 @@ class SessionConsumer(AsyncWebsocketConsumer):
                 await self._trata_sync(data)
             elif tipo == 'chat':
                 await self._trata_chat(data)
+            elif tipo == 'poll':
+                await self._trata_enquete(data)
+            elif tipo == 'vote':
+                await self._trata_voto(data)
         except Exception as e:
             # Uma mensagem malformada de um espectador não pode derrubar a
             # conexão dos outros.
@@ -124,6 +128,37 @@ class SessionConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_send(self.room_group_name, {  # type: ignore
             'type': 'chat_message', 'data': fala})
 
+    async def _trata_enquete(self, data):
+        """Cria uma enquete e a transmite como uma fala da conversa."""
+        pergunta = (data.get('question') or '').strip()[:300]
+        alternativas = [
+            str(a).strip()[:200] for a in (data.get('options') or []) if str(a).strip()
+        ][:6]
+
+        # Uma enquete com menos de duas alternativas não é uma enquete; é uma
+        # afirmação com um botão embaixo.
+        if not pergunta or len(alternativas) < 2:
+            return
+
+        fala = await self.grava_enquete(
+            pergunta, alternativas, max(0, int(data.get('position') or 0)))
+        await self.channel_layer.group_send(self.room_group_name, {  # type: ignore
+            'type': 'chat_message', 'data': fala})
+
+    async def _trata_voto(self, data):
+        """
+        Registra o voto e retransmite a enquete inteira.
+
+        Manda a enquete toda, não só o voto: o placar depende de todos os
+        votos, e reconstruí-lo no cliente a partir de eventos soltos daria
+        números diferentes para quem entrou depois.
+        """
+        atualizada = await self.grava_voto(
+            str(data.get('poll_id') or ''), str(data.get('option_id') or ''))
+        if atualizada:
+            await self.channel_layer.group_send(self.room_group_name, {  # type: ignore
+                'type': 'poll_update', 'data': atualizada})
+
     # ── saída para o grupo ───────────────────────────────────────────────
 
     async def participant_sync(self, event):
@@ -131,6 +166,9 @@ class SessionConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         await self._send('chat', event.get('data', {}))
+
+    async def poll_update(self, event):
+        await self._send('poll', event.get('data', {}))
 
     async def presence(self, event):
         await self._send('participants', {'participants': event.get('data', [])})
@@ -203,6 +241,49 @@ class SessionConsumer(AsyncWebsocketConsumer):
             session_id=self.session_id, participant=participacao,
             text=texto, playback_position_seconds=posicao)
         return SessionMessageSerializer(fala).data
+
+    @database_sync_to_async
+    def grava_enquete(self, pergunta, alternativas, posicao):
+        from apps.user_sessions.models import (SessionMessage, SessionParticipant,
+                                               SessionPoll, SessionPollOption)
+        from apps.user_sessions.serializers import SessionMessageSerializer
+
+        participacao = SessionParticipant.objects.select_related('user').get(
+            id=self.participacao_id)
+        fala = SessionMessage.objects.create(
+            session_id=self.session_id, participant=participacao,
+            text=pergunta, playback_position_seconds=posicao)
+        enquete = SessionPoll.objects.create(message=fala, question=pergunta)
+        SessionPollOption.objects.bulk_create([
+            SessionPollOption(poll=enquete, label=rotulo, order=i)
+            for i, rotulo in enumerate(alternativas)
+        ])
+        fala.refresh_from_db()
+        return SessionMessageSerializer(fala, context={'user': self.user}).data
+
+    @database_sync_to_async
+    def grava_voto(self, poll_id, option_id):
+        from apps.user_sessions.models import (SessionPoll, SessionPollOption,
+                                               SessionPollVote)
+        from apps.user_sessions.serializers import SessionPollSerializer
+
+        alternativa = SessionPollOption.objects.filter(
+            id=option_id, poll_id=poll_id,
+            poll__message__session_id=self.session_id).first()
+        # A alternativa precisa ser DESTA enquete e desta sessão: aceitar um
+        # par solto deixaria votar numa enquete de outra sessão pelo id.
+        if not alternativa or alternativa.poll.closed:
+            return None
+
+        # update_or_create e não create: trocar de ideia é mudar o voto, não
+        # somar outro. A restrição do banco recusaria o segundo de qualquer
+        # forma, e o erro chegaria ao usuário como falha.
+        SessionPollVote.objects.update_or_create(
+            poll=alternativa.poll, participant_id=self.participacao_id,
+            defaults={'option': alternativa})
+
+        enquete = SessionPoll.objects.get(id=poll_id)
+        return SessionPollSerializer(enquete, context={'user': self.user}).data
 
     @database_sync_to_async
     def lista_participantes(self):

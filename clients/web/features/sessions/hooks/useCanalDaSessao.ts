@@ -29,11 +29,30 @@ export interface Participante {
   playback_state: 'playing' | 'paused' | 'buffering';
 }
 
+export interface AlternativaDaEnquete {
+  id: string;
+  label: string;
+  votes: number;
+}
+
+export interface Enquete {
+  id: string;
+  question: string;
+  options: AlternativaDaEnquete[];
+  total_votes: number;
+  /** Em que este usuário votou, ou null. Vem do servidor: guardar o voto só
+   *  no navegador foi como a versão de mentira funcionava, e recarregar a
+   *  página apagava o voto. */
+  my_vote: string | null;
+  closed: boolean;
+}
+
 export interface Fala {
   id: string;
   text: string;
   author: string;
   is_self: boolean;
+  poll: Enquete | null;
   playback_position_seconds: number;
   created_at: string;
 }
@@ -92,6 +111,16 @@ export function useCanalDaSessao(sessionId: string | undefined) {
       } else if (msg.type === 'chat') {
         // Concatena em vez de substituir: o servidor manda uma fala por vez.
         setFalas((anteriores) => [...anteriores, msg.payload as Fala]);
+      } else if (msg.type === 'poll') {
+        // O servidor manda a enquete INTEIRA a cada voto: o placar depende de
+        // todos os votos, e recontá-lo a partir de eventos soltos daria
+        // números diferentes para quem entrou depois.
+        const enquete = msg.payload as Enquete;
+        setFalas((anteriores) =>
+          anteriores.map((f) =>
+            f.poll && f.poll.id === enquete.id ? { ...f, poll: enquete } : f,
+          ),
+        );
       } else if (msg.type === 'sync') {
         const { participant_id, position, state } = msg.payload as {
           participant_id: string; position: number; state: Participante['playback_state'];
@@ -156,11 +185,25 @@ export function useCanalDaSessao(sessionId: string | undefined) {
     [envia],
   );
 
+  const criaEnquete = useCallback(
+    (pergunta: string, alternativas: string[], posicao: number) =>
+      envia({ type: 'poll', question: pergunta, options: alternativas,
+              position: Math.floor(posicao) }),
+    [envia],
+  );
+
+  const vota = useCallback(
+    (pollId: string, optionId: string) =>
+      envia({ type: 'vote', poll_id: pollId, option_id: optionId }),
+    [envia],
+  );
+
   const reportaPosicao = useCallback(
     (posicao: number, estadoDoVideo: Participante['playback_state']) =>
       envia({ type: 'sync', position: Math.floor(posicao), state: estadoDoVideo }),
     [envia],
   );
 
-  return { estado, sessao, participantes, falas, setFalas, dizAlgo, reportaPosicao };
+  return { estado, sessao, participantes, falas, setFalas, dizAlgo,
+           criaEnquete, vota, reportaPosicao };
 }

@@ -241,3 +241,110 @@ async def test_conexao_sem_chave_de_usuario_no_scope_e_recusada(camada_em_memori
 
     assert not conectou
     await com.disconnect()
+
+
+# ── enquete ───────────────────────────────────────────────────────────────
+
+async def test_enquete_chega_como_fala_da_conversa(camada_em_memoria, django_user_model):
+    """
+    A enquete é pendurada numa mensagem: a conversa é uma só, e duas linhas
+    do tempo obrigariam o cliente a intercalá-las por horário.
+    """
+    sessao, ca, cb = await monta_dupla(django_user_model)
+
+    await ca.send_json_to({'type': 'poll', 'question': 'Ritmo até aqui?',
+                           'options': ['Hipnótico', 'Parado'], 'position': 4460})
+    recebida = await cb.receive_json_from(timeout=5)
+
+    assert recebida['type'] == 'chat'
+    assert recebida['payload']['poll']['question'] == 'Ritmo até aqui?'
+    assert [o['label'] for o in recebida['payload']['poll']['options']] == ['Hipnótico', 'Parado']
+    assert recebida['payload']['poll']['total_votes'] == 0
+
+    await ca.disconnect(); await cb.disconnect()
+
+
+async def test_enquete_com_uma_alternativa_nao_e_enquete(camada_em_memoria,
+                                                         django_user_model):
+    """Uma afirmação com um botão embaixo não é uma enquete."""
+    sessao, ca, cb = await monta_dupla(django_user_model)
+
+    await ca.send_json_to({'type': 'poll', 'question': 'Gostou?', 'options': ['Sim']})
+    assert await cb.receive_nothing(timeout=1)
+
+    await ca.disconnect(); await cb.disconnect()
+
+
+async def test_voto_atualiza_o_placar_de_todos(camada_em_memoria, django_user_model):
+    """
+    O placar depende de TODOS os votos. Retransmitir a enquete inteira é o que
+    garante o mesmo número para quem entrou depois — reconstruí-lo a partir de
+    eventos soltos daria contagens diferentes por cliente.
+    """
+    sessao, ca, cb = await monta_dupla(django_user_model)
+
+    await ca.send_json_to({'type': 'poll', 'question': 'Ritmo?',
+                           'options': ['A', 'B']})
+    criada = await cb.receive_json_from(timeout=5)
+    enquete = criada['payload']['poll']
+    # Quem criou também recebe a transmissão da própria enquete; drenar essa
+    # cópia é o que deixa a próxima leitura ser o placar.
+    await ca.receive_json_from(timeout=5)
+
+    await cb.send_json_to({'type': 'vote', 'poll_id': enquete['id'],
+                           'option_id': enquete['options'][0]['id']})
+    atualizada = await ca.receive_json_from(timeout=5)
+
+    assert atualizada['type'] == 'poll'
+    assert atualizada['payload']['total_votes'] == 1
+    assert atualizada['payload']['options'][0]['votes'] == 1
+
+    await ca.disconnect(); await cb.disconnect()
+
+
+async def test_trocar_de_ideia_muda_o_voto_em_vez_de_somar(camada_em_memoria,
+                                                           django_user_model):
+    """
+    Sem isso o segundo voto bateria na restrição do banco e o erro chegaria ao
+    usuário como falha, quando o que ele quis foi mudar de ideia.
+    """
+    sessao, ca, cb = await monta_dupla(django_user_model)
+
+    await ca.send_json_to({'type': 'poll', 'question': 'Ritmo?', 'options': ['A', 'B']})
+    enquete = (await cb.receive_json_from(timeout=5))['payload']['poll']
+    await ca.receive_json_from(timeout=5)   # a própria enquete
+
+    for i in (0, 1):
+        await cb.send_json_to({'type': 'vote', 'poll_id': enquete['id'],
+                               'option_id': enquete['options'][i]['id']})
+        atualizada = await ca.receive_json_from(timeout=5)
+
+    assert atualizada['payload']['total_votes'] == 1
+    assert atualizada['payload']['options'][0]['votes'] == 0
+    assert atualizada['payload']['options'][1]['votes'] == 1
+
+    await ca.disconnect(); await cb.disconnect()
+
+
+async def test_voto_em_enquete_de_outra_sessao_e_recusado(camada_em_memoria,
+                                                          django_user_model):
+    """Aceitar um par (enquete, alternativa) solto deixaria votar de fora."""
+    from apps.user_sessions.models import (SessionMessage, SessionPoll,
+                                           SessionPollOption)
+
+    sessao, ca, cb = await monta_dupla(django_user_model)
+
+    outro_dono = await django_user_model.objects.acreate(username='outro_dono_poll')
+    outra = await CinemaSession.objects.acreate(
+        user=outro_dono, name='Outra', theme_type='custom',
+        scheduled_date=timezone.now() + timedelta(days=1))
+    p_outro = await SessionParticipant.objects.acreate(session=outra, user=outro_dono)
+    msg = await SessionMessage.objects.acreate(session=outra, participant=p_outro, text='?')
+    enquete_alheia = await SessionPoll.objects.acreate(message=msg, question='?')
+    opcao_alheia = await SessionPollOption.objects.acreate(poll=enquete_alheia, label='X')
+
+    await cb.send_json_to({'type': 'vote', 'poll_id': str(enquete_alheia.id),
+                           'option_id': str(opcao_alheia.id)})
+    assert await ca.receive_nothing(timeout=1)
+
+    await ca.disconnect(); await cb.disconnect()

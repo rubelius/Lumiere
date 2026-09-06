@@ -310,3 +310,74 @@ class SessionMessage(models.Model):
 
     def __str__(self):
         return f'{self.participant.user}: {self.text[:40]}'
+
+
+class SessionPoll(models.Model):
+    """
+    Uma enquete no chat da sessão.
+
+    Pendurada numa SessionMessage em vez de ter timeline própria: a conversa é
+    uma só, e duas linhas do tempo obrigariam o cliente a intercalá-las por
+    horário — trabalho que a ordenação do banco já faz.
+
+    A tela trazia uma enquete com os votos escritos no código (3 contra 2,
+    cinco no total) e um botão de votar que só mexia no estado local. Nada
+    disso existia no servidor.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    message = models.OneToOneField(
+        'SessionMessage', on_delete=models.CASCADE, related_name='poll')
+    question = models.CharField(max_length=300)
+    closed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'enquete: {self.question[:40]}'
+
+    @property
+    def total_de_votos(self) -> int:
+        return SessionPollVote.objects.filter(option__poll=self).count()
+
+
+class SessionPollOption(models.Model):
+    """Uma alternativa da enquete."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    poll = models.ForeignKey(
+        SessionPoll, on_delete=models.CASCADE, related_name='options')
+    label = models.CharField(max_length=200)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.label
+
+
+class SessionPollVote(models.Model):
+    """
+    O voto de um participante.
+
+    A restrição é por (enquete, participante), não por (alternativa,
+    participante): a segunda deixaria a mesma pessoa votar em todas as
+    alternativas, uma vez em cada.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    poll = models.ForeignKey(
+        SessionPoll, on_delete=models.CASCADE, related_name='votes')
+    option = models.ForeignKey(
+        SessionPollOption, on_delete=models.CASCADE, related_name='votes')
+    participant = models.ForeignKey(
+        SessionParticipant, on_delete=models.CASCADE, related_name='poll_votes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['poll', 'participant'], name='um_voto_por_pessoa_por_enquete'),
+        ]
+
+    def __str__(self):
+        return f'{self.participant.user} -> {self.option.label[:24]}'

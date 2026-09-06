@@ -4,7 +4,7 @@ import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { Users, Link as LinkIcon, Play, CalendarPlus, X, Search, TerminalSquare, Radio, CheckCircle2, Activity, Settings2, Share2, SkipBack, SkipForward, Pause, Volume2, Subtitles, Maximize } from "lucide-react";
 import { http } from '@/services/http/client';
-import { useProximasSessoes } from '@/features/sessions/hooks/useSessoes';
+import { useSessaoRelevante } from '@/features/sessions/hooks/useSessoes';
 import { useCriarConvite, useCriarSessao } from '@/features/sessions/hooks/useSessaoMutations';
 import { useMovies } from '@/features/movies/hooks/useMovies';
 import { useCanalDaSessao } from '@/features/sessions/hooks/useCanalDaSessao';
@@ -73,18 +73,34 @@ export default function Party() {
 
   // Estados do Chat e Enquete
   const [inputValue, setInputValue] = useState("");
-  // A enquete foi removida junto com o resto da maquete. Ela vinha com votos
-  // escritos no código — 3 contra 2, cinco votos no total — e não há modelo
-  // de enquete no servidor: participante, convite e mensagem existem, enquete
-  // não. Construí-la é um incremento possível; fingi-la não.
+  // A enquete existia como maquete — votos escritos no código, 3 contra 2, e
+  // um botão que só mexia no estado local. Agora tem modelo no servidor, e o
+  // voto sobrevive a recarregar a página.
+  const [isCreatingPoll, setIsCreatingPoll] = useState(false);
+  const [pollQ, setPollQ] = useState('');
+  const [pollOpt1, setPollOpt1] = useState('');
+  const [pollOpt2, setPollOpt2] = useState('');
+
+  const handleSendPoll = () => {
+    const alternativas = [pollOpt1, pollOpt2].map((o) => o.trim()).filter(Boolean);
+    // Duas alternativas no mínimo: uma só não é enquete, é afirmação com
+    // botão. O servidor recusa igual, mas avisar aqui poupa a ida.
+    if (!pollQ.trim() || alternativas.length < 2) return;
+    if (criaEnquete(pollQ.trim(), alternativas, minhaPosicao)) {
+      setPollQ(''); setPollOpt1(''); setPollOpt2(''); setIsCreatingPoll(false);
+    }
+  };
 
   // A conversa vinha com três falas já digitadas — "ANA C." elogiando a
   // fotografia, uma resposta "sua" e uma enquete com 3 votos contra 2. Nada
   // disso existia no servidor. Agora chega pelo canal da sessão.
-  const { data: sessoes } = useProximasSessoes();
-  const sessionId = sessoes?.[0]?.id;
+  // /upcoming/ exclui in_progress, e é justamente numa projeção em curso que
+  // esta tela existe para servir — a sessão nunca era encontrada e o canal
+  // nunca conectava. Mesmo defeito que a tela de sessão tinha.
+  const { data: sessaoRelevante } = useSessaoRelevante();
+  const sessionId = sessaoRelevante?.id;
   const { estado: estadoDoCanal, sessao, participantes, falas, setFalas, dizAlgo,
-          reportaPosicao } = useCanalDaSessao(sessionId);
+          criaEnquete, vota, reportaPosicao } = useCanalDaSessao(sessionId);
 
   // Histórico: o canal só entrega o que acontece de agora em diante, e quem
   // chega no meio precisa da conversa desde o começo.
@@ -562,9 +578,42 @@ export default function Party() {
                         <span style={{ fontSize: '10px', color: msg.is_self ? 'var(--gold)' : 'var(--m2)', fontWeight: 'bold' }}>{msg.author}</span>
                       </div>
                       
-                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: msg.is_self ? 'var(--gold)' : 'var(--film)', fontStyle: 'italic', paddingLeft: '62px' }}>
-                        "{msg.text}"
-                      </div>
+                      {msg.poll ? (
+                        <div style={{ paddingLeft: '62px', border: '1px solid rgba(191,143,60,0.25)', padding: '20px 24px', marginLeft: '62px', background: 'rgba(191,143,60,0.04)' }}>
+                          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', color: 'var(--film)', margin: '0 0 18px 0' }}>
+                            {msg.poll.question}
+                          </p>
+                          {msg.poll.options.map((opt) => {
+                            // Percentual do total, não da maior: uma barra
+                            // relativa à líder faria 1 voto contra 1 parecer
+                            // 100% contra 100%.
+                            const total = msg.poll!.total_votes;
+                            const pct = total > 0 ? Math.round((opt.votes / total) * 100) : 0;
+                            const meu = msg.poll!.my_vote === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                onClick={() => vota(msg.poll!.id, opt.id)}
+                                style={{ display: 'block', width: '100%', textAlign: 'left', position: 'relative', background: 'rgba(0,0,0,0)', border: `1px solid ${meu ? 'rgba(191,143,60,0.6)' : 'rgba(86,84,80,0.4)'}`, padding: '10px 14px', marginBottom: 8, cursor: 'pointer', overflow: 'hidden' }}
+                              >
+                                <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: 'rgba(191,143,60,0.14)', transition: 'width 0.5s ease' }} />
+                                <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', color: meu ? 'var(--gold)' : 'var(--m2)' }}>
+                                  <span>{meu ? '▸ ' : ''}{opt.label}</span>
+                                  <span>{opt.votes} · {pct}%</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.15em', marginTop: 10 }}>
+                            {msg.poll.total_votes === 0 ? 'AINDA SEM VOTOS'
+                              : `${msg.poll.total_votes} VOTO${msg.poll.total_votes > 1 ? 'S' : ''}`}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: msg.is_self ? 'var(--gold)' : 'var(--film)', fontStyle: 'italic', paddingLeft: '62px' }}>
+                          "{msg.text}"
+                        </div>
+                      )}
 
                     </motion.div>
                   ))}
@@ -575,10 +624,33 @@ export default function Party() {
               {/* Rodapé: Input & Criação de Enquete */}
               <div style={{ borderTop: '1px solid rgba(86,84,80,0.3)', backgroundColor: 'var(--bg)', padding: '24px' }}>
                 
-                {/* Aqui havia também um compositor de enquete, com votos
-                    escritos no código. Não existe modelo de enquete no
-                    servidor — participante, convite e mensagem existem,
-                    enquete não. Construí-la é incremento; fingi-la não. */}
+                {isCreatingPoll ? (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em' }}>[ NOVA ENQUETE ]</div>
+                    {[
+                      { v: pollQ, set: setPollQ, ph: 'PERGUNTA' },
+                      { v: pollOpt1, set: setPollOpt1, ph: 'ALTERNATIVA 1' },
+                      { v: pollOpt2, set: setPollOpt2, ph: 'ALTERNATIVA 2' },
+                    ].map((campo) => (
+                      <input
+                        key={campo.ph} type="text" value={campo.v}
+                        onChange={(e) => campo.set(e.target.value)}
+                        placeholder={campo.ph}
+                        style={{ background: 'rgba(237,232,220,0.02)', border: 'none', borderBottom: '1px solid var(--m3)', padding: '10px 8px', color: 'var(--film)', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', outline: 'none' }}
+                      />
+                    ))}
+                    <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
+                      <button onClick={handleSendPoll}
+                        style={{ background: 'rgba(0,0,0,0)', border: '1px solid rgba(191,143,60,0.5)', color: 'var(--gold)', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
+                        [ PUBLICAR ]
+                      </button>
+                      <button onClick={() => setIsCreatingPoll(false)}
+                        style={{ background: 'rgba(0,0,0,0)', border: '1px solid rgba(86,84,80,0.5)', color: 'var(--m2)', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
+                        [ CANCELAR ]
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid rgba(191,143,60,0.5)', paddingBottom: '8px' }} className="group">
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '12px', color: 'var(--gold)', fontWeight: 'bold' }}>&gt;</span>
                   <input
@@ -595,7 +667,15 @@ export default function Party() {
                   </motion.button>
                 </div>
 
+                )}
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
+                  {!isCreatingPoll && (
+                    <button onClick={() => setIsCreatingPoll(true)} disabled={estadoDoCanal !== 'aberto'}
+                      style={{ background: 'rgba(0,0,0,0)', border: 'none', color: 'var(--m3)', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', cursor: estadoDoCanal === 'aberto' ? 'pointer' : 'default', padding: 0, marginRight: 20 }}>
+                      [ + ENQUETE ]
+                    </button>
+                  )}
                   {/* O estado do canal fica à vista: sem isso, uma queda de
                       conexão pareceria uma sala silenciosa. */}
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: estadoDoCanal === 'aberto' ? 'var(--gold)' : 'var(--m3)', letterSpacing: '0.1em' }}>
