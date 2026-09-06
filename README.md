@@ -383,6 +383,33 @@ celery -A lumiere worker -l info
 celery -A lumiere beat -l info
 ```
 
+## Tests
+
+```bash
+cd backend && ../venv/bin/python -m pytest apps/ -q   # 189 tests
+cd clients/web && npm test                            # 28 tests
+```
+
+The web suite runs on Vitest + React Testing Library, per the setup Next
+documents in `node_modules/next/dist/docs/01-app/02-guides/testing/vitest.md`.
+Async Server Components are deliberately out of scope — Vitest does not
+support them, and Next's own guide points at E2E for those.
+
+Both suites aim at the failure modes this project has actually had, not at
+coverage percentage. Every test here was checked by reintroducing the defect
+it claims to catch; a test that still passes with the bug back in is worse
+than no test, and this repo has shipped a few of those. Three examples of what
+the suites pin down:
+
+- A component that reads a field the API returns one level deeper — the bug
+  that rendered the similar-films section as blank cards linking to
+  `/movie/undefined`.
+- The player's progress throttling. `timeupdate` fires roughly four times a
+  second; losing the throttle means thousands of requests per film, silently.
+- A model name or a removed database column written by hand somewhere in the
+  backend. Both are read from the migrations and the single source of truth,
+  so the test finds them without anyone maintaining a list.
+
 ## Populating the archive
 
 Run in this order — later steps enrich what earlier ones create:
