@@ -176,3 +176,90 @@ def test_copia_cacheada_desempata(authenticated_client):
 
     r = authenticated_client.get(f'/api/movies/{filme.id}/')
     assert r.data['best_releases'][0]['title'] == 'Nota menor, cacheada'
+
+
+@pytest.mark.django_db
+def test_marca_cacheadas_grava_quem_toca_agora(monkeypatch, django_user_model):
+    """
+    Sem esta checagem, toda release recém-encontrada voltava com
+    instantly_available=False e a tela dizia que nenhuma tocava agora — a
+    marcação só chegava horas depois, pela task noturna. Saber na hora é o
+    ponto de buscar: é o que distingue "dá play" de "vai baixar".
+    """
+    from asgiref.sync import async_to_sync
+
+    from apps.movies.models import Movie, TorrentRelease
+    from apps.movies.views import _marca_cacheadas
+
+    u = django_user_model.objects.create_user(username='u1', password='x',
+                                              realdebrid_api_key='chave')
+    filme = Movie.objects.create(title='Stalker', year=1979)
+    cacheada = TorrentRelease.objects.create(movie=filme, title='A', size_bytes=1,
+                                             info_hash='a' * 40)
+    fria = TorrentRelease.objects.create(movie=filme, title='B', size_bytes=1,
+                                         info_hash='b' * 40)
+
+    async def falso(self, hashes):
+        return {'a' * 40: True, 'b' * 40: False}
+
+    monkeypatch.setattr(
+        'apps.integrations.realdebrid.RealDebridClient.check_instant_availability', falso)
+
+    falhou = async_to_sync(_marca_cacheadas)([cacheada, fria], u)
+
+    cacheada.refresh_from_db(); fria.refresh_from_db()
+    assert falhou is False
+    assert cacheada.instantly_available is True
+    assert fria.instantly_available is False
+    assert cacheada.instant_check_at is not None
+
+
+@pytest.mark.django_db
+def test_falha_na_checagem_nao_marca_nada_como_offline(monkeypatch, django_user_model):
+    """
+    "Conferi e nenhuma está pronta" e "não consegui conferir" desenham telas
+    diferentes. Tratá-las igual faria o acervo parecer offline por um blip de
+    rede — e a release que ESTAVA cacheada perderia a marca.
+    """
+    from asgiref.sync import async_to_sync
+
+    from apps.integrations.realdebrid import RealDebridIndisponivel
+    from apps.movies.models import Movie, TorrentRelease
+    from apps.movies.views import _marca_cacheadas
+
+    u = django_user_model.objects.create_user(username='u2', password='x',
+                                              realdebrid_api_key='chave')
+    filme = Movie.objects.create(title='Solaris', year=1972)
+    r = TorrentRelease.objects.create(movie=filme, title='A', size_bytes=1,
+                                      info_hash='c' * 40, instantly_available=True)
+
+    async def estoura(self, hashes):
+        raise RealDebridIndisponivel('sem rota')
+
+    monkeypatch.setattr(
+        'apps.integrations.realdebrid.RealDebridClient.check_instant_availability', estoura)
+
+    falhou = async_to_sync(_marca_cacheadas)([r], u)
+
+    r.refresh_from_db()
+    assert falhou is True
+    assert r.instantly_available is True, 'a marca anterior não pode ser apagada'
+
+
+@pytest.mark.django_db
+def test_sem_chave_do_real_debrid_nao_e_falha(django_user_model, settings):
+    """Não ter integração é diferente de ela estar quebrada."""
+    # A chave da instância vem do .env e serviria de fallback; sem zerá-la o
+    # teste chamaria a API de verdade em vez de exercitar o caminho sem chave.
+    settings.REAL_DEBRID_API_KEY = None
+    from asgiref.sync import async_to_sync
+
+    from apps.movies.models import Movie, TorrentRelease
+    from apps.movies.views import _marca_cacheadas
+
+    u = django_user_model.objects.create_user(username='u3', password='x')
+    filme = Movie.objects.create(title='X', year=2000)
+    r = TorrentRelease.objects.create(movie=filme, title='A', size_bytes=1,
+                                      info_hash='d' * 40)
+
+    assert async_to_sync(_marca_cacheadas)([r], u) is False

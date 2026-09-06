@@ -14,6 +14,8 @@ from django.db.models.functions import Coalesce, Greatest
 from django.contrib.postgres.search import TrigramSimilarity
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+import logging
+
 from django.utils import timezone
 from asgiref.sync import async_to_sync, sync_to_async
 
@@ -46,6 +48,9 @@ from .serializers import (
     SubtitleSerializer,
     TorrentReleaseSerializer
 )
+
+logger = logging.getLogger(__name__)
+
 
 class AsyncMovieViewSet(viewsets.ViewSet):
     async def list(self, request):
@@ -80,6 +85,43 @@ class MarcaAssistidos:
         serializer.context['assistidos'] = ids_assistidos(
             getattr(self.request, 'user', None), filmes)
         return serializer
+
+
+async def _marca_cacheadas(releases, user) -> bool:
+    """
+    Pergunta ao Real-Debrid quais destas cópias já estão cacheadas e grava.
+
+    Devolve True quando a consulta NÃO pôde ser feita. Quem chama precisa
+    dessa distinção: "conferi e nenhuma está pronta" e "não consegui
+    conferir" desenham telas diferentes, e tratá-las igual faria o acervo
+    parecer offline por causa de um blip de rede.
+    """
+    from apps.integrations.realdebrid import (RealDebridClient,
+                                              RealDebridIndisponivel,
+                                              chave_do_usuario)
+
+    chave = chave_do_usuario(user)
+    hashes = [r.info_hash for r in releases if r.info_hash]
+    if not (chave and hashes):
+        return False
+
+    cliente = RealDebridClient(chave)
+    try:
+        cacheadas = await cliente.check_instant_availability(hashes)
+    except RealDebridIndisponivel as e:
+        logger.warning('Não deu para checar o cache do Real-Debrid: %s', e)
+        return True
+    finally:
+        await cliente.close()
+
+    agora = timezone.now()
+    for release in releases:
+        release.instantly_available = cacheadas.get((release.info_hash or '').lower(), False)
+        release.instant_check_at = agora
+
+    await sync_to_async(TorrentRelease.objects.bulk_update)(
+        releases, ['instantly_available', 'instant_check_at'])
+    return False
 
 
 class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
@@ -496,11 +538,32 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
                     created_releases.append(release)
                 
             await sync_to_async(CacheManager.invalidate_movie)(str(movie.id))
-            saved_releases = await sync_to_async(list)(TorrentRelease.objects.filter(movie=movie).order_by('-quality_score')[:20])
+
+            saved_releases = await sync_to_async(list)(
+                TorrentRelease.objects.filter(movie=movie)
+                .order_by('-quality_score')[:20])
+
+            # Sem esta checagem, toda release recém-encontrada voltava com
+            # instantly_available=False e a tela dizia que nenhuma tocava
+            # agora — a marcação só chegava horas depois, pela task noturna.
+            # Que a pessoa saiba na hora quais já estão cacheadas é o ponto
+            # de buscar: é o que distingue "dá play" de "vai baixar".
+            cache_falhou = await _marca_cacheadas(saved_releases, user)
+
             serializer = TorrentReleaseSerializer(saved_releases, many=True)
-            total_count = await sync_to_async(TorrentRelease.objects.filter(movie=movie).count)()
-        
-            return Response({'movie_id': movie.id, 'releases': serializer.data, 'new_releases_found': len(created_releases), 'total_releases': total_count})
+            total_count = await sync_to_async(
+                TorrentRelease.objects.filter(movie=movie).count)()
+
+            return Response({
+                'movie_id': movie.id,
+                'releases': serializer.data,
+                'new_releases_found': len(created_releases),
+                'total_releases': total_count,
+                # A tela precisa saber que a coluna "toca agora" está sem
+                # resposta, para não desenhar todas como se não estivessem
+                # cacheadas.
+                'cache_check_failed': cache_falhou,
+            })
 
         return async_to_sync(_executar)()
 

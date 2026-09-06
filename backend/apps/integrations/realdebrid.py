@@ -5,6 +5,15 @@ import httpx
 from django.conf import settings
 
 
+class RealDebridIndisponivel(Exception):
+    """
+    A consulta ao Real-Debrid não pôde ser feita.
+
+    Distinta de "não está cacheado": anunciar que nada está pronto quando o
+    problema é a integração faria o acervo inteiro parecer offline.
+    """
+
+
 class RealDebridClient:
     """Cliente para API do Real-Debrid"""
     
@@ -17,40 +26,51 @@ class RealDebridClient:
             headers={'Authorization': f'Bearer {api_key}'}
         )
     
-    async def check_instant_availability(
-        self,
-        hashes: List[str]
-    ) -> Dict[str, bool]:
+    # O endpoint aceita um punhado de hashes por chamada. O código antigo
+    # fatiava em `hashes[:100]` e seguia: do 101 em diante o hash nem voltava
+    # no dicionário, e o chamador lia ausência como "não cacheado".
+    HASHES_POR_CHAMADA = 100
+
+    async def check_instant_availability(self, hashes: List[str]) -> Dict[str, bool]:
         """
-        Verifica disponibilidade instantânea de torrents (cached)
-        
-        Args:
-            hashes: Lista de info hashes (max 100)
-        
-        Returns:
-            Dict mapeando hash -> bool (disponível ou não)
+        Quais destes torrents já estão cacheados no Real-Debrid.
+
+        Devolve as chaves em MINÚSCULAS, que é como o acervo guarda info_hash.
+        Hash ausente do retorno significa "não cacheado"; se a consulta não
+        pôde ser feita, levanta RealDebridIndisponivel em vez de responder
+        que nada está cacheado — as duas coisas são diferentes, e confundi-las
+        faria a tela anunciar que nenhum filme está pronto quando o problema é
+        a integração.
         """
-        hash_string = '/'.join(hashes[:100])
-        
-        try:
-            response = await self.client.get(
-                f"{self.BASE_URL}/torrents/instantAvailability/{hash_string}"
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            # Parse availability
-            availability = {}
-            for hash_val, info in data.items():
-                # Se dict não está vazio, torrent está cached
-                availability[hash_val.upper()] = bool(info)
-            
-            return availability
-        
-        except httpx.HTTPError as e:
-            print(f"Real-Debrid instant check error: {e}")
-            return {h.upper(): False for h in hashes}
-    
+        normalizados = [h.strip().lower() for h in hashes if h and h.strip()]
+        if not normalizados:
+            return {}
+
+        disponibilidade: Dict[str, bool] = {h: False for h in normalizados}
+
+        for i in range(0, len(normalizados), self.HASHES_POR_CHAMADA):
+            lote = normalizados[i:i + self.HASHES_POR_CHAMADA]
+            try:
+                response = await self.client.get(
+                    f"{self.BASE_URL}/torrents/instantAvailability/{'/'.join(lote)}")
+                response.raise_for_status()
+                dados = response.json()
+            except httpx.HTTPError as e:
+                raise RealDebridIndisponivel(
+                    f'Não foi possível consultar o Real-Debrid: {e}') from e
+            except ValueError as e:
+                raise RealDebridIndisponivel(
+                    'O Real-Debrid devolveu algo que não é JSON.') from e
+
+            if not isinstance(dados, dict):
+                continue
+            for hash_val, info in dados.items():
+                # Dicionário vazio quer dizer "conhecido, mas sem arquivo
+                # cacheado" — só o preenchido conta como pronto.
+                disponibilidade[hash_val.strip().lower()] = bool(info)
+
+        return disponibilidade
+
     async def add_magnet(self, magnet_url: str) -> str:
         """
         Adiciona magnet link ao Real-Debrid

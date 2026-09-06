@@ -174,6 +174,7 @@ def check_instant_availability_batch(self, release_ids: list, user_id: str):
         Dict com available_count
     """
     from apps.integrations.realdebrid import (RealDebridClient,
+                                             RealDebridIndisponivel,
                                              chave_do_usuario)
     from django.contrib.auth import get_user_model
     
@@ -185,35 +186,45 @@ def check_instant_availability_batch(self, release_ids: list, user_id: str):
         if not chave_do_usuario(user):
             return {'error': 'Real-Debrid not configured'}
         
-        releases = TorrentRelease.objects.filter(id__in=release_ids)
-        
-        # Get info hashes
-        hashes = [r.info_hash for r in releases]
-        
-        # Check availability in batches of 100
+        releases = list(TorrentRelease.objects.filter(id__in=release_ids))
+        hashes = [r.info_hash for r in releases if r.info_hash]
+
         async def check_async():
             client = RealDebridClient(chave_do_usuario(user))
             try:
-                availability = await client.check_instant_availability(hashes)
-                return availability
+                # O cliente fatia em lotes por conta própria. Antes o
+                # comentário aqui dizia "em lotes de 100" e passava todos de
+                # uma vez, e o cliente truncava em `hashes[:100]`: do 101 em
+                # diante ninguém era checado, e a ausência do hash no retorno
+                # virava "não cacheado".
+                return await client.check_instant_availability(hashes)
             finally:
                 await client.close()
-        
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        availability = loop.run_until_complete(check_async())
-        loop.close()
-        
-        # Update releases
+        try:
+            availability = loop.run_until_complete(check_async())
+        except RealDebridIndisponivel as e:
+            # Não marca nada. Tratar falha de consulta como "nada cacheado"
+            # apagaria a disponibilidade do acervo inteiro por um blip de rede.
+            logger.warning('Checagem de cache indisponível: %s', e)
+            return {'error': str(e), 'retryable': True}
+        finally:
+            loop.close()
+
         available_count = 0
+        agora = timezone.now()
         for release in releases:
-            is_available = availability.get(release.info_hash.upper(), False)
-            
-            if is_available:
-                release.instantly_available = True
-                release.instant_check_at = timezone.now()
-                release.save()
-                available_count += 1
+            # As chaves vêm em minúsculas, como o acervo guarda info_hash.
+            esta_cacheada = availability.get((release.info_hash or '').lower(), False)
+            # Grava também quando é False: a flag só subia, então release que
+            # saía do cache do Real-Debrid continuava anunciada como pronta
+            # para sempre.
+            release.instantly_available = esta_cacheada
+            release.instant_check_at = agora
+            release.save(update_fields=['instantly_available', 'instant_check_at'])
+            available_count += int(esta_cacheada)
         
         logger.info(f"Checked {len(releases)} releases, {available_count} instantly available")
         
