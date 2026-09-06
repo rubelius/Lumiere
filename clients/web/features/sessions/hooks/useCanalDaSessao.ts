@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { http } from '@/services/http/client';
+import { APIError } from '@/services/http/errors';
 
 import type { CinemaSession } from './useSessoes';
 
@@ -57,7 +58,18 @@ export interface Fala {
   created_at: string;
 }
 
-type Estado = 'conectando' | 'aberto' | 'fechado';
+type Estado = 'conectando' | 'aberto' | 'fechado' | 'sem-acesso';
+
+/**
+ * Falhas que reconectar não resolve.
+ *
+ * O recuo exponencial trata toda falha como passageira e tenta de novo para
+ * sempre, a cada 30 segundos no teto. Para uma sessão expirada isso vira uma
+ * fila de centenas de requisições — já foram vistas 91 numa aba esquecida
+ * aberta —, e a tela segue dizendo "RECONECTANDO..." para um canal que nunca
+ * vai abrir.
+ */
+const SEM_VOLTA = new Set([401, 403]);
 
 export function useCanalDaSessao(sessionId: string | undefined) {
   const [estado, setEstado] = useState<Estado>('fechado');
@@ -82,7 +94,12 @@ export function useCanalDaSessao(sessionId: string | undefined) {
     let ticket: string;
     try {
       ({ ticket } = await http.post<{ ticket: string }>('/api/auth/ws-ticket/', {}));
-    } catch {
+    } catch (erro) {
+      if (erro instanceof APIError && SEM_VOLTA.has(erro.status)) {
+        desmontado.current = true;
+        limpaTimers();
+        return setEstado('sem-acesso');
+      }
       return agendaNovaTentativa();
     }
 

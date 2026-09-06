@@ -680,7 +680,9 @@ export default function Party() {
                       conexão pareceria uma sala silenciosa. */}
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: estadoDoCanal === 'aberto' ? 'var(--gold)' : 'var(--m3)', letterSpacing: '0.1em' }}>
                     {estadoDoCanal === 'aberto' ? '[ CANAL ABERTO ]'
-                      : estadoDoCanal === 'conectando' ? '[ CONECTANDO... ]' : '[ RECONECTANDO... ]'}
+                      : estadoDoCanal === 'conectando' ? '[ CONECTANDO... ]'
+                      : estadoDoCanal === 'sem-acesso' ? '[ SESSÃO EXPIRADA — ENTRE DE NOVO ]'
+                      : '[ RECONECTANDO... ]'}
                   </span>
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>[ ENTER ] PARA CONFIRMAR</span>
                 </div>
