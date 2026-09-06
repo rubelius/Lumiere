@@ -3,7 +3,13 @@
 import { useQuery } from '@tanstack/react-query';
 
 export interface UserProfile { name: string; bio: string; avatarUrl: string; role: string; accessLevel: string; }
-export interface ProfileStats { watchTimeHours: number; moviesWatched: number; averageRating: number | string; }
+export interface ProfileStats {
+  watchTimeHours: number;
+  moviesWatched: number;
+  /** Nulo enquanto o usuário não avaliar nada — diferente de ter avaliado com zero. */
+  averageRating: number | null;
+  ratedCount: number;
+}
 export interface ProfileData {
   user: UserProfile;
   stats: ProfileStats;

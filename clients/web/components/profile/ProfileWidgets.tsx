@@ -59,10 +59,30 @@ export function ProfileHeader({ user, onEdit, onSettings }: { user: ProfileData[
 // 2. TELEMETRIA GERAL
 // ============================================================================
 export function TelemetryGrid({ stats }: { stats: ProfileData['stats'] }) {
+  // Os rótulos abaixo eram elogios fixos — "TOP 5% DA PLATAFORMA", "CRÍTICO
+  // EXIGENTE" — mostrados igualmente para quem nunca tinha assistido nada.
+  // Agora cada um descreve o número que está ao lado.
+  const avaliou = (stats.ratedCount ?? 0) > 0;
   const blocks = [
-    { label: "TEMPO DE EXIBIÇÃO", value: `${stats.watchTimeHours} H`, icon: Clock, detail: "TOP 5% DA PLATAFORMA" },
-    { label: "ACERVO ASSISTIDO", value: stats.moviesWatched, icon: Film, detail: "OBRAS CATALOGADAS" },
-    { label: "AVALIAÇÃO MÉDIA", value: stats.averageRating, icon: Star, detail: "CRÍTICO EXIGENTE" },
+    {
+      label: "TEMPO DE EXIBIÇÃO",
+      value: `${stats.watchTimeHours} H`,
+      icon: Clock,
+      detail: stats.moviesWatched > 0 ? "DE PROJEÇÃO REGISTRADA" : "NADA PROJETADO AINDA",
+    },
+    {
+      label: "ACERVO ASSISTIDO",
+      value: stats.moviesWatched,
+      icon: Film,
+      detail: "OBRAS CONCLUÍDAS",
+    },
+    {
+      label: "AVALIAÇÃO MÉDIA",
+      // Nulo é "ainda não avaliou", que é diferente de ter avaliado com zero.
+      value: avaliou ? stats.averageRating : "—",
+      icon: Star,
+      detail: avaliou ? `EM ${stats.ratedCount} AVALIAÇÕES` : "SEM AVALIAÇÕES",
+    },
   ];
 
   return (
