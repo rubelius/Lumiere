@@ -280,6 +280,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/continue-watching/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Filmes começados e ainda não terminados, do mais recente ao mais antigo.
+         * @description O "retomar" da home. Vem do servidor, não do navegador: uma posição guardada só no aparelho se perde ao trocar de máquina, que é justamente quando retomar importa.
+         */
+        get: operations["movies_continue_watching_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/recommended/": {
         parameters: {
             query?: never;
@@ -914,6 +934,7 @@ export interface components {
             readonly current_ranking: number | null;
             readonly best_releases: components["schemas"]["TorrentRelease"][];
             readonly similar_movies: components["schemas"]["SimilarMovie"][];
+            readonly watch_state: components["schemas"]["WatchState"] | null;
             title: string;
             original_title?: string;
             alternative_titles?: unknown;
@@ -1461,6 +1482,19 @@ export interface components {
             /** Format: date-time */
             readonly last_watched_at: string;
         };
+        /** @description Onde o usuário parou, para o player retomar. */
+        WatchState: {
+            readonly progress_seconds: number;
+            /** @description Duração real do arquivo, que costuma divergir do metadado. */
+            readonly runtime_seconds: number;
+            /** @description Passou de FRACAO_PARA_CONCLUIR. É isto que a interface chama de "assistido". */
+            readonly completed: boolean;
+            readonly times_watched: number;
+            /** Format: double */
+            readonly fraction: number;
+            /** Format: date-time */
+            readonly last_watched_at: string;
+        };
         WebSocketTicket: {
             ticket: string;
         };
@@ -1874,6 +1908,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Movie"];
+                };
+            };
+        };
+    };
+    movies_continue_watching_list: {
+        parameters: {
+            query?: {
+                available_instantly?: boolean;
+                category?: string;
+                country?: string;
+                curations?: string;
+                decades?: string;
+                director?: string;
+                genres?: string;
+                in_plex?: boolean;
+                /** @description Qual campo usar ao ordenar os resultados. */
+                ordering?: string;
+                /** @description Um número de página dentro do conjunto de resultados paginado. */
+                page?: number;
+                qualities?: string;
+                search?: string;
+                year?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMovieListList"];
                 };
             };
         };

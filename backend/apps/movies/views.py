@@ -277,6 +277,42 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         responses={200: MovieListSerializer(many=True)},
+        summary='Filmes começados e ainda não terminados, do mais recente ao mais antigo.',
+        description=(
+            'O "retomar" da home. Vem do servidor, não do navegador: uma '
+            'posição guardada só no aparelho se perde ao trocar de máquina, '
+            'que é justamente quando retomar importa.'
+        ),
+    )
+    @action(detail=False, url_path='continue-watching')
+    def continue_watching(self, request):
+        # Progresso maior que zero: uma linha criada no primeiro ping, com o
+        # filme ainda parado no segundo zero, não é algo "começado".
+        registros = (
+            WatchHistory.objects
+            .filter(user=request.user, completed=False, progress_seconds__gt=0)
+            .select_related('movie').order_by('-last_watched_at')[:12]
+        )
+        filmes = [r.movie for r in registros]
+        contexto = {'assistidos': ids_assistidos(request.user, filmes),
+                    'request': request}
+
+        return Response({
+            'count': len(filmes),
+            'results': [
+                {
+                    'movie': MovieListSerializer(r.movie, context=contexto).data,
+                    'progress_seconds': r.progress_seconds,
+                    'runtime_seconds': r.runtime_seconds,
+                    'fraction': round(r.fracao_assistida, 4),
+                    'last_watched_at': r.last_watched_at,
+                }
+                for r in registros
+            ],
+        })
+
+    @extend_schema(
+        responses={200: MovieListSerializer(many=True)},
         summary='Filmes que combinam com o gosto do usuário e que ele ainda não viu.',
         description=(
             'Calculado na hora a partir do vetor do perfil de gosto, que é '

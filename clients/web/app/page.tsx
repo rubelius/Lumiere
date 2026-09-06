@@ -10,7 +10,7 @@ import { AfinidadeAferida } from '@/components/home/AfinidadeAferida'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
-import { useMovies } from '@/features/movies/hooks/useMovies';
+import { useContinuarAssistindo, useMovies } from '@/features/movies/hooks/useMovies';
 
 
 // ── TIPAGEM SEGURA PARA ACALMAR O TYPESCRIPT ──
@@ -46,13 +46,22 @@ const getCinematicColor = (genres: string[]) => {
   return 'var(--gold)'; 
 };
 
+/** "1h 55m restantes" a partir de segundos. Vazio quando a duração é desconhecida. */
+function formataRestante(segundos: number): string {
+  if (!Number.isFinite(segundos) || segundos <= 0) return '';
+  const h = Math.floor(segundos / 3600);
+  const m = Math.round((segundos % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 export default function HomePage() {
   const [hoveredSessionId, setHoveredSessionId] = useState<string | number | null>(null)
   const [hoveredFeaturedId, setHoveredFeaturedId] = useState<string | number | null>(null)
   
   const [heroIndex, setHeroIndex] = useState(0);
   const [randomHeroMovies, setRandomHeroMovies] = useState<HomeMovie[]>([]);
-  const [lastWatched, setLastWatched] = useState<any | null>(null);
+  const { data: continuar } = useContinuarAssistindo();
+  const emCurso = continuar?.results?.[0];
 
   const { data, isLoading, isError, refetch } = useMovies({ page: 1 });
 
@@ -62,27 +71,9 @@ export default function HomePage() {
       const shuffled = [...data.results].sort(() => 0.5 - Math.random());
       setRandomHeroMovies(shuffled.slice(0, 10) as HomeMovie[]); 
 
-      // Puxa o filme mais bem avaliado garantindo a tipagem de Number
-      const topRatedFallback = [...data.results].sort((a, b) => Number(b.tmdb_rating || 0) - Number(a.tmdb_rating || 0))[0];
-
-      try {
-        const historyStr = localStorage.getItem('lumiere_history');
-        if (historyStr) {
-          setLastWatched(JSON.parse(historyStr));
-        } else {
-          setLastWatched({
-            id: topRatedFallback.id,
-            title: topRatedFallback.title,
-            director: topRatedFallback.director,
-            year: topRatedFallback.year,
-            backgroundSrc: topRatedFallback.background_url || topRatedFallback.poster_url,
-            progress: 15,
-            remainingTime: '1h 55m'
-          });
-        }
-      } catch (e) {
-        console.log("Memória não iniciada");
-      }
+      // O "retomar" vem do servidor, via useContinuarAssistindo. Aqui ficava
+      // um fallback que inventava "15% assistido, 1h55m restantes" para o
+      // filme mais bem avaliado — um filme que o usuário nunca tinha aberto.
     }
   }, [data, randomHeroMovies.length]);
 
@@ -280,15 +271,15 @@ export default function HomePage() {
           </div>
         </section>
 
-        {lastWatched && (
+        {emCurso && (
           <NowProjecting
-            title={lastWatched.title}
-            director={lastWatched.director || 'Desconhecido'}
-            year={String(lastWatched.year || '----')}
-            progress={lastWatched.progress} 
-            remainingTime={lastWatched.remainingTime}
-            frameSrc={lastWatched.backgroundSrc}
-            href={`/player?id=${lastWatched.id}`}
+            title={emCurso.movie.title}
+            director={emCurso.movie.director || 'Desconhecido'}
+            year={String(emCurso.movie.year || '----')}
+            progress={Math.round(emCurso.fraction * 100)}
+            remainingTime={formataRestante(emCurso.runtime_seconds - emCurso.progress_seconds)}
+            frameSrc={emCurso.movie.background_url || emCurso.movie.poster_url || ''}
+            href={`/player?id=${emCurso.movie.id}`}
           />
         )}
 

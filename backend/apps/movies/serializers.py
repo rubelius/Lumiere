@@ -139,6 +139,21 @@ class SimilarMovieSerializer(serializers.Serializer):
     watched = serializers.BooleanField(read_only=True)
 
 
+class WatchStateSerializer(serializers.ModelSerializer):
+    """Onde o usuário parou, para o player retomar."""
+    fraction = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WatchHistory
+        fields = ['progress_seconds', 'runtime_seconds', 'completed',
+                  'times_watched', 'fraction', 'last_watched_at']
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.FloatField)
+    def get_fraction(self, obj) -> float:
+        return round(obj.fracao_assistida, 4)
+
+
 class MovieDetailSerializer(serializers.ModelSerializer):
     """
     Serializer pesado para a página individual do filme.
@@ -152,6 +167,7 @@ class MovieDetailSerializer(serializers.ModelSerializer):
     current_ranking = serializers.SerializerMethodField() 
     best_releases = serializers.SerializerMethodField()
     similar_movies = serializers.SerializerMethodField()
+    watch_state = serializers.SerializerMethodField()
 
     class Meta:
         model = Movie
@@ -168,6 +184,22 @@ class MovieDetailSerializer(serializers.ModelSerializer):
         releases = list(obj.torrent_releases.all())[:5]
         return TorrentReleaseSerializer(releases, many=True).data
     
+    @extend_schema_field(WatchStateSerializer(allow_null=True))
+    def get_watch_state(self, obj):
+        """
+        Onde este usuário parou neste filme.
+
+        Vai no detalhe para o player não precisar de uma segunda ida ao
+        servidor só para saber de onde retomar — a informação chega junto com
+        a ficha que ele já pede.
+        """
+        usuario = getattr(self.context.get('request'), 'user', None)
+        if not (usuario and getattr(usuario, 'is_authenticated', False)):
+            return None
+
+        registro = WatchHistory.objects.filter(user=usuario, movie=obj).first()
+        return WatchStateSerializer(registro).data if registro else None
+
     @extend_schema_field(SimilarMovieSerializer(many=True))
     def get_similar_movies(self, obj):
         from apps.ml.models import MovieSimilarity

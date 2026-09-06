@@ -127,3 +127,29 @@ export function useRecomendados() {
     staleTime: 60_000,
   });
 }
+
+/**
+ * Filmes começados e ainda não terminados, do mais recente ao mais antigo.
+ *
+ * Vem do servidor, não do navegador. A home lia isso de `localStorage`, o que
+ * significa que a posição se perdia ao trocar de máquina — justamente quando
+ * retomar importa — e que, sem nada guardado, ela inventava um "15% assistido,
+ * 1h55m restantes" para um filme que o usuário nunca tinha aberto.
+ */
+export function useContinuarAssistindo() {
+  return useQuery({
+    queryKey: [...movieKeys.all, 'continuar'] as const,
+    queryFn: () =>
+      http.get<{
+        count: number;
+        results: {
+          movie: MovieListItem;
+          progress_seconds: number;
+          runtime_seconds: number;
+          fraction: number;
+          last_watched_at: string;
+        }[];
+      }>('/api/movies/continue-watching/'),
+    staleTime: 30_000,
+  });
+}

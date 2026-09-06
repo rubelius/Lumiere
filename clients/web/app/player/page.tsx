@@ -18,6 +18,7 @@ function PlayerExperience() {
   const movieId = searchParams.get('id') || '';
   const { data: movie } = useMovie(movieId);
   const { reporta: reportaProgresso, reportaAgora } = useProgressoDeExibicao(movieId);
+  const jaRetomou = useRef(false);
   // Real-Debrid > Jellyfin > Plex, resolvido no backend.
   const { data: fonte, isLoading: resolvendoFonte } = usePlayback(movieId);
   const { data: legendas } = useSubtitles(movieId);
@@ -267,9 +268,23 @@ function PlayerExperience() {
             onProgress={handleProgress}
             onLoadedMetadata={() => {
               if (videoRef.current) {
-                setTotalTime(videoRef.current.duration);
+                const duracao = videoRef.current.duration;
+                setTotalTime(duracao);
                 const { videoWidth: w, videoHeight: h } = videoRef.current;
                 if (w && h) setResolution(`${w}×${h}`);
+
+                // Retoma de onde parou. Uma vez só por carga: `loadedmetadata`
+                // dispara de novo a cada troca de fonte, e reposicionar depois
+                // que o usuário já buscou outro ponto arrancaria o filme de
+                // onde ele acabou de escolher ficar.
+                const parou = movie?.watch_state?.progress_seconds ?? 0;
+                const terminou = movie?.watch_state?.completed;
+                if (!jaRetomou.current && parou > RETOMADA_MINIMA_S && !terminou
+                    && duracao > 0 && parou < duracao - RESTO_MINIMO_S) {
+                  jaRetomou.current = true;
+                  videoRef.current.currentTime = parou;
+                  setCurrentTime(parou);
+                }
               }
               setIsWaiting(false);
             }}
@@ -396,6 +411,14 @@ function PlayerExperience() {
   if (!mounted) return null;
   return createPortal(playerContent, document.body);
 }
+
+// Abaixo disto retomar não economiza nada e ainda confunde: o filme pularia
+// alguns segundos à frente sem razão aparente.
+const RETOMADA_MINIMA_S = 30;
+
+// E perto demais do fim, retomar joga o usuário direto nos créditos de um
+// filme que ele não terminou — melhor recomeçar do início.
+const RESTO_MINIMO_S = 60;
 
 export default function Player() {
   return (

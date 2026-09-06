@@ -107,3 +107,72 @@ def test_anonimo_nao_vaza_historico_de_outro(usuario, filme, django_user_model):
     c.force_authenticate(user=usuario)
     r = c.get('/api/movies/')
     assert all(m['watched'] is False for m in r.data['results'])
+
+
+@pytest.mark.django_db
+def test_continue_watching_traz_o_que_foi_comecado(cliente, filme, usuario):
+    WatchHistory.objects.create(user=usuario, movie=filme, completed=False,
+                                progress_seconds=600, runtime_seconds=9720)
+    r = cliente.get('/api/movies/continue-watching/')
+    assert r.status_code == 200
+    assert r.data['count'] == 1
+    assert r.data['results'][0]['progress_seconds'] == 600
+
+
+@pytest.mark.django_db
+def test_continue_watching_ignora_o_que_ja_terminou(cliente, filme, usuario):
+    WatchHistory.objects.create(user=usuario, movie=filme, completed=True,
+                                progress_seconds=9000, runtime_seconds=9720)
+    assert cliente.get('/api/movies/continue-watching/').data['count'] == 0
+
+
+@pytest.mark.django_db
+def test_continue_watching_ignora_quem_nem_comecou(cliente, filme, usuario):
+    """
+    A linha nasce no primeiro ping. Um filme parado no segundo zero não é
+    algo começado, e ocuparia o lugar de quem realmente está no meio.
+    """
+    WatchHistory.objects.create(user=usuario, movie=filme, completed=False,
+                                progress_seconds=0)
+    assert cliente.get('/api/movies/continue-watching/').data['count'] == 0
+
+
+@pytest.mark.django_db
+def test_detalhe_diz_onde_o_usuario_parou(cliente, filme, usuario):
+    """O player lê daqui para retomar, sem uma segunda ida ao servidor."""
+    WatchHistory.objects.create(user=usuario, movie=filme, completed=False,
+                                progress_seconds=1234, runtime_seconds=9720)
+    r = cliente.get(f'/api/movies/{filme.id}/')
+    assert r.data['watch_state']['progress_seconds'] == 1234
+    assert r.data['watch_state']['completed'] is False
+
+
+@pytest.mark.django_db
+def test_detalhe_sem_historico_devolve_nulo(cliente, filme):
+    assert cliente.get(f'/api/movies/{filme.id}/').data['watch_state'] is None
+
+
+@pytest.mark.django_db
+def test_continue_watching_traz_o_mais_recente_primeiro(cliente, usuario):
+    """
+    A lista existe para responder "onde eu estava". O filme de ontem à noite
+    tem de vir antes do que ficou pela metade há três meses.
+    """
+    from django.utils import timezone
+
+    antigo = Movie.objects.create(title='Antigo', year=1970, length_minutes=100)
+    recente = Movie.objects.create(title='Recente', year=1980, length_minutes=100)
+
+    a = WatchHistory.objects.create(user=usuario, movie=antigo,
+                                    completed=False, progress_seconds=600)
+    b = WatchHistory.objects.create(user=usuario, movie=recente,
+                                    completed=False, progress_seconds=600)
+
+    # last_watched_at é auto_now; forçado para a ordem ficar inequívoca.
+    agora = timezone.now()
+    WatchHistory.objects.filter(pk=a.pk).update(last_watched_at=agora - timezone.timedelta(days=90))
+    WatchHistory.objects.filter(pk=b.pk).update(last_watched_at=agora)
+
+    r = cliente.get('/api/movies/continue-watching/')
+    titulos = [x['movie']['title'] for x in r.data['results']]
+    assert titulos == ['Recente', 'Antigo']
