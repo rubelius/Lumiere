@@ -70,7 +70,14 @@ class MovieListSerializer(serializers.ModelSerializer):
             'watched',
             'id', 'title', 'original_title', 'overview', 'year', 'director', 
             'poster_url', 'ranking_current', 'tmdb_rating',
-            'length_minutes', 'background_url', 'country', 'tagline', 'in_plex', 'genres', 'trailer_url',
+            'length_minutes', 'background_url', 'country', 'tagline', 'genres', 'trailer_url',
+
+            # ── DISPONIBILIDADE ──
+            # A listagem mandava só `in_plex`, então todo card no acervo
+            # dizia PLEX ou OFFLINE: os filmes que de fato tocavam, pelo
+            # Real-Debrid, apareciam como indisponíveis a lista inteira.
+            'in_plex', 'available_instantly', 'cached_in_realdebrid',
+            'best_quality_available',
             
             # ── METADADOS PREMIUM EXPOSTOS PARA A LISTA ──
             'logo_url', 'cinematographer', 'composer', 'writer', 'streaming_providers',
@@ -85,6 +92,18 @@ class MovieSerializer(serializers.ModelSerializer):
 class TorrentReleaseSerializer(serializers.ModelSerializer):
     # ReadOnlyField nao carrega tipo: o schema saía como string
     size_gb = serializers.FloatField(read_only=True)
+    # Um estado só, calculado no modelo, em vez de deixar cada tela combinar
+    # in_realdebrid + realdebrid_status + instantly_available do seu jeito.
+    disponibilidade = serializers.ChoiceField(
+        choices=[TorrentRelease.PRONTA, TorrentRelease.INSTANTANEA,
+                 TorrentRelease.BAIXANDO, TorrentRelease.AUSENTE],
+        read_only=True,
+    )
+    # Sem magnet não há o que enviar, e a maioria das cópias vindas da
+    # sincronização com o Real-Debrid não tem. O cliente não precisa ver o
+    # magnet para saber disso.
+    pode_importar = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = TorrentRelease
         fields = [
@@ -94,7 +113,7 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
             'audio_channels', 'release_group', 'seeders', 'leechers',
             'quality_score', 'video_score', 'audio_score', 'hdr_score',
             'instantly_available', 'in_realdebrid', 'realdebrid_status',
-            'realdebrid_progress', 'found_at'
+            'realdebrid_progress', 'disponibilidade', 'pode_importar', 'found_at'
         ]
         read_only_fields = [
             'quality_score', 'video_score', 'audio_score', 

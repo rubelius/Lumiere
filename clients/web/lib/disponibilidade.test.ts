@@ -59,3 +59,25 @@ describe('podeReproduzir', () => {
     expect(podeReproduzir(filme)).toBe(esperado);
   });
 });
+
+describe('o estado do meio: cacheado mas não importado', () => {
+  it('não some junto com os offline', () => {
+    expect(etiquetasDeDisponibilidade({ cached_in_realdebrid: true })).toEqual(['UM CLIQUE']);
+  });
+
+  it('não promete reprodução, porque ainda não há link', () => {
+    expect(podeReproduzir({ cached_in_realdebrid: true })).toBe(false);
+  });
+
+  it('cede a vez para quem já toca', () => {
+    expect(
+      etiquetasDeDisponibilidade({
+        cached_in_realdebrid: true, available_instantly: true, best_quality_available: '2160p HDR',
+      }),
+    ).toEqual(['DISPONÍVEL', '2160p HDR']);
+  });
+
+  it('vem antes do Plex, que é o degrau mais lento da cadeia', () => {
+    expect(etiquetasDeDisponibilidade({ cached_in_realdebrid: true, in_plex: true })).toEqual(['UM CLIQUE']);
+  });
+});

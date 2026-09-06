@@ -13,6 +13,8 @@
 export interface DisponibilidadeDoFilme {
   in_plex?: boolean;
   available_instantly?: boolean;
+  /** O Real-Debrid tem o arquivo, mas ele ainda não foi importado. */
+  cached_in_realdebrid?: boolean;
   best_quality_available?: string | null;
 }
 
@@ -21,6 +23,10 @@ export interface DisponibilidadeDoFilme {
  *
  * `best_quality_available` só aparece quando o filme toca: anunciar "REMUX
  * 2160p" num filme que não se pode ver é propaganda, não informação.
+ *
+ * O estado do meio existe porque "cacheado no Real-Debrid" não é nem tocar
+ * agora nem ficar sem — é um clique de distância. Somado a OFFLINE, escondia
+ * justamente as cópias mais fáceis de conseguir.
  */
 export function etiquetasDeDisponibilidade(filme: DisponibilidadeDoFilme): string[] {
   if (filme.available_instantly) {
@@ -28,12 +34,19 @@ export function etiquetasDeDisponibilidade(filme: DisponibilidadeDoFilme): strin
     return qualidade ? ['DISPONÍVEL', qualidade] : ['DISPONÍVEL'];
   }
 
+  if (filme.cached_in_realdebrid) return ['UM CLIQUE'];
+
   if (filme.in_plex) return ['PLEX'];
 
   return ['OFFLINE'];
 }
 
-/** Se o filme pode ser reproduzido por qualquer degrau da cadeia. */
+/**
+ * Se o filme pode ser reproduzido por qualquer degrau da cadeia.
+ *
+ * Cacheado no Real-Debrid não conta: sem importar para a conta não existe
+ * link, e o play falharia.
+ */
 export function podeReproduzir(filme: DisponibilidadeDoFilme): boolean {
   return Boolean(filme.available_instantly || filme.in_plex);
 }

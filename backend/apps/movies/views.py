@@ -33,6 +33,7 @@ from apps.ml.similarity import (agenda_retreino_do_gosto, diversifica,
 
 from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
+from .realdebrid_sync import atualiza_resumo
 from .paises import origens_distintas
 from .utils import passa_no_filtro
 from .serializers import (
@@ -550,6 +551,11 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
             # de buscar: é o que distingue "dá play" de "vai baixar".
             cache_falhou = await _marca_cacheadas(saved_releases, user)
 
+            # O card do filme lê campos do próprio filme, não das cópias. Sem
+            # recalcular aqui, ele continuaria dizendo OFFLINE até a próxima
+            # sincronização horária, mesmo com cópia cacheada recém-descoberta.
+            await sync_to_async(atualiza_resumo)(movie)
+
             serializer = TorrentReleaseSerializer(saved_releases, many=True)
             total_count = await sync_to_async(
                 TorrentRelease.objects.filter(movie=movie).count)()
@@ -600,26 +606,82 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
             if release.in_realdebrid and release.realdebrid_id and release.realdebrid_status not in ('error', 'dead'):
                 return Response({'message': 'Release is already active in Real-Debrid.', 'torrent_id': release.realdebrid_id, 'status': release.realdebrid_status})
         
+            if not release.magnet_link:
+                return Response(
+                    {'error': 'Esta cópia não tem magnet link para enviar.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             client = RealDebridClient(chave_do_usuario(user))
             try:
                 torrent_id = await client.add_magnet(release.magnet_link)
+
+                # Sem escolher arquivo, o torrent fica preso em
+                # 'waiting_files_selection' do lado do Real-Debrid e nunca
+                # baixa. Antes o resultado de select_files era descartado e o
+                # banco gravava 'downloading' mesmo assim: a tela dizia que
+                # estava vindo algo que não estava.
                 info = await client.get_torrent_info(torrent_id)
-                if info.get('files'):
-                    largest_file = max(info['files'], key=lambda f: f.get('bytes', 0))
-                    await client.select_files(torrent_id, [largest_file['id']])
-                
-                release.in_realdebrid = True
-                release.realdebrid_id = torrent_id
-                release.realdebrid_status = 'downloading'
-                release.realdebrid_added_at = timezone.now()
-                await sync_to_async(release.save)()
-                return Response({'message': 'Added to Real-Debrid', 'torrent_id': torrent_id})
+                arquivos = info.get('files') or []
+                if not arquivos:
+                    return Response(
+                        {'error': 'O Real-Debrid aceitou o magnet mas não listou os arquivos.'},
+                        status=status.HTTP_502_BAD_GATEWAY,
+                    )
+                maior = max(arquivos, key=lambda f: f.get('bytes', 0))
+                if not await client.select_files(torrent_id, [maior['id']]):
+                    return Response(
+                        {'error': 'O Real-Debrid não aceitou a escolha do arquivo.'},
+                        status=status.HTTP_502_BAD_GATEWAY,
+                    )
+
+                # Relê depois de escolher: o que já está no acervo do RD volta
+                # 'downloaded' na hora, e gravar 'downloading' faria a tela
+                # anunciar uma espera que não existe.
+                depois = await client.get_torrent_info(torrent_id)
+                estado = depois.get('status') or 'downloading'
             except Exception as e:
-                return Response({'error': f'Não foi possível enviar ao Real-Debrid: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                logger.exception('Falha ao enviar release %s ao Real-Debrid', release.pk)
+                return Response(
+                    {'error': f'Não foi possível enviar ao Real-Debrid: {e}'},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
             finally:
                 await client.close()
 
+            release.in_realdebrid = True
+            release.realdebrid_id = torrent_id
+            release.realdebrid_status = estado
+            release.realdebrid_progress = int(depois.get('progress') or 0)
+            release.realdebrid_added_at = timezone.now()
+            if estado in TorrentRelease.ESTADOS_CONCLUIDOS:
+                release.realdebrid_completed_at = timezone.now()
+                release.realdebrid_links = depois.get('links') or []
+            await sync_to_async(_grava_importacao)(release)
+            return Response({
+                'message': 'Enviado ao Real-Debrid.',
+                'torrent_id': torrent_id,
+                'realdebrid_status': estado,
+                'disponibilidade': release.disponibilidade,
+            })
+
         return async_to_sync(_executar)()
+
+
+def _grava_importacao(release):
+    """
+    Grava a cópia e reflete a mudança em todo lugar que a mostra.
+
+    São três passos porque são três lugares que guardam a resposta:
+    a linha da cópia, o resumo do filme (que é o que o card do acervo lê)
+    e o cache de uma hora da ficha do filme. Sem invalidar o último, a
+    tela continuaria mostrando o estado anterior por até uma hora depois
+    da importação — o botão pareceria não ter feito nada.
+    """
+    release.save()
+    atualiza_resumo(release.movie)
+    CacheManager.invalidate_movie(str(release.movie_id))
+
 
 @extend_schema(
     responses={

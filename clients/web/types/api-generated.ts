@@ -965,6 +965,14 @@ export interface components {
             readonly updated_at: string;
         };
         /**
+         * @description * `pronta` - pronta
+         *     * `instantanea` - instantanea
+         *     * `baixando` - baixando
+         *     * `ausente` - ausente
+         * @enum {string}
+         */
+        DisponibilidadeEnum: "pronta" | "instantanea" | "baixando" | "ausente";
+        /**
          * @description * `pending` - Pending
          *     * `searching` - Searching
          *     * `found` - Found
@@ -1068,6 +1076,7 @@ export interface components {
             in_plex?: boolean;
             in_realdebrid?: boolean;
             available_instantly?: boolean;
+            cached_in_realdebrid?: boolean;
             best_quality_available?: string;
             current_quality_score?: number | null;
             upgradeable?: boolean;
@@ -1174,6 +1183,7 @@ export interface components {
             in_plex?: boolean;
             in_realdebrid?: boolean;
             available_instantly?: boolean;
+            cached_in_realdebrid?: boolean;
             best_quality_available?: string;
             current_quality_score?: number | null;
             upgradeable?: boolean;
@@ -1227,10 +1237,13 @@ export interface components {
             background_url?: string;
             country?: string;
             tagline?: string;
-            in_plex?: boolean;
             genres?: string[];
             /** Format: uri */
             trailer_url?: string;
+            in_plex?: boolean;
+            available_instantly?: boolean;
+            cached_in_realdebrid?: boolean;
+            best_quality_available?: string;
             /** Format: uri */
             logo_url?: string | null;
             cinematographer?: string | null;
@@ -1462,6 +1475,8 @@ export interface components {
             in_realdebrid?: boolean;
             realdebrid_status?: string;
             realdebrid_progress?: number;
+            readonly disponibilidade?: components["schemas"]["DisponibilidadeEnum"];
+            readonly pode_importar?: boolean;
             /** Format: date-time */
             readonly found_at?: string;
         };
@@ -1563,6 +1578,7 @@ export interface components {
             text: string;
             readonly author: string;
             readonly is_self: boolean;
+            readonly poll: components["schemas"]["SessionPoll"] | null;
             playback_position_seconds?: number;
             /** Format: date-time */
             readonly created_at: string;
@@ -1594,6 +1610,31 @@ export interface components {
             readonly joined_at: string;
             /** Format: date-time */
             readonly last_seen_at: string;
+        };
+        /**
+         * @description A enquete como a tela precisa dela.
+         *
+         *     `my_vote` diz em que este usuário votou, ou nulo. Sem esse campo o cliente
+         *     teria de guardar o voto localmente — e foi assim que a versão de mentira
+         *     funcionava: o botão só mexia no estado do navegador, e recarregar a página
+         *     apagava o voto.
+         */
+        SessionPoll: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly question: string;
+            readonly options: components["schemas"]["SessionPollOption"][];
+            readonly total_votes: number;
+            /** Format: uuid */
+            readonly my_vote: string | null;
+            readonly closed: boolean;
+        };
+        /** @description Uma alternativa, com quantos votaram nela. */
+        SessionPollOption: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly label: string;
+            readonly votes: number;
         };
         /** @description Serializer para temas de sessão */
         SessionTheme: {
@@ -1697,6 +1738,8 @@ export interface components {
             in_realdebrid?: boolean;
             realdebrid_status?: string;
             realdebrid_progress?: number;
+            readonly disponibilidade: components["schemas"]["DisponibilidadeEnum"];
+            readonly pode_importar: boolean;
             /** Format: date-time */
             readonly found_at: string;
         };

@@ -96,8 +96,15 @@ class Movie(models.Model):
     # --------------------------------------------------------
     streaming_providers = models.JSONField(default=list, blank=True, null=True) # <-- Movido pra cá
     in_plex = models.BooleanField(default=False)
+    # Campo morto: nada no projeto escreve ou lê. Mantido para não perder
+    # dado antigo, mas quem quer saber do Real-Debrid olha os dois abaixo.
     in_realdebrid = models.BooleanField(default=False)
+    # "Já dá play": tem cópia na conta do Real-Debrid, com link.
     available_instantly = models.BooleanField(default=False)
+    # "Um clique e dá play": o acervo do Real-Debrid tem o arquivo, mas
+    # ele ainda não foi importado para a conta. É um terceiro estado —
+    # anunciá-lo como OFFLINE esconde as cópias mais fáceis de conseguir.
+    cached_in_realdebrid = models.BooleanField(default=False)
     best_quality_available = models.CharField(max_length=100, blank=True)
     current_quality_score = models.IntegerField(null=True, blank=True)
     upgradeable = models.BooleanField(default=False)
@@ -235,6 +242,55 @@ class TorrentRelease(models.Model):
             models.Index(fields=['instantly_available']),
         ]
     
+    # Estados do Real-Debrid para um torrent. 'downloaded' é o único em que o
+    # arquivo já existe na conta e pode tocar; o resto ainda depende de algo.
+    ESTADOS_CONCLUIDOS = ('downloaded',)
+    ESTADOS_MORTOS = ('error', 'magnet_error', 'virus', 'dead')
+
+    PRONTA = 'pronta'
+    INSTANTANEA = 'instantanea'
+    BAIXANDO = 'baixando'
+    AUSENTE = 'ausente'
+
+    @property
+    def disponibilidade(self) -> str:
+        """
+        Em que pé esta cópia está, do ponto de vista de quem quer assistir.
+
+        Três flags — `in_realdebrid`, `realdebrid_status` e
+        `instantly_available` — respondem perguntas diferentes, e cada tela
+        combinava as suas por conta própria. A aba de cópias chamava de "toca
+        agora" tudo que tinha `instantly_available`, mas isso só diz que o
+        hash está no acervo do Real-Debrid: ainda falta importar para a conta
+        antes de existir link para tocar.
+
+        - `pronta`: está na conta e completa, toca agora.
+        - `instantanea`: o RD já tem o arquivo; importar leva segundos.
+        - `baixando`: já foi enviada, mas o RD ainda está buscando.
+        - `ausente`: ninguém pediu ainda, e pode demorar.
+        """
+        if self.in_realdebrid and self.realdebrid_status in self.ESTADOS_CONCLUIDOS:
+            return self.PRONTA
+        if self.in_realdebrid and self.realdebrid_status not in self.ESTADOS_MORTOS:
+            return self.BAIXANDO
+        if self.instantly_available:
+            return self.INSTANTANEA
+        return self.AUSENTE
+
+    @property
+    def pode_importar(self) -> bool:
+        """
+        Se faz sentido oferecer o botão de enviar ao Real-Debrid.
+
+        Não basta o estado: sem magnet link não há o que enviar. As cópias
+        descobertas pela sincronização com o Real-Debrid nascem sem magnet
+        — vêm de torrents que já estão na conta —, então oferecer importar
+        para elas é um botão que só sabe dar erro.
+        """
+        if not self.magnet_link:
+            return False
+        return self.disponibilidade in (self.INSTANTANEA, self.AUSENTE)
+
     def __str__(self):
         return f'{self.title} [{self.quality_score}/100]'
     

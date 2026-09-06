@@ -35,6 +35,94 @@ export function useBuscarReleases(movieId: string | undefined) {
   });
 }
 
+export interface ResultadoDaImportacao {
+  message: string;
+  torrent_id: string;
+  realdebrid_status: string;
+  disponibilidade: Disponibilidade;
+}
+
+/**
+ * Manda a cópia para a conta do Real-Debrid.
+ *
+ * Para o que já está no acervo do RD isso leva segundos; para o resto, o
+ * Real-Debrid passa a baixar e a cópia fica em `baixando` até terminar.
+ */
+export function useImportarRelease() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (releaseId: string) =>
+      http.post<ResultadoDaImportacao>(`/api/releases/${releaseId}/add_to_realdebrid/`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: movieKeys.all }),
+  });
+}
+
+export type Disponibilidade = components['schemas']['DisponibilidadeEnum'];
+
+interface Rotulo {
+  texto: string;
+  detalhe: string;
+  cor: 'pronta' | 'espera' | 'ausente';
+  podeImportar: boolean;
+}
+
+const ROTULOS: Record<Disponibilidade, Rotulo> = {
+  pronta: {
+    texto: 'TOCA AGORA',
+    detalhe: 'Está na sua conta do Real-Debrid, com link pronto.',
+    cor: 'pronta',
+    podeImportar: false,
+  },
+  instantanea: {
+    texto: 'IMPORTA NA HORA',
+    detalhe: 'O Real-Debrid já tem este arquivo; importar leva segundos.',
+    cor: 'espera',
+    podeImportar: true,
+  },
+  baixando: {
+    texto: 'BAIXANDO',
+    detalhe: 'Já foi enviada. O Real-Debrid ainda está buscando.',
+    cor: 'espera',
+    podeImportar: false,
+  },
+  ausente: {
+    texto: 'PRECISA BAIXAR',
+    detalhe: 'Ninguém pediu esta cópia ainda; o Real-Debrid vai ter que buscá-la.',
+    cor: 'ausente',
+    podeImportar: true,
+  },
+};
+
+/** As três leituras possíveis, em cor: já é seu, está a caminho, ou nem isso. */
+export const CORES_DA_COPIA: Record<Rotulo['cor'], { texto: string; borda: string }> = {
+  pronta: { texto: 'var(--gold)', borda: 'rgba(191,143,60,0.45)' },
+  espera: { texto: 'var(--m2)', borda: 'rgba(134,131,125,0.45)' },
+  ausente: { texto: 'var(--m3)', borda: 'rgba(86,84,80,0.4)' },
+};
+
+/**
+ * Como anunciar o estado de uma cópia.
+ *
+ * A tabela dizia "toca agora" para tudo que tinha `instantly_available`, mas
+ * essa flag só conta que o hash está no acervo do Real-Debrid — sem importar
+ * para a conta, não existe link nenhum para reproduzir. São estados
+ * diferentes, e prometer o primeiro no lugar do segundo é a diferença entre
+ * apertar play e descobrir que não há nada do outro lado.
+ */
+// Partial e não Pick: uma resposta guardada em cache de antes destes campos
+// existirem chega sem eles, e o tipo gerado os dá como sempre presentes.
+export function rotuloDaCopia(
+  r: Partial<Pick<Release, 'disponibilidade' | 'pode_importar'>>,
+): Rotulo {
+  const rotulo = ROTULOS[r.disponibilidade ?? 'ausente'] ?? ROTULOS.ausente;
+  // O estado diz que faria sentido importar; o backend diz se há como. Cópia
+  // vinda da sincronização com o Real-Debrid não tem magnet, e o botão só
+  // saberia dar erro.
+  if (r.pode_importar === false) return { ...rotulo, podeImportar: false };
+  return rotulo;
+}
+
 /**
  * Rótulo técnico de uma cópia, montado dos campos que a API devolve.
  *
@@ -70,7 +158,10 @@ export function tamanhoLegivel(r: Release): string {
  * separa um problema acionável de um encolher de ombros. Antes, qualquer falha
  * virava silêncio e a tela parecia dizer que não havia cópia nenhuma.
  */
-export function motivoDaFalha(erro: unknown): string {
+export function motivoDaFalha(
+  erro: unknown,
+  padrao = 'Não foi possível procurar cópias agora.',
+): string {
   const motivo = erro instanceof APIError ? erro.message : '';
-  return (motivo || 'Não foi possível procurar cópias agora.').toUpperCase();
+  return (motivo || padrao).toUpperCase();
 }

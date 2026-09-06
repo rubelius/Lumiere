@@ -1,6 +1,6 @@
 'use client'; 
 import { useEffect, useState } from "react"; 
-import { motivoDaFalha, useBuscarReleases, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
+import { CORES_DA_COPIA, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useImportarRelease, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
 import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion"; 
@@ -115,10 +115,18 @@ export default function MovieClient() {
   const buscar = useBuscarReleases(movie.id as string);
   const [erroDaBusca, setErroDaBusca] = useState('');
 
+  const importar = useImportarRelease();
+
   useEffect(() => {
     if (!buscar.isError) return setErroDaBusca('');
     setErroDaBusca(motivoDaFalha(buscar.error));
   }, [buscar.isError, buscar.error]);
+
+  // A importação falha por motivos próprios — chave do Real-Debrid ausente, o
+  // RD recusando o magnet — e o usuário precisa ler qual foi.
+  const erroDaImportacao = importar.isError
+    ? motivoDaFalha(importar.error, 'Não foi possível enviar ao Real-Debrid.')
+    : '';
   // Cada item é { movie, similarity, type } — os campos do filme moram em
   // `movie`, não na raiz. Lidos como `similar.title` saíam todos undefined e a
   // seção renderizava cards vazios apontando para /movie/undefined; o `any` no
@@ -455,6 +463,12 @@ export default function MovieClient() {
                         </div>
                       )}
 
+                      {erroDaImportacao && (
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.15em', marginBottom: 24, lineHeight: 1.8 }}>
+                          {erroDaImportacao}
+                        </div>
+                      )}
+
                       {buscar.data?.cache_check_failed && (
                         // Sem este aviso, a coluna "toca agora" apareceria
                         // toda em branco e pareceria que nada está cacheado,
@@ -468,7 +482,8 @@ export default function MovieClient() {
                         <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid rgba(86,84,80,0.3)', backgroundColor: 'var(--void)', overflowX: 'auto' }}>
                           {releases.map((release, i) => {
                             const specs = especificacaoDaCopia(release);
-                            const tocaAgora = release.instantly_available;
+                            const rotulo = rotuloDaCopia(release);
+                            const importandoEsta = importar.isPending && importar.variables === release.id;
                             return (
                               <div key={release.id} style={{ display: 'grid', gridTemplateColumns: '64px minmax(220px, 1fr) 120px 96px 150px', alignItems: 'center', padding: '16px', borderBottom: i !== releases.length - 1 ? '1px solid rgba(86,84,80,0.3)' : 'none', gap: 12 }}>
                                 {/* A nota que o acervo já calcula, e pela qual
@@ -498,17 +513,33 @@ export default function MovieClient() {
                                   {tamanhoLegivel(release)}
                                 </div>
 
-                                {/* A distinção que importa na hora de
-                                    escolher: tocar agora ou esperar baixar. */}
-                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                  {tocaAgora ? (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', color: 'var(--gold)', border: '1px solid rgba(191,143,60,0.45)', padding: '5px 9px' }}>
-                                      <Play style={{ width: 10, height: 10 }} /> TOCA AGORA
-                                    </span>
-                                  ) : (
-                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', color: 'var(--m3)', border: '1px solid rgba(86,84,80,0.4)', padding: '5px 9px' }}>
-                                      PRECISA BAIXAR
-                                    </span>
+                                {/* A distinção que importa na hora de escolher:
+                                    já toca, importa em segundos, ainda vem
+                                    baixando, ou ninguém pediu ainda. */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+                                  <span
+                                    title={rotulo.detalhe}
+                                    style={{
+                                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                                      fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em',
+                                      padding: '5px 9px', whiteSpace: 'nowrap',
+                                      color: CORES_DA_COPIA[rotulo.cor].texto,
+                                      border: `1px solid ${CORES_DA_COPIA[rotulo.cor].borda}`,
+                                    }}
+                                  >
+                                    {rotulo.cor === 'pronta' && <Play style={{ width: 10, height: 10 }} />}
+                                    {rotulo.texto}
+                                  </span>
+
+                                  {rotulo.podeImportar && (
+                                    <button
+                                      onClick={() => importar.mutate(release.id as string)}
+                                      disabled={importar.isPending}
+                                      title="Enviar esta cópia para a sua conta do Real-Debrid"
+                                      style={{ background: 'transparent', border: '1px solid rgba(86,84,80,0.5)', color: 'var(--m2)', padding: '5px 9px', fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em', cursor: importar.isPending ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}
+                                    >
+                                      {importandoEsta ? '...' : '[ IMPORTAR ]'}
+                                    </button>
                                   )}
                                 </div>
                               </div>

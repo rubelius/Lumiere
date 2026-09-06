@@ -233,14 +233,32 @@ def _atualiza_resumo_dos_filmes(ids):
     as duas telas devolviam vazio mesmo com filme pronto para tocar.
     """
     for filme in Movie.objects.filter(id__in=ids):
-        melhor = filme.torrent_releases.order_by('-quality_score').first()
-        if not melhor:
-            continue
-        filme.best_quality_available = rotulo_de_qualidade(melhor)
-        filme.current_quality_score = melhor.quality_score
-        filme.available_instantly = toca_agora(filme)
-        filme.save(update_fields=['best_quality_available', 'current_quality_score',
-                                  'available_instantly'])
+        atualiza_resumo(filme)
+
+
+def atualiza_resumo(filme) -> bool:
+    """
+    Recalcula no filme o que suas cópias dizem sobre ele.
+
+    Vive numa função só porque agora tem mais de um chamador: a
+    sincronização horária e a busca por cópias, que também descobre o que
+    está cacheado. Se só a sincronização atualizasse, o card continuaria
+    dizendo OFFLINE até a próxima hora cheia para um filme que acabou de
+    virar importável em segundos.
+
+    Devolve se havia cópia para resumir.
+    """
+    melhor = filme.torrent_releases.order_by('-quality_score').first()
+    if not melhor:
+        return False
+    filme.best_quality_available = rotulo_de_qualidade(melhor)
+    filme.current_quality_score = melhor.quality_score
+    filme.available_instantly = toca_agora(filme)
+    filme.cached_in_realdebrid = filme.torrent_releases.filter(
+        instantly_available=True).exists()
+    filme.save(update_fields=['best_quality_available', 'current_quality_score',
+                              'available_instantly', 'cached_in_realdebrid'])
+    return True
 
 
 def toca_agora(filme) -> bool:
