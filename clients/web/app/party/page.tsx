@@ -3,6 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { Users, Link as LinkIcon, Play, CalendarPlus, X, Search, TerminalSquare, Radio, CheckCircle2, Activity, Settings2, Share2, SkipBack, SkipForward, Pause, Volume2, Subtitles, Maximize } from "lucide-react";
+import { http } from '@/services/http/client';
+import { useProximasSessoes } from '@/features/sessions/hooks/useSessoes';
+import { useCanalDaSessao } from '@/features/sessions/hooks/useCanalDaSessao';
+import type { Fala, Participante } from '@/features/sessions/hooks/useCanalDaSessao';
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -33,6 +37,13 @@ type Message = {
   };
 };
 
+/** Segundos em HH:MM:SS. */
+function timecode(segundos: number): string {
+  const s = Math.max(0, Math.floor(segundos || 0));
+  return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
+    .map((p) => String(p).padStart(2, '0')).join(':');
+}
+
 export default function Party() {
   const router = useRouter();
   
@@ -43,36 +54,62 @@ export default function Party() {
 
   // Estados do Chat e Enquete
   const [inputValue, setInputValue] = useState("");
-  const [isCreatingPoll, setIsCreatingPoll] = useState(false);
-  const [pollQ, setPollQ] = useState("");
-  const [pollOpt1, setPollOpt1] = useState("");
-  const [pollOpt2, setPollOpt2] = useState("");
+  // A enquete foi removida junto com o resto da maquete. Ela vinha com votos
+  // escritos no código — 3 contra 2, cinco votos no total — e não há modelo
+  // de enquete no servidor: participante, convite e mensagem existem, enquete
+  // não. Construí-la é um incremento possível; fingi-la não.
 
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 1, time: "01:10:05", sender: "ANA C.", isSelf: false, type: 'text', text: "A fotografia desse filme é absurda! A forma como ele enquadra o vazio..." },
-    { id: 2, time: "01:11:20", sender: "VOCÊ", isSelf: true, type: 'text', text: "Sim. Especialmente nas cenas da ilha vulcânica." },
-    { 
-      id: 3, time: "01:12:40", sender: "CARLOS M.", isSelf: false, type: 'poll', 
-      poll: { 
-        question: "Análise do ritmo narrativo até o momento:", 
-        options: [{ label: "LENTO, PORÉM HIPNÓTICO", votes: 3 }, { label: "EXCESSIVAMENTE PARADO", votes: 2 }], 
-        totalVotes: 5, userVoted: null 
-      } 
-    }
-  ]);
+  // A conversa vinha com três falas já digitadas — "ANA C." elogiando a
+  // fotografia, uma resposta "sua" e uma enquete com 3 votos contra 2. Nada
+  // disso existia no servidor. Agora chega pelo canal da sessão.
+  const { data: sessoes } = useProximasSessoes();
+  const sessionId = sessoes?.[0]?.id;
+  const { estado: estadoDoCanal, sessao, participantes, falas, setFalas, dizAlgo,
+          reportaPosicao } = useCanalDaSessao(sessionId);
+
+  // Histórico: o canal só entrega o que acontece de agora em diante, e quem
+  // chega no meio precisa da conversa desde o começo.
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelado = false;
+    http.get<Fala[]>(`/api/sessions/${sessionId}/falas/`)
+      .then((antigas) => { if (!cancelado) setFalas(antigas); })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [sessionId, setFalas]);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll sempre que uma mensagem nova entrar
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [falas]);
 
-  const users = [
-    { id: "01", name: "VOCÊ", host: true, status: "SYNCED", avatar: "/images/perfil.jpg", pos: "52%" },
-    { id: "02", name: "ANA C.", host: false, status: "SYNCED", avatar: "/images/avatar.png", pos: "51%" },
-    { id: "03", name: "CARLOS M.", host: false, status: "BUFFERING", avatar: "/images/perfil.jpg", pos: "53%" },
-  ];
+  // Eram três pessoas escritas no código, com posições fixas em 51%, 52% e
+  // 53% e um "BUFFERING" decorativo. Agora vêm da presença real do canal.
+  const duracao = (sessao?.estimated_duration_minutes ?? 0) * 60;
+  // Minha posição no filme, que acompanha cada fala enviada: o comentário só
+  // faz sentido junto da cena em que foi feito.
+  const minhaPosicao = participantes.find((p) => p.role === 'host')?.playback_position_seconds ?? 0;
+
+  // O filme em projeção é o primeiro da fila da sessão. Antes era L'Aventura
+  // escrito no código, com pôster fixo em /images/poster-1.png e o timecode
+  // parado em 01:14:20 de um total de 02:23:00 — os mesmos números para
+  // qualquer conta, em qualquer visita, sem sessão nenhuma existir.
+  const emProjecao = sessao?.session_movies?.[0]?.movie;
+  const fracao = duracao > 0 ? Math.min(1, minhaPosicao / duracao) : 0;
+  const users = participantes.map((p: Participante) => ({
+    id: p.id,
+    name: p.display_name || p.username,
+    host: p.role === 'host',
+    status: !p.present ? 'AUSENTE'
+      : p.playback_state === 'buffering' ? 'BUFFERING'
+      : p.playback_state === 'paused' ? 'PAUSADO' : 'SYNCED',
+    avatar: '/images/perfil.jpg',
+    pos: duracao > 0
+      ? `${Math.min(100, Math.round((p.playback_position_seconds / duracao) * 100))}%`
+      : '0%',
+  }));
 
   // Lógica de Comandos
   const handleCopyLink = () => {
@@ -83,37 +120,13 @@ export default function Party() {
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
-    const now = new Date();
-    const timeString = `01:14:${now.getSeconds().toString().padStart(2, '0')}`;
-    
-    setMessages(prev => [...prev, { id: Date.now(), time: timeString, sender: "VOCÊ", isSelf: true, type: 'text', text: inputValue }]);
-    setInputValue("");
+    // O horário era montado como `01:14:${segundos}` — a hora presa à posição
+    // falsa do filme, e os segundos vindos do relógio. Agora quem carimba é o
+    // servidor, e a fala guarda o ponto do filme em que foi dita.
+    if (dizAlgo(inputValue, minhaPosicao)) setInputValue('');
   };
 
-  const handleSendPoll = () => {
-    if (!pollQ.trim() || !pollOpt1.trim() || !pollOpt2.trim()) return;
-    const now = new Date();
-    const timeString = `01:14:${now.getSeconds().toString().padStart(2, '0')}`;
-    
-    setMessages(prev => [...prev, { 
-      id: Date.now(), time: timeString, sender: "VOCÊ", isSelf: true, type: 'poll', 
-      poll: { question: pollQ, options: [{ label: pollOpt1, votes: 0 }, { label: pollOpt2, votes: 0 }], totalVotes: 0, userVoted: null } 
-    }]);
-    
-    setIsCreatingPoll(false);
-    setPollQ(""); setPollOpt1(""); setPollOpt2("");
-  };
 
-  const handleVote = (msgId: number, optIndex: number) => {
-    setMessages(prev => prev.map(msg => {
-      if (msg.id === msgId && msg.type === 'poll' && msg.poll && msg.poll.userVoted === null) {
-        const newOptions = [...msg.poll.options];
-        newOptions[optIndex].votes += 1;
-        return { ...msg, poll: { ...msg.poll, options: newOptions, totalVotes: msg.poll.totalVotes + 1, userVoted: optIndex } };
-      }
-      return msg;
-    }));
-  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleSendMessage();
@@ -140,13 +153,13 @@ export default function Party() {
               style={{ position: 'relative', width: '100%', maxWidth: '1200px', aspectRatio: '16/9', backgroundColor: 'var(--void)', border: '1px solid var(--gold)', boxShadow: '0 0 100px rgba(0,0,0,1)', zIndex: 1, overflow: 'hidden' }}
             >
               <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-                <Image src="/images/hero-backdrop.png" alt="Video Poster" fill sizes="100vw" style={{ objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', opacity: 0.6 }} />
+                <Image src={emProjecao?.background_url || emProjecao?.poster_url || "/images/hero-backdrop.png"} alt="" fill sizes="100vw" style={{ objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)', opacity: 0.6 }} />
               </div>
               
               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 10, background: 'linear-gradient(to bottom, rgba(4,4,2,0.9), rgba(0,0,0,0))', opacity: 0, transition: 'opacity 0.3s' }} className="group-hover/player:opacity-100">
                 <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
                   <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em', marginBottom: '8px' }}>[ SINAL DE VÍDEO ATIVO ]</div>
-                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: 'var(--film)', margin: 0 }}>L'Aventura - Projeção Integrada</h3>
+                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: 'var(--film)', margin: 0 }}>{emProjecao ? `${emProjecao.title} — Projeção Integrada` : 'Nenhuma projeção em curso'}</h3>
                 </motion.div>
                 <motion.button 
                   onClick={() => setIsTrailerOpen(false)} 
@@ -159,7 +172,7 @@ export default function Party() {
 
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px', zIndex: 10, background: 'linear-gradient(to top, rgba(4,4,2,0.95), rgba(0,0,0,0))', opacity: 0, transition: 'opacity 0.3s', display: 'flex', flexDirection: 'column', gap: '24px' }} className="group-hover/player:opacity-100">
                 <div style={{ width: '100%', height: '2px', backgroundColor: 'rgba(86,84,80,0.3)', position: 'relative', cursor: 'pointer' }} className="group/timeline">
-                  <motion.div variants={{ rest: { height: 2, filter: 'brightness(1)' }, hover: { height: 4, filter: 'brightness(1.5)' } }} initial="rest" whileHover="hover" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: 0, height: '2px', backgroundColor: 'var(--gold)', width: '52%', boxShadow: '0 0 10px rgba(191,143,60,0.5)' }} />
+                  <motion.div variants={{ rest: { height: 2, filter: 'brightness(1)' }, hover: { height: 4, filter: 'brightness(1.5)' } }} initial="rest" whileHover="hover" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: 0, height: '2px', backgroundColor: 'var(--gold)', width: `${Math.round(fracao * 100)}%`, boxShadow: '0 0 10px rgba(191,143,60,0.5)' }} />
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -173,7 +186,7 @@ export default function Party() {
                       <Volume2 style={{ width: 16, height: 16, color: 'var(--m2)' }} />
                       <div style={{ width: '96px', height: '1px', backgroundColor: 'rgba(86,84,80,0.3)', position: 'relative' }}><div style={{ width: '66%', height: '100%', backgroundColor: 'var(--film)', boxShadow: '0 0 5px rgba(237,232,220,0.5)' }} /></div>
                     </div>
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em', marginLeft: '16px' }}>01:14:20 / 02:23:00</span>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em', marginLeft: '16px' }}>{timecode(minhaPosicao)} / {timecode(duracao)}</span>
                   </div>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -296,7 +309,7 @@ export default function Party() {
                 <div style={{ display: 'flex', gap: '48px' }}>
                   <div style={{ width: '240px', flexShrink: 0 }}>
                     <div style={{ position: 'relative', aspectRatio: '2/3', backgroundColor: 'var(--bg)', border: '1px solid rgba(86,84,80,0.3)', padding: '4px', overflow: 'hidden', boxShadow: '0 0 40px rgba(0,0,0,0.8)' }} className="group">
-                      <Image src="/images/poster-1.png" alt="Poster" fill sizes="200px" style={{ objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)' }} />
+                      <Image src={emProjecao?.poster_url || "/images/poster-1.png"} alt="" fill sizes="200px" style={{ objectFit: 'cover', filter: 'grayscale(100%) contrast(125%)' }} />
                     </div>
                   </div>
                   
@@ -306,17 +319,17 @@ export default function Party() {
                       SINAL DE TRANSMISSÃO ATIVO
                     </div>
                     
-                    <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '5rem', color: 'var(--film)', margin: '0 0 8px 0', lineHeight: 1 }}>L'Aventura</h2>
-                    <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m2)', letterSpacing: '0.1em', margin: '0 0 48px 0', textTransform: 'uppercase' }}>1960 • MICHELANGELO ANTONIONI</p>
+                    <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '5rem', color: 'var(--film)', margin: '0 0 8px 0', lineHeight: 1 }}>{emProjecao?.title ?? '—'}</h2>
+                    <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m2)', letterSpacing: '0.1em', margin: '0 0 48px 0', textTransform: 'uppercase' }}>{emProjecao ? `${emProjecao.year ?? ''} • ${emProjecao.director ?? ''}`.trim() : ''}</p>
                     
                     {/* TIMELINE DE PRECISÃO */}
                     <div style={{ marginTop: 'auto' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m2)', letterSpacing: '0.1em', marginBottom: '16px' }}>
-                        <span style={{ color: 'var(--film)' }}>01:14:20:05</span>
-                        <span>02:23:00:00</span>
+                        <span style={{ color: 'var(--film)' }}>{timecode(minhaPosicao)}</span>
+                        <span>{timecode(duracao)}</span>
                       </div>
                       <div style={{ width: '100%', height: '2px', backgroundColor: 'rgba(86,84,80,0.3)', position: 'relative', cursor: 'crosshair' }} className="group/progress">
-                        <motion.div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: 0, height: '100%', backgroundColor: 'var(--gold)', width: '52%', boxShadow: '0 0 10px rgba(191,143,60,0.5)', transition: 'height 0.2s' }} className="group-hover/progress:h-1" />
+                        <motion.div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: 0, height: '100%', backgroundColor: 'var(--gold)', width: `${Math.round(fracao * 100)}%`, boxShadow: '0 0 10px rgba(191,143,60,0.5)', transition: 'height 0.2s' }} className="group-hover/progress:h-1" />
                         
                         <div style={{ position: 'absolute', top: '-4px', bottom: '-4px', left: '51%', width: '2px', backgroundColor: 'var(--m3)' }} title="Ana C." />
                         <div style={{ position: 'absolute', top: '-4px', bottom: '-4px', left: '53%', width: '2px', backgroundColor: 'var(--m2)' }} title="Carlos M." />
@@ -395,53 +408,32 @@ export default function Party() {
               {/* Corpo: Transcrição */}
               <div style={{ flex: 1, padding: '32px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={{ textAlign: 'center', fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.2em', borderBottom: '1px dashed rgba(86,84,80,0.3)', paddingBottom: '16px', marginBottom: '8px' }}>
-                  [20:00:00] SYSTEM: INÍCIO DA TRANSMISSÃO SIMULTÂNEA
+                  {/* Era "[20:00:00] SYSTEM: INÍCIO DA TRANSMISSÃO SIMULTÂNEA",
+                      com horário fixo, aparecendo mesmo sem sessão nenhuma. A
+                      abertura de verdade é o instante em que a sessão começou. */}
+                  {sessao?.scheduled_date
+                    ? `[${new Date(sessao.scheduled_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}] SESSÃO ABERTA`
+                    : '[ AGUARDANDO SESSÃO ]'}
                 </div>
                 
                 <AnimatePresence initial={false}>
-                  {messages.map((msg) => (
+                  {falas.map((msg) => (
                     <motion.div 
                       key={msg.id} layout initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.3 }}
                       style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', fontFamily: "'DM Mono', monospace", letterSpacing: '0.1em' }}>
-                        <span style={{ fontSize: '9px', color: 'var(--m3)' }}>[{msg.time}]</span>
-                        <span style={{ fontSize: '10px', color: msg.isSelf ? 'var(--gold)' : 'var(--m2)', fontWeight: 'bold' }}>{msg.sender}</span>
+                        {/* O horário era `01:14:${segundos}` — hora presa à posição
+                            falsa do filme. Agora é o ponto do filme em que a fala
+                            aconteceu, que é o que dá sentido ao comentário. */}
+                        <span style={{ fontSize: '9px', color: 'var(--m3)' }}>[{timecode(msg.playback_position_seconds)}]</span>
+                        <span style={{ fontSize: '10px', color: msg.is_self ? 'var(--gold)' : 'var(--m2)', fontWeight: 'bold' }}>{msg.author}</span>
                       </div>
                       
-                      {msg.type === 'text' && (
-                        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: msg.isSelf ? 'var(--gold)' : 'var(--film)', fontStyle: 'italic', paddingLeft: '62px' }}>
-                          "{msg.text}"
-                        </div>
-                      )}
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: msg.is_self ? 'var(--gold)' : 'var(--film)', fontStyle: 'italic', paddingLeft: '62px' }}>
+                        "{msg.text}"
+                      </div>
 
-                      {msg.type === 'poll' && msg.poll && (
-                        <div style={{ marginLeft: '62px', border: '1px solid rgba(86,84,80,0.5)', padding: '24px', backgroundColor: 'var(--bg)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m2)', letterSpacing: '0.15em', marginBottom: '16px' }}>
-                            <Activity style={{ width: 12, height: 12 }} /> [ Enquete ]
-                          </div>
-                          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: 'var(--film)', margin: '0 0 24px 0' }}>{msg.poll.question}</p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {msg.poll.options.map((opt, i) => {
-                              const percent = msg.poll!.totalVotes > 0 ? Math.round((opt.votes / msg.poll!.totalVotes) * 100) : 0;
-                              const isVoted = msg.poll!.userVoted === i;
-                              
-                              return (
-                                <motion.button 
-                                  key={i} onClick={() => handleVote(msg.id, i)}
-                                  whileHover={msg.poll!.userVoted === null ? { scale: 1.01, borderColor: 'var(--film)' } : {}} whileTap={msg.poll!.userVoted === null ? { scale: 0.98 } : {}}
-                                  style={{ width: '100%', background: 'rgba(0,0,0,0)', border: `1px solid ${isVoted ? 'var(--gold)' : 'rgba(86,84,80,0.5)'}`, position: 'relative', overflow: 'hidden', padding: '12px 16px', textAlign: 'left', cursor: msg.poll!.userVoted === null ? 'pointer' : 'default' }}
-                                >
-                                  <motion.div animate={{ width: `${percent}%` }} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, backgroundColor: isVoted ? 'rgba(191,143,60,0.3)' : 'rgba(86,84,80,0.2)', zIndex: 0, transition: 'all 0.5s ease-out' }} />
-                                  <span style={{ position: 'relative', zIndex: 1, fontFamily: "'DM Mono', monospace", fontSize: '9px', color: isVoted ? 'var(--gold)' : 'var(--film)', letterSpacing: '0.1em', display: 'flex', justifyContent: 'space-between' }}>
-                                    {opt.label.toUpperCase()} <span>{percent}%</span>
-                                  </span>
-                                </motion.button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -451,45 +443,35 @@ export default function Party() {
               {/* Rodapé: Input & Criação de Enquete */}
               <div style={{ borderTop: '1px solid rgba(86,84,80,0.3)', backgroundColor: 'var(--bg)', padding: '24px' }}>
                 
-                {isCreatingPoll ? (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em' }}>[ MODO DE Enquete ATIVO ]</div>
-                    <input autoFocus value={pollQ} onChange={e => setPollQ(e.target.value)} placeholder="TÓPICO DA Enquete..." style={{ width: '100%', background: 'rgba(237,232,220,0.02)', border: '1px solid rgba(86,84,80,0.5)', color: 'var(--film)', padding: '16px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', outline: 'none' }} />
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                      <input value={pollOpt1} onChange={e => setPollOpt1(e.target.value)} placeholder="PARÂMETRO A" style={{ flex: 1, background: 'rgba(237,232,220,0.02)', border: '1px solid rgba(86,84,80,0.5)', color: 'var(--film)', padding: '16px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', outline: 'none' }} />
-                      <input value={pollOpt2} onChange={e => setPollOpt2(e.target.value)} placeholder="PARÂMETRO B" style={{ flex: 1, background: 'rgba(237,232,220,0.02)', border: '1px solid rgba(86,84,80,0.5)', color: 'var(--film)', padding: '16px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', outline: 'none' }} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '8px' }}>
-                      <button onClick={() => setIsCreatingPoll(false)} style={{ background: 'rgba(0,0,0,0)', border: 'none', color: 'var(--m2)', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', cursor: 'pointer' }}>[ ABORTAR ]</button>
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSendPoll} style={{ background: 'var(--gold)', border: 'none', color: 'var(--void)', padding: '12px 24px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', fontWeight: 'bold', cursor: 'pointer' }}>[ LANÇAR Enquete ]</motion.button>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid rgba(191,143,60,0.5)', paddingBottom: '8px' }} className="group">
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '12px', color: 'var(--gold)', fontWeight: 'bold' }}>&gt;</span>
-                      <input 
-                        type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown}
-                        placeholder="REGISTRAR OBSERVAÇÃO..." 
-                        style={{ flex: 1, background: 'rgba(0,0,0,0)', border: 'none', color: 'var(--film)', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', outline: 'none' }}
-                      />
-                      <motion.button 
-                        whileHover={{ color: 'var(--film)' }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage}
-                        style={{ background: 'rgba(0,0,0,0)', border: 'none', color: inputValue.trim() ? 'var(--gold)' : 'var(--m3)', cursor: inputValue.trim() ? 'pointer' : 'default', transition: 'color 0.3s', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em' }}
-                      >
-                        [ ENVIAR ]
-                      </motion.button>
-                    </div>
-                    
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
-                      <div style={{ display: 'flex', gap: '16px' }}>
-                        <motion.button onClick={() => setIsCreatingPoll(true)} whileHover={{ color: 'var(--film)', scale: 1.05 }} whileTap={{ scale: 0.95 }} style={{ background: 'rgba(0,0,0,0)', border: 'none', color: 'var(--m3)', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', cursor: 'pointer', transition: 'color 0.3s' }}>[ + Enquete ]</motion.button>
-                        <motion.button whileHover={{ color: 'var(--film)', scale: 1.05 }} whileTap={{ scale: 0.95 }} style={{ background: 'rgba(0,0,0,0)', border: 'none', color: 'var(--m3)', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', cursor: 'pointer', transition: 'color 0.3s' }}>[ + Sinal ]</motion.button>
-                      </div>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>[ ENTER ] PARA CONFIRMAR</span>
-                    </div>
-                  </>
-                )}
+                {/* Aqui havia também um compositor de enquete, com votos
+                    escritos no código. Não existe modelo de enquete no
+                    servidor — participante, convite e mensagem existem,
+                    enquete não. Construí-la é incremento; fingi-la não. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid rgba(191,143,60,0.5)', paddingBottom: '8px' }} className="group">
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '12px', color: 'var(--gold)', fontWeight: 'bold' }}>&gt;</span>
+                  <input
+                    type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown}
+                    placeholder={estadoDoCanal === 'aberto' ? 'REGISTRAR OBSERVAÇÃO...' : 'CANAL FORA DO AR...'}
+                    disabled={estadoDoCanal !== 'aberto'}
+                    style={{ flex: 1, background: 'rgba(0,0,0,0)', border: 'none', color: 'var(--film)', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', outline: 'none' }}
+                  />
+                  <motion.button
+                    whileHover={{ color: 'var(--film)' }} whileTap={{ scale: 0.95 }} onClick={handleSendMessage}
+                    style={{ background: 'rgba(0,0,0,0)', border: 'none', color: inputValue.trim() && estadoDoCanal === 'aberto' ? 'var(--gold)' : 'var(--m3)', cursor: inputValue.trim() ? 'pointer' : 'default', transition: 'color 0.3s', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em' }}
+                  >
+                    [ ENVIAR ]
+                  </motion.button>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
+                  {/* O estado do canal fica à vista: sem isso, uma queda de
+                      conexão pareceria uma sala silenciosa. */}
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: estadoDoCanal === 'aberto' ? 'var(--gold)' : 'var(--m3)', letterSpacing: '0.1em' }}>
+                    {estadoDoCanal === 'aberto' ? '[ CANAL ABERTO ]'
+                      : estadoDoCanal === 'conectando' ? '[ CONECTANDO... ]' : '[ RECONECTANDO... ]'}
+                  </span>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>[ ENTER ] PARA CONFIRMAR</span>
+                </div>
               </div>
 
             </motion.div>
