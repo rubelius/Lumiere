@@ -1,5 +1,6 @@
 import logging
 from celery import shared_task
+from celery.exceptions import Retry
 from django.utils import timezone
 from django.core.cache import cache
 from django.db import transaction
@@ -53,9 +54,20 @@ def add_to_realdebrid(self, release_id, user_id):
         
         logger.info(f"Added {release.title} to Real-Debrid: {torrent_id}")
         
-        # Start monitoring task (without explicit lock yet, lock will be handled by the periodic check)
+        # O monitor nasce segurando o MESMO lock que o check periódico
+        # consulta. Sem passá-lo, `check_realdebrid_status` não enxergava
+        # monitor nenhum e disparava um segundo em até cinco minutos: dois
+        # monitores na mesma release, cada um perguntando ao Real-Debrid a
+        # cada 30 segundos e gravando por cima do outro.
+        #
+        # TTL de 26 minutos, o mesmo do check periódico: um pouco acima da
+        # vida máxima do monitor (50 tentativas x 30s = 25 min), para o lock
+        # nunca sobreviver a quem deveria devolvê-lo.
+        lock_key = f'rd_monitor_lock_{release.id}'
+        cache.add(lock_key, '1', timeout=60 * 26)
         monitor_realdebrid_download.apply_async(
             args=[release_id, user_id],
+            kwargs={'lock_key': lock_key},
             countdown=30  # Check after 30 seconds
         ) # type: ignore
         
@@ -65,6 +77,14 @@ def add_to_realdebrid(self, release_id, user_id):
             'status': 'downloading'
         }
     
+    except (TorrentRelease.DoesNotExist, User.DoesNotExist) as e:
+        # Registro apagado não volta a existir. Sem este ramo eram cinco
+        # tentativas com recuo exponencial — 60s, 120s, 240s, 480s — para
+        # nada. As 48 tarefas de retreino que o worker drenou ao subir eram
+        # exatamente isso: usuários de teste já removidos.
+        logger.warning('Envio ao Real-Debrid abortado, o registro sumiu: %s', e)
+        return {'status': 'gone', 'message': str(e)}
+
     except Exception as e:
         logger.error(f"Error adding to Real-Debrid: {e}")
         raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
@@ -183,6 +203,19 @@ def monitor_realdebrid_download(self, release_id, user_id, session_id=None, lock
                     await client.close()
 
             links = async_to_sync(get_links_async)()
+            if not links:
+                # Lista vazia é falha de chamada, não "este torrent não tem
+                # links". `get_download_links` refaz um get_torrent_info por
+                # dentro, e esse engole erro de HTTP e devolve {} — um blip de
+                # rede no exato momento da conclusão virava [].
+                #
+                # Gravar isso por cima apaga os links bons, e playback.py e
+                # tasks/sessions.py excluem justamente as linhas com lista
+                # vazia: o filme sairia do ar por causa do blip. Levantar aqui
+                # deixa a próxima tentativa reler o estado.
+                raise EstadoDesconhecido(
+                    f'sem links para {release.realdebrid_id} apesar de downloaded')
+
             release.realdebrid_links = links
             release.realdebrid_completed_at = timezone.now()
             release.save(update_fields=['realdebrid_links', 'realdebrid_completed_at'])
@@ -226,22 +259,41 @@ def monitor_realdebrid_download(self, release_id, user_id, session_id=None, lock
         else:
             raise self.retry(countdown=30)
 
-    except (TorrentRelease.DoesNotExist, Exception) as e:
+    except Retry:
+        # `self.retry()` ENFILEIRA a próxima rodada e só então levanta Retry
+        # para abortar esta. Como Retry herda de Exception, o `except Exception`
+        # abaixo a capturava e chamava retry() de novo: cada rodada enfileirava
+        # DUAS cópias de si mesma, e a contagem dobrava a cada 30 segundos.
+        #
+        # O lock de check_realdebrid_status não defende disso. Ele só impede
+        # que o check periódico dispare um monitor a mais; as cópias nascidas
+        # aqui vêm de apply_async por dentro do retry e não passam por ele.
+        raise
+
+    except (TorrentRelease.DoesNotExist, User.DoesNotExist) as e:
+        # Linha apagada não volta a existir: repetir 50 vezes é só barulho.
+        release_lock()
+        logger.warning('Monitor de %s encerrado, o registro sumiu: %s', release_id, e)
+        return {'status': 'gone', 'message': str(e)}
+
+    except Exception as e:
         if self.request.retries >= self.max_retries:
             release_lock()
-            # Nunca soubemos o estado: deixar como está é o único registro
-            # honesto. Marcar 'error' aqui condenaria um download que pode
-            # estar concluído, e o estado gravado é o que a interface mostra.
-            if isinstance(e, EstadoDesconhecido):
-                logger.warning('Estado do download %s desconhecido: %s', release_id, e)
-                return {'status': 'unknown', 'message': str(e)}
-            try:
-                TorrentRelease.objects.filter(id=release_id).update(
-                    realdebrid_status='error'
-                )
-            except Exception:
-                pass
-            return {'status': 'error', 'message': 'Max retries reached'}
+            # Nunca gravar 'error' aqui. 50 tentativas de 30s dão 25 minutos, e
+            # um REMUX 4K não cacheado leva mais que isso: esgotar as tentativas
+            # é desfecho normal, não falha.
+            #
+            # E 'error' não é só impreciso, é irreversível: o filtro de
+            # check_realdebrid_status procura por 'downloading', 'queued' e
+            # 'waiting_files_selection', então a release marcada assim deixa de
+            # ser vista pelo único mecanismo que retomaria o monitoramento cinco
+            # minutos depois. Um download saudável ficaria órfão para sempre.
+            #
+            # O status já foi gravado a cada rodada: o que está no banco é o
+            # último estado que de fato observamos, e é o registro honesto.
+            logger.warning('Monitor de %s desistiu após %d tentativas: %s',
+                           release_id, self.request.retries, e)
+            return {'status': 'unknown', 'message': str(e)}
         raise self.retry(exc=e, countdown=30)
 
 @shared_task
