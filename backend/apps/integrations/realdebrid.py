@@ -14,6 +14,44 @@ class RealDebridIndisponivel(Exception):
     """
 
 
+class ConsultaDeCacheDesativada(RealDebridIndisponivel):
+    """
+    O Real-Debrid desativou a consulta de cache.
+
+    `/torrents/instantAvailability` responde 403 com
+    `{'error': 'disabled_endpoint', 'error_code': 37}` para qualquer chave
+    válida — verificado nesta conta, cujo /user e /torrents respondem 200.
+    Não é falha de rede nem chave errada, e tentar de novo não adianta: é uma
+    capacidade que o provedor removeu.
+
+    Subclasse de RealDebridIndisponivel, e não irmã: todo `except` que já
+    existe continua pegando esta também. Como irmã, ela escapava do
+    `_marca_cacheadas` e derrubava a busca inteira com 500.
+
+    Existe como tipo próprio porque a resposta é outra.
+    Um erro transitório pede nova tentativa; este pede que a tela pare de
+    prometer uma informação que ninguém mais tem como dar.
+    """
+
+
+CODIGO_ENDPOINT_DESATIVADO = 37
+
+
+def _endpoint_desativado(resposta) -> bool:
+    """
+    Se o 403 é "esta rota não existe mais" e não "sua chave não vale".
+
+    O Real-Debrid distingue os dois casos pelo corpo, não pelo status.
+    """
+    try:
+        corpo = resposta.json()
+    except Exception:
+        return False
+    return (isinstance(corpo, dict)
+            and (corpo.get('error_code') == CODIGO_ENDPOINT_DESATIVADO
+                 or corpo.get('error') == 'disabled_endpoint'))
+
+
 class RealDebridClient:
     """Cliente para API do Real-Debrid"""
     
@@ -55,6 +93,14 @@ class RealDebridClient:
                     f"{self.BASE_URL}/torrents/instantAvailability/{'/'.join(lote)}")
                 response.raise_for_status()
                 dados = response.json()
+            except httpx.HTTPStatusError as e:
+                if _endpoint_desativado(e.response):
+                    raise ConsultaDeCacheDesativada(
+                        'O Real-Debrid desativou a consulta de cache '
+                        '(instantAvailability). Não há como saber de antemão '
+                        'o que toca na hora.') from e
+                raise RealDebridIndisponivel(
+                    f'Não foi possível consultar o Real-Debrid: {e}') from e
             except httpx.HTTPError as e:
                 raise RealDebridIndisponivel(
                     f'Não foi possível consultar o Real-Debrid: {e}') from e

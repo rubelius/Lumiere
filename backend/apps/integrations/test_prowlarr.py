@@ -180,19 +180,97 @@ async def test_filme_sem_ano_nao_procura_pela_palavra_None(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_imdb_entra_na_consulta_e_nao_como_parametro(monkeypatch):
+async def test_o_imdb_fica_fora_da_consulta(monkeypatch):
     """
-    `imdbId` não é parâmetro do /api/v1/search: chave desconhecida é ignorada
-    em silêncio, então passá-la não desambiguava remake nenhum. O Prowlarr
-    espera o IMDb dentro da própria consulta.
+    O oposto do que este teste afirmava antes.
+
+    A sintaxe `{ImdbId:tt...}` só é entendida pelos indexadores que fazem
+    busca por IMDb; os demais procuram as chaves literalmente e não casam com
+    nada. Medido contra o Prowlarr real desta instalação, para "The Departed
+    2006": com o token embutido responderam 2 indexadores e sobraram 15
+    cópias; só com título e ano, responderam 9 e sobraram 178.
+
+    Passar `imdbId` como parâmetro próprio também não serve: os indexadores
+    que não o entendem devolvem o catálogo recente inteiro, e a relevância
+    medida foi de 0% — 441 resultados, nenhum do filme pedido.
     """
     capturado = {}
     c = ProwlarrClient('http://prowlarr:9696', 'k')
     monkeypatch.setattr(c.client, 'get', _responde(_Resposta(payload=[]), capturado))
 
     await c.search_movie('Stalker', 1979, imdb_id='tt0079944')
+
+    consulta = capturado['params']['query']
+    assert 'ImdbId' not in consulta
+    assert 'tt0079944' not in consulta
     assert 'imdbId' not in capturado['params']
-    assert 'tt0079944' in capturado['params']['query']
+    assert consulta == 'Stalker 1979'
+
+
+# ── o IMDb como filtro de conflito ────────────────────────────────────────
+
+def test_release_de_outro_filme_e_descartada():
+    """
+    Descarte só por contradição declarada: a release diz ser outro IMDb.
+    """
+    achados = ProwlarrClient('http://p', 'k')._parse_results(
+        [item(imdbId=253474), item(infoHash='B' * 40, imdbId=79944)],
+        imdb_id='tt0079944')
+
+    assert len(achados) == 1
+    assert achados[0]['info_hash'] == 'b' * 40
+
+
+def test_release_que_nao_declara_imdb_passa():
+    """
+    78% dos resultados medidos não declaram IMDb. Exigir declaração jogaria
+    fora quase tudo que a busca encontra.
+    """
+    achados = ProwlarrClient('http://p', 'k')._parse_results(
+        [item(), item(infoHash='B' * 40, imdbId=None)], imdb_id='tt0079944')
+
+    assert len(achados) == 2
+
+
+@pytest.mark.parametrize('sentinela', [0, '0', '', None])
+def test_o_zero_do_prowlarr_nao_e_um_imdb_declarado(sentinela):
+    """
+    O Prowlarr manda `imdbId: 0` para "não sei", e o devolve em quase todo
+    resultado. Tratar esse zero como id declarado fez o filtro descartar 257
+    de 328 releases na medição — inclusive o melhor REMUX 2160p.
+    """
+    achados = ProwlarrClient('http://p', 'k')._parse_results(
+        [item(imdbId=sentinela)], imdb_id='tt0079944')
+
+    assert len(achados) == 1, 'sentinela de ausência tratada como conflito'
+
+
+def test_sem_imdb_pedido_nada_e_filtrado():
+    achados = ProwlarrClient('http://p', 'k')._parse_results(
+        [item(imdbId=253474), item(infoHash='B' * 40, imdbId=1)])
+
+    assert len(achados) == 2
+
+
+# ── o tempo de espera ─────────────────────────────────────────────────────
+
+def test_a_espera_cobre_uma_busca_real():
+    """
+    30s era menos do que a busca leva. Medido nesta instalação, com 9
+    indexadores ativos: 40s para "The Departed 2006" e 100s para "Stalker
+    1979" — quase toda busca real virava ProwlarrIndisponivel. O tempo é do
+    indexador mais lento: "Generic Torznab" sozinho responde em 40s, os outros
+    oito somados levam menos de 2.
+    """
+    from apps.integrations.prowlarr import SEGUNDOS_DE_ESPERA
+
+    assert SEGUNDOS_DE_ESPERA >= 120, 'busca real de 100s estouraria'
+
+    c = ProwlarrClient('http://p', 'k')
+    assert c.client.timeout.read >= 120
+    # Conectar é outra coisa: Prowlarr fora do ar deve falhar rápido, não
+    # depois de dois minutos e meio segurando a requisição do usuário.
+    assert c.client.timeout.connect <= 15
 
 
 def _responde(resposta, capturado=None):
@@ -202,3 +280,110 @@ def _responde(resposta, capturado=None):
             capturado['params'] = params
         return resposta
     return falso
+
+
+# ── qual titulo procurar ──────────────────────────────────────────────────
+
+def test_procura_pelo_titulo_original_e_pelo_localizado():
+    """
+    O acervo guarda o título localizado, e os indexadores catalogam pelo
+    original. Medido contra o Prowlarr real: "Os Infiltrados 2006" devolve 7
+    cópias aproveitáveis, "The Departed 2006" devolve 179 — e 38% dos 25.908
+    filmes do acervo estão nessa situação.
+    """
+    from apps.integrations.prowlarr import consultas_para
+
+    assert consultas_para('Os Infiltrados', 'The Departed', 2006) == [
+        'The Departed 2006', 'Os Infiltrados 2006']
+
+
+def test_o_original_vem_primeiro():
+    """O original é o que os trackers usam; a ordem reflete a aposta."""
+    from apps.integrations.prowlarr import consultas_para
+
+    assert consultas_para('Os Infiltrados', 'The Departed', 2006)[0].startswith('The Departed')
+
+
+def test_titulo_em_kanji_nao_dispensa_o_localizado():
+    """
+    "東京物語" é o original de "Era Uma Vez em Tóquio", e tracker nenhum
+    cataloga em kanji. Escolher um só dos títulos perde o filme nos dois
+    sentidos — por isso são duas buscas, e não uma escolha.
+    """
+    from apps.integrations.prowlarr import consultas_para
+
+    assert len(consultas_para('Era Uma Vez em Tóquio', '東京物語', 1953)) == 2
+
+
+def test_titulo_igual_ao_original_nao_vira_busca_dobrada():
+    from apps.integrations.prowlarr import consultas_para
+
+    assert consultas_para('Stalker', 'Stalker', 1979) == ['Stalker 1979']
+    # Diferença de caixa é o mesmo título: uma busca só, com a grafia do
+    # original, que é a que os trackers usam.
+    assert consultas_para('Stalker', 'STALKER', 1979) == ['STALKER 1979']
+
+
+def test_sem_ano_nenhuma_consulta_carrega_a_palavra_None():
+    from apps.integrations.prowlarr import consultas_para
+
+    for consulta in consultas_para('Aurora', 'Sunrise', None):
+        assert 'None' not in consulta
+
+
+def test_sem_titulo_algum_nao_ha_o_que_buscar():
+    from apps.integrations.prowlarr import consultas_para
+
+    assert consultas_para('', None, 1979) == []
+
+
+@pytest.mark.asyncio
+async def test_as_duas_buscas_sao_fundidas_pelo_hash(monkeypatch):
+    """
+    O mesmo torrent aparece nas duas buscas quando o release cita os dois
+    nomes. Sem a fusão ele viraria duas linhas idênticas na tela.
+    """
+    c = ProwlarrClient('http://prowlarr:9696', 'k')
+    chamadas = []
+
+    async def falso(url, params=None, **kw):
+        chamadas.append(params['query'])
+        return _Resposta(payload=[item(), item(infoHash='B' * 40)])
+
+    monkeypatch.setattr(c.client, 'get', falso)
+    achados = await c.search_movie('Os Infiltrados', 2006, original_title='The Departed')
+
+    assert len(chamadas) == 2
+    assert len(achados) == 2, 'o mesmo hash veio das duas buscas e virou duas linhas'
+
+
+@pytest.mark.asyncio
+async def test_uma_busca_que_cai_nao_leva_a_outra_junto(monkeypatch):
+    """
+    Se o título original respondeu e o localizado caiu, devolver o que veio é
+    melhor que transformar tudo em erro.
+    """
+    c = ProwlarrClient('http://prowlarr:9696', 'k')
+
+    async def falso(url, params=None, **kw):
+        if 'Infiltrados' in params['query']:
+            raise httpx.ConnectError('caiu')
+        return _Resposta(payload=[item()])
+
+    monkeypatch.setattr(c.client, 'get', falso)
+    achados = await c.search_movie('Os Infiltrados', 2006, original_title='The Departed')
+
+    assert len(achados) == 1
+
+
+@pytest.mark.asyncio
+async def test_se_todas_cairem_o_erro_sobe(monkeypatch):
+    """"Não achei nada" e "a integração caiu" continuam sendo coisas diferentes."""
+    c = ProwlarrClient('http://prowlarr:9696', 'k')
+
+    async def falso(url, params=None, **kw):
+        raise httpx.ConnectError('caiu')
+
+    monkeypatch.setattr(c.client, 'get', falso)
+    with pytest.raises(ProwlarrIndisponivel):
+        await c.search_movie('Os Infiltrados', 2006, original_title='The Departed')

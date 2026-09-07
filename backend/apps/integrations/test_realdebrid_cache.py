@@ -123,3 +123,92 @@ async def test_lista_vazia_nao_chama_a_api(monkeypatch):
     monkeypatch.setattr(c.client, 'get', nao_deveria)
     assert await c.check_instant_availability([]) == {}
     assert await c.check_instant_availability(['', '  ']) == {}
+
+
+# ── o endpoint que o provedor desativou ───────────────────────────────────
+
+class _RespostaHTTP:
+    """Resposta do httpx o bastante para o raise_for_status e o .json()."""
+
+    def __init__(self, status, payload):
+        self.status_code = status
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise httpx.HTTPStatusError('erro', request=None, response=self)
+
+
+@pytest.mark.asyncio
+async def test_endpoint_desativado_nao_vira_falha_de_rede(monkeypatch):
+    """
+    O Real-Debrid respondeu 403 com {'error': 'disabled_endpoint',
+    'error_code': 37} para uma chave cujo /user e /torrents devolvem 200.
+    Não é queda nem chave errada: é uma capacidade removida, e tentar de novo
+    não adianta. Tratá-la como falha transitória fazia a tela prometer que a
+    resposta viria na próxima vez.
+    """
+    from apps.integrations.realdebrid import ConsultaDeCacheDesativada
+
+    c = RealDebridClient('chave-valida')
+
+    async def falso(url, **kw):
+        return _RespostaHTTP(403, {'error': 'disabled_endpoint', 'error_code': 37})
+
+    monkeypatch.setattr(c.client, 'get', falso)
+
+    with pytest.raises(ConsultaDeCacheDesativada):
+        await c.check_instant_availability(['a' * 40])
+
+
+@pytest.mark.asyncio
+async def test_chave_invalida_continua_sendo_indisponibilidade(monkeypatch):
+    """403 sem o código 37 é outro problema, e a resposta tem que ser outra."""
+    from apps.integrations.realdebrid import ConsultaDeCacheDesativada
+
+    c = RealDebridClient('chave-ruim')
+
+    async def falso(url, **kw):
+        return _RespostaHTTP(403, {'error': 'bad_token', 'error_code': 8})
+
+    monkeypatch.setattr(c.client, 'get', falso)
+
+    with pytest.raises(RealDebridIndisponivel) as erro:
+        await c.check_instant_availability(['a' * 40])
+    assert not isinstance(erro.value, ConsultaDeCacheDesativada)
+
+
+@pytest.mark.asyncio
+async def test_403_sem_corpo_json_nao_e_confundido_com_desativado(monkeypatch):
+    """Página de erro de proxy não pode virar 'o provedor removeu a rota'."""
+    from apps.integrations.realdebrid import ConsultaDeCacheDesativada
+
+    c = RealDebridClient('chave')
+
+    class SemJson(_RespostaHTTP):
+        def json(self):
+            raise ValueError('não é json')
+
+    async def falso(url, **kw):
+        return SemJson(403, None)
+
+    monkeypatch.setattr(c.client, 'get', falso)
+
+    with pytest.raises(RealDebridIndisponivel) as erro:
+        await c.check_instant_availability(['a' * 40])
+    assert not isinstance(erro.value, ConsultaDeCacheDesativada)
+
+
+def test_endpoint_desativado_e_uma_forma_de_indisponibilidade():
+    """
+    Como classe irmã, ela escapava do `except RealDebridIndisponivel` de
+    _marca_cacheadas e derrubava a busca inteira com 500 — logo depois de a
+    busca ter voltado a funcionar. Toda captura que já existe precisa
+    continuar valendo.
+    """
+    from apps.integrations.realdebrid import ConsultaDeCacheDesativada
+
+    assert issubclass(ConsultaDeCacheDesativada, RealDebridIndisponivel)

@@ -505,7 +505,8 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
             client = ProwlarrClient(user.prowlarr_url, user.prowlarr_api_key)
             try:
                 prowlarr_results = await client.search_movie(
-                    title=movie.title, year=movie.year, imdb_id=movie.imdb_id)
+                    title=movie.title, year=movie.year, imdb_id=movie.imdb_id,
+                    original_title=movie.original_title)
             except ProwlarrIndisponivel as e:
                 # 502 e não 200 com lista vazia: "não achei nada" e "a
                 # integração está quebrada" são respostas diferentes, e a tela

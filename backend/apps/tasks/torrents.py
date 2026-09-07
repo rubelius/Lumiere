@@ -50,7 +50,8 @@ def search_torrents_for_movie(self, movie_id: str, user_id: str, filters: dict =
                 results = await client.search_movie(
                     title=movie.title,
                     year=movie.year,
-                    imdb_id=movie.imdb_id
+                    imdb_id=movie.imdb_id,
+                    original_title=movie.original_title
                 )
                 return results
             finally:
