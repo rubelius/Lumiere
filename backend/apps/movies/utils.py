@@ -6,6 +6,52 @@ Baseado nas especificações exatas do projeto Lumière
 import re
 from typing import Dict, Any
 
+# Os tokens que dizem a resolução sem margem de dúvida, do maior para o menor.
+RESOLUCOES_EXPLICITAS = (('2160P', '2160p'), ('1080P', '1080p'),
+                         ('720P', '720p'), ('480P', '480p'))
+
+# Palavras que sugerem 4K sem afirmar resolução nenhuma. "UHD" costuma
+# descrever a FONTE do encode, não o arquivo: "1080p UHD BluRay" é um 1080p
+# feito a partir do disco UHD.
+PALAVRAS_DE_4K = ('UHD', '4K')
+
+
+def resolucao_do_titulo(titulo_maiusculo: str) -> tuple:
+    """
+    A resolução que o nome da release declara, e se é 4K.
+
+    Devolve (resolucao, is_4k).
+
+    A ordem antiga testava ['2160P', 'UHD', '4K'] primeiro, então qualquer
+    nome que mencionasse UHD virava 2160p — inclusive os que diziam 1080p com
+    todas as letras. No acervo, 2 de 28 cópias estão gravadas assim, e o
+    estrago não é só o rótulo: 2160p vale video_score 20 contra 15 do 1080p,
+    então o arquivo menor sobe na lista à frente dos 2160p de verdade, e passa
+    por um filtro de min_resolution que deveria barrá-lo.
+    """
+    explicitas = [nome for token, nome in RESOLUCOES_EXPLICITAS
+                  if token in titulo_maiusculo]
+    sugere_4k = any(palavra in titulo_maiusculo for palavra in PALAVRAS_DE_4K)
+
+    # O token explícito sempre vence; UHD/4K só valem quando não há token
+    # nenhum. "1080p UHD BluRay" é um 1080p feito a partir do disco UHD — a
+    # palavra descreve a fonte do encode, não o arquivo. A ordem antiga
+    # testava UHD primeiro e promovia esses arquivos a 2160p, o que lhes dava
+    # video_score 20 em vez de 15: subiam à frente dos 2160p de verdade e
+    # passavam por um min_resolution que deveria barrá-los.
+    if explicitas:
+        # RESOLUCOES_EXPLICITAS vem do maior para o menor, e o comprehension
+        # preserva a ordem: um nome que cite duas resoluções (versão dupla no
+        # mesmo torrent) fica com a maior, que é o que se pode assistir.
+        resolucao = explicitas[0]
+        return resolucao, resolucao == '2160p'
+
+    if sugere_4k:
+        return '2160p', True
+
+    return '480p', False
+
+
 def parse_quality_from_title(title: str) -> Dict[str, Any]:
     """
     Extrai TODAS as informações de qualidade do título do release
@@ -17,18 +63,7 @@ def parse_quality_from_title(title: str) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
     
     # RESOLUTION (CRITICAL)
-    if any(x in title_upper for x in ['2160P', 'UHD', '4K']):
-        result['resolution'] = '2160p'
-        result['is_4k'] = True
-    elif '1080P' in title_upper:
-        result['resolution'] = '1080p'
-        result['is_4k'] = False
-    elif '720P' in title_upper:
-        result['resolution'] = '720p'
-        result['is_4k'] = False
-    else:
-        result['resolution'] = '480p'
-        result['is_4k'] = False
+    result['resolution'], result['is_4k'] = resolucao_do_titulo(title_upper)
     
     # REMUX (HIGHEST PRIORITY)
     result['is_remux'] = 'REMUX' in title_upper
@@ -36,9 +71,12 @@ def parse_quality_from_title(title: str) -> Dict[str, Any]:
     # HDR (CRITICAL FOR SCORING)
     result['has_hdr'] = any(x in title_upper for x in ['HDR', 'HDR10'])
     result['has_hdr10_plus'] = 'HDR10+' in title_upper or 'HDR10PLUS' in title_upper
-    result['has_dolby_vision'] = any(x in title_upper for x in [
-        'DOLBY.VISION', 'DOLBYVISION', 'DV', 'DOVI'
-    ])
+    # `'DV' in titulo` casava como substring: DVDRip, DVD5 e até 4KDVS eram
+    # gravados como Dolby Vision. Verificado no acervo — 3 de 28 cópias
+    # marcadas assim sem que o nome dissesse nada disso. A borda de palavra é
+    # o que separa a sigla do pedaço de outra palavra.
+    result['has_dolby_vision'] = bool(re.search(
+        r'DOLBY[. _-]?VISION|\bDOVI\b|(?<![A-Z0-9])DV(?![A-Z0-9])', title_upper))
     
     # VIDEO CODEC
     if any(x in title_upper for x in ['HEVC', 'H.265', 'X265']):
