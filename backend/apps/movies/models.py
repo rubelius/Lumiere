@@ -96,6 +96,12 @@ class Movie(models.Model):
     # --------------------------------------------------------
     streaming_providers = models.JSONField(default=list, blank=True, null=True) # <-- Movido pra cá
     in_plex = models.BooleanField(default=False)
+    # A chave do filme dentro do servidor Plex. É lida em
+    # apps/integrations/views.py para montar a playlist de uma sessão, e era
+    # escrita em dois lugares — mas não existia no modelo: a atribuição na
+    # task não fazia nada, e o `save(update_fields=[...])` da view levantava
+    # ValueError no primeiro filme que casasse.
+    plex_rating_key = models.CharField(max_length=64, blank=True, default='')
     # Campo morto: nada no projeto escreve ou lê. Mantido para não perder
     # dado antigo, mas quem quer saber do Real-Debrid olha os dois abaixo.
     in_realdebrid = models.BooleanField(default=False)

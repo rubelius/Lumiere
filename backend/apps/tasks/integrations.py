@@ -71,18 +71,26 @@ def sync_letterboxd_diary(self, user_id: str, limit: int = 500):
             
             # Try to match with database movie
             if not diary_entry.matched and entry['film_year']:
-                # Fuzzy match
-                matches = Movie.objects.filter(
-                    year=entry['film_year']
-                )[:100]  # Limit for performance
-                
+                # Sem fatia. `[:100]` sem ORDER BY escolhia 100 linhas
+                # arbitrárias entre as do ano, e 95 dos 137 anos do acervo têm
+                # mais de 100 filmes — 2006 tem 440. O filme certo podia nem
+                # entrar na amostra, e o casamento errado é permanente:
+                # `matched` nunca é reavaliado.
+                matches = Movie.objects.filter(year=entry['film_year'])
+
                 best_match = None
                 best_score = 0
-                
+                procurado = entry['film_name'].lower()
+
                 for movie in matches:
-                    score = fuzz.ratio(
-                        entry['film_name'].lower(),
-                        movie.title.lower()
+                    # Compara com os DOIS títulos. O Letterboxd cataloga pelo
+                    # original e o acervo guarda o localizado: 38% dos 25.908
+                    # filmes têm `title` diferente de `original_title`, então
+                    # comparar só com `title` procurava "The Departed" contra
+                    # "Os Infiltrados" e não achava nada.
+                    score = max(
+                        fuzz.ratio(procurado, (movie.title or '').lower()),
+                        fuzz.ratio(procurado, (movie.original_title or '').lower()),
                     )
                     if score > best_score:
                         best_score = score
@@ -96,8 +104,11 @@ def sync_letterboxd_diary(self, user_id: str, limit: int = 500):
                     matched_count += 1
         
         # Update user sync timestamp
+        # `save()` sem update_fields reescreve a linha inteira do usuário a
+        # partir de uma cópia lida antes do scraping, que leva minutos: uma
+        # alteração de configuração feita nesse intervalo seria desfeita.
         user.letterboxd_last_sync = timezone.now()
-        user.save()
+        user.save(update_fields=['letterboxd_last_sync'])
         
         logger.info(f"Synced {len(entries)} diary entries for {user.username}, {new_count} new, {matched_count} matched")
         
@@ -167,7 +178,11 @@ def sync_plex_library(self, user_id: str):
                 response = await client.client.get(
                     f"{client.server_url}/library/sections/{library_key}/all"
                 )
-                
+                # Sem isto, uma página de erro do servidor virava XML sem
+                # <Video> nenhum — ou seja, "a biblioteca está vazia" —, e a
+                # varredura abaixo desmarcaria o acervo inteiro.
+                response.raise_for_status()
+
                 from xml.etree import ElementTree as ET
                 root = ET.fromstring(response.text)
                 
@@ -193,6 +208,7 @@ def sync_plex_library(self, user_id: str):
         
         # Match with database
         updated_count = 0
+        vistas = set()
         for plex_movie in plex_movies:
             if not plex_movie['title'] or not plex_movie['year']:
                 continue
@@ -205,7 +221,11 @@ def sync_plex_library(self, user_id: str):
             
             # Fuzzy match if no exact match
             if not matches.exists():
-                candidates = Movie.objects.filter(year=plex_movie['year'])[:50]
+                # Sem fatia. `[:50]` sem ORDER BY pegava 50 linhas arbitrárias:
+                # 102 dos 137 anos do acervo têm mais de 50 filmes, e 2006 tem
+                # 440 — o casamento escolhia entre 11% dos candidatos, sorteados
+                # pelo banco. Pontuar todos custa microssegundos.
+                candidates = Movie.objects.filter(year=plex_movie['year'])
                 
                 best_match = None
                 best_score = 0
@@ -225,16 +245,32 @@ def sync_plex_library(self, user_id: str):
             # Update matched movies
             for movie in matches:
                 movie.in_plex = True
-                movie.plex_rating_key = plex_movie['rating_key']
-                movie.save()
+                movie.plex_rating_key = plex_movie['rating_key'] or ''
+                # `save()` sem update_fields reescreve a linha inteira a partir
+                # de uma cópia lida antes das chamadas de rede desta task.
+                movie.save(update_fields=['in_plex', 'plex_rating_key'])
+                vistas.add(str(movie.plex_rating_key))
                 updated_count += 1
-        
-        logger.info(f"Synced Plex library for {user.username}, {updated_count} movies updated")
+
+        # `in_plex` era uma flag que só subia: filme apagado do Plex ficava
+        # marcado como disponível para sempre. A varredura desmarca só quem
+        # tem chave conhecida e não apareceu nesta leitura — quem não tem
+        # chave gravada fica como está, porque aí não dá para afirmar nada.
+        sumiram = 0
+        if vistas:
+            sumiram = (Movie.objects
+                       .filter(in_plex=True)
+                       .exclude(plex_rating_key='')
+                       .exclude(plex_rating_key__in=vistas)
+                       .update(in_plex=False, plex_rating_key=''))
+
+        logger.info(f"Synced Plex library for {user.username}, {updated_count} movies updated, {sumiram} removed")
         
         return {
             'user_id': str(user_id),
             'plex_movies': len(plex_movies),
-            'database_updated': updated_count
+            'database_updated': updated_count,
+            'database_removed': sumiram
         }
     
     except Exception as e:

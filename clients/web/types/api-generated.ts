@@ -1074,6 +1074,7 @@ export interface components {
             letterboxd_rating?: string | null;
             streaming_providers?: unknown;
             in_plex?: boolean;
+            plex_rating_key?: string;
             in_realdebrid?: boolean;
             available_instantly?: boolean;
             cached_in_realdebrid?: boolean;
@@ -1181,6 +1182,7 @@ export interface components {
             letterboxd_rating?: string | null;
             streaming_providers?: unknown;
             in_plex?: boolean;
+            plex_rating_key?: string;
             in_realdebrid?: boolean;
             available_instantly?: boolean;
             cached_in_realdebrid?: boolean;
