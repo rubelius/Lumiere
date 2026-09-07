@@ -1009,7 +1009,11 @@ class DiscoveryEngine:
                 return scored
 
         # ── Strategy 5: Wikidata SPARQL ────────────────────────────────
-        if self.wikidata:
+        # `candidates` pode estar vazia — a Strategy 4 acima usa candidates[:2],
+        # que tolera lista vazia, e mascarava isso. Aqui era candidates[0] cru,
+        # e o IndexError subia até o Celery: 19 linhas de ingestão pararam em
+        # PROCESSING por causa dele.
+        if self.wikidata and candidates:
             try:
                 result = self._wikidata_fallback(candidates[0], year)
                 if result:
