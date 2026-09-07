@@ -9,7 +9,7 @@ from apps.ml.models import MovieSimilarity, UserTasteProfile
 from apps.movies.models import Movie
 from celery import shared_task
 from django.db import transaction  # <-- ADICIONADO: Import para transação atômica
-from django.db.models import Q
+from django.db.models import F, Q
 from pgvector.django import CosineDistance, L2Distance
 
 logger = logging.getLogger(__name__)
@@ -48,9 +48,17 @@ def amostras_de_gosto(user):
 
     por_filme = {}
 
+    # A ordenação decide quem sobrevive: o dict colapsa várias exibições do
+    # mesmo filme na mesma chave, e a última gravação vence. Sem ORDER BY, uma
+    # reexibição sem nota podia sobrescrever a nota alta do mesmo filme, e o
+    # resultado mudava entre execuções. Ordenando com a nota crescente e os
+    # nulos primeiro, quem vence é a melhor nota — desempatada pela exibição
+    # mais recente.
     for entrada in (LetterboxdDiary.objects
                     .filter(user=user, matched=True, movie__embedding__isnull=False)
-                    .select_related('movie')):
+                    .select_related('movie')
+                    .order_by(F('rating').asc(nulls_first=True),
+                              F('watched_date').asc(nulls_first=True))):
         if entrada.movie.embedding is not None:
             por_filme[entrada.movie_id] = AmostraDeGosto(
                 movie=entrada.movie,
@@ -146,14 +154,21 @@ def update_movie_embeddings():
     # janela de 7 dias, um filme que escapasse dela (porque a fila falhou, ou
     # porque entrou num backfill antigo) ficaria sem embedding para sempre.
     # O lote é limitado para a execução periódica não virar um trabalho longo.
+    # Com ORDER BY: sem ele o Postgres pode devolver as mesmas 1000 linhas
+    # noite após noite, e o resto do acervo nunca sai da fila.
     pendentes = list(
-        Movie.objects.filter(embedding__isnull=True).values_list('id', flat=True)[:1000]
+        Movie.objects.filter(embedding__isnull=True)
+        .order_by('id').values_list('id', flat=True)[:1000]
     )
 
     if not pendentes:
         return {'message': 'No new movies to process'}
 
-    return generate_movie_embeddings.apply_async(args=[[str(i) for i in pendentes]])
+    # Devolver o AsyncResult fazia a tarefa terminar o trabalho e falhar ao
+    # GUARDAR o resultado: o serializador é JSON, e AsyncResult não é
+    # serializável. A execução das 4h ficava registrada como falha todo dia.
+    despacho = generate_movie_embeddings.apply_async(args=[[str(i) for i in pendentes]])
+    return {'agendados': len(pendentes), 'task_id': despacho.id}
 
 
 @shared_task(bind=True)
@@ -303,11 +318,20 @@ def retrain_all_users():
     from django.contrib.auth import get_user_model
     User = get_user_model()
     
-    # Get users with Letterboxd connected
+    # O perfil aprende de DUAS fontes — o histórico do próprio Lumière e o
+    # diário importado do Letterboxd (ver amostras_de_gosto acima). Filtrar por
+    # letterboxd_connected deixava de fora justamente quem só assiste aqui
+    # dentro: medido nesta instalação, o retreino diário alcançava 0 de 2
+    # usuários. O caminho por exibição cobre todo mundo, mas ele é o caminho
+    # feliz; esta tarefa é a rede que pega quem ficou para trás quando o
+    # broker estava fora do ar.
+    #
+    # Quem não tem amostra suficiente sai cedo dentro de
+    # train_user_taste_profile, então agendar a mais é barato — agendar a menos
+    # é que deixa o perfil parado.
     users = User.objects.filter(
-        letterboxd_connected=True,
-        letterboxd_username__isnull=False
-    )
+        Q(watch_history__completed=True) | Q(letterboxd_diary_entries__matched=True)
+    ).distinct()
     
     logger.info(f"Retraining taste profiles for {users.count()} users")
     
