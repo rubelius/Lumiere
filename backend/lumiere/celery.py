@@ -64,8 +64,19 @@ app.conf.beat_schedule = {
     },
     
     # DESATIVADAS: apontavam para tasks que não existem. apps/tasks/sessions.py
-    # só tem o stub `prepare_session`, então o beat disparava NotRegistered a
-    # cada hora e a cada 30 min. Reativar quando as tasks forem escritas.
+    # só tem `prepare_session`, então o beat disparava NotRegistered a cada
+    # hora e a cada 30 min. Reativar quando as tasks forem escritas.
+    #
+    # ATENÇÃO ao reativar: comentar de volta NÃO desativa. O scheduler aqui é
+    # o DatabaseScheduler, e o `setup_schedule` dele só chama `update_from_dict`
+    # — que percorre este dicionário criando e atualizando, e nunca apaga o que
+    # sumiu. Uma entrada que já entrou na tabela PeriodicTask continua lá e
+    # continua disparando depois de sair daqui.
+    #
+    # Estas duas nunca chegaram à tabela porque o beat só rodou pela primeira
+    # vez depois de elas já estarem comentadas — sorte, não desenho. Para
+    # desativar de verdade uma que já rodou, apague ou desmarque a linha em
+    # PeriodicTask (admin do Django, ou `enabled=False`).
     # 'prepare-upcoming-sessions': {
     #     'task': 'apps.tasks.sessions.auto_prepare_sessions',
     #     'schedule': crontab(minute=0, hour='*/1'),
