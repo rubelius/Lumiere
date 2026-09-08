@@ -1,6 +1,8 @@
 'use client'; 
 import { useEffect, useState } from "react"; 
-import { CORES_DA_COPIA, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useImportarRelease, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
+import { useQueryClient } from '@tanstack/react-query';
+import { movieKeys } from '@/features/movies/hooks/useMovies';
+import { CORES_DA_COPIA, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useEstadoDaBusca, useImportarRelease, useRelogio, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
 import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion"; 
@@ -112,15 +114,31 @@ export default function MovieClient() {
   // cacheada no Real-Debrid desempatando.
   const releases = movie.best_releases || [];
 
+  const queryClient = useQueryClient();
   const buscar = useBuscarReleases(movie.id as string);
+  const busca = useEstadoDaBusca(movie.id as string);
+  // O relógio só anda enquanto há busca em voo; fora disso o contador não
+  // existe e um setInterval de segundo em segundo seria desperdício.
+  const emVoo = busca.data?.estado === 'enfileirada' || busca.data?.estado === 'buscando';
+  const agora = useRelogio(emVoo);
+  const painel = mensagemDaBusca(busca.data, agora);
   const [erroDaBusca, setErroDaBusca] = useState('');
 
   const importar = useImportarRelease();
 
   useEffect(() => {
     if (!buscar.isError) return setErroDaBusca('');
+    // Só o erro SÍNCRONO do POST — 400 sem Prowlarr, 429, 503 sem fila, rede.
+    // O que acontece durante a busca chega pelo documento de estado.
     setErroDaBusca(motivoDaFalha(buscar.error));
   }, [buscar.isError, buscar.error]);
+
+  // A ficha é invalidada pela CONCLUSÃO da busca, não pelo clique: é quando
+  // best_releases de fato mudou. Uma vez por busca terminada.
+  useEffect(() => {
+    if (!busca.data?.concluida_em) return;
+    queryClient.invalidateQueries({ queryKey: movieKeys.detail(movie.id as string) });
+  }, [busca.data?.concluida_em, movie.id, queryClient]);
 
   // A importação falha por motivos próprios — chave do Real-Debrid ausente, o
   // RD recusando o magnet — e o usuário precisa ler qual foi.
@@ -445,21 +463,33 @@ export default function MovieClient() {
                         <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', color: 'var(--film)', margin: 0 }}>Cópias Disponíveis</h3>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
                           <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em' }}>
-                            {String(releases.length).padStart(2, '0')} LOCALIZADAS
+                            {/* `releases` é best_releases, cortado em [:5] no
+                                serializer: a tela nunca passava de "05" e
+                                chamava isso de total. Com o total real vindo do
+                                documento de busca, diz as duas coisas. */}
+                            {busca.data?.total_releases != null
+                              ? `${String(releases.length).padStart(2, '0')} DE ${String(busca.data.total_releases).padStart(2, '0')}`
+                              : `${String(releases.length).padStart(2, '0')} MELHORES`}
                           </span>
                           <button
                             onClick={() => buscar.mutate({})}
-                            disabled={buscar.isPending}
-                            style={{ background: 'rgba(0,0,0,0)', border: '1px solid rgba(191,143,60,0.5)', color: 'var(--gold)', padding: '10px 18px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: buscar.isPending ? 'wait' : 'pointer' }}
+                            disabled={painel.ocupado || buscar.isPending}
+                            style={{ background: 'rgba(0,0,0,0)', border: '1px solid rgba(191,143,60,0.5)', color: 'var(--gold)', padding: '10px 18px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: (painel.ocupado || buscar.isPending) ? 'wait' : 'pointer' }}
                           >
-                            {buscar.isPending ? '[ VASCULHANDO... ]' : '[ PROCURAR CÓPIAS ]'}
+                            {buscar.isPending ? '[ ENVIANDO... ]' : painel.rotuloDoBotao}
                           </button>
                         </div>
                       </div>
 
-                      {erroDaBusca && (
+                      {(painel.erro || erroDaBusca) && (
                         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.15em', marginBottom: 24, lineHeight: 1.8 }}>
-                          {erroDaBusca}
+                          {painel.erro || erroDaBusca}
+                        </div>
+                      )}
+
+                      {painel.aviso && (
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', marginBottom: 24, lineHeight: 1.8 }}>
+                          {painel.aviso}
                         </div>
                       )}
 
@@ -469,7 +499,7 @@ export default function MovieClient() {
                         </div>
                       )}
 
-                      {buscar.data?.cache_check_failed && (
+                      {busca.data?.cache_check_failed === true && (
                         // Sem este aviso, a coluna "toca agora" apareceria
                         // toda em branco e pareceria que nada está cacheado,
                         // quando na verdade não deu para perguntar.

@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { APIError, normalizaErro } from '@/services/http/errors';
-import { CORES_DA_COPIA, especificacaoDaCopia, motivoDaFalha, rotuloDaCopia, tamanhoLegivel } from './useReleases';
+import { CORES_DA_COPIA, especificacaoDaCopia, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, tamanhoLegivel, useRelogio } from './useReleases';
+import type { EstadoDaBusca } from './useReleases';
 
 function erroDaApi(corpo: unknown, status: number) {
   return new APIError(normalizaErro(corpo, status), status);
@@ -137,5 +139,120 @@ describe('rotuloDaCopia e o que dá para importar', () => {
 
   it('sem o campo, decide pelo estado — resposta antiga não esconde o botão', () => {
     expect(rotuloDaCopia({ disponibilidade: 'ausente' }).podeImportar).toBe(true);
+  });
+});
+
+describe('mensagemDaBusca', () => {
+  const AGORA = new Date('2026-01-01T12:00:00Z');
+
+  function doc(campos: Partial<EstadoDaBusca>): EstadoDaBusca {
+    return {
+      movie_id: 'm1', estado: 'ociosa', iniciada_em: null, concluida_em: null,
+      erro: null, new_releases_found: null, total_releases: null,
+      cache_check_failed: null, consultas_falhas: [], ...campos,
+    };
+  }
+
+  function hÁ(segundos: number) {
+    return new Date(AGORA.getTime() - segundos * 1000).toISOString();
+  }
+
+  it('sem busca nenhuma, o botão está pronto', () => {
+    const p = mensagemDaBusca(undefined, AGORA);
+    expect(p.rotuloDoBotao).toBe('[ PROCURAR CÓPIAS ]');
+    expect(p.ocupado).toBe(false);
+  });
+
+  // A distinção que o 200-contra-502 carregava e não pode se perder.
+  it('não achar nada não é falha, e a frase diz por quê', () => {
+    const p = mensagemDaBusca(doc({ estado: 'concluida', new_releases_found: 0 }), AGORA);
+    expect(p.erro).toBe('');
+    expect(p.aviso).toContain('OS INDEXADORES RESPONDERAM');
+  });
+
+  it('achar cópias diz quantas', () => {
+    expect(mensagemDaBusca(doc({ estado: 'concluida', new_releases_found: 3 }), AGORA).aviso)
+      .toBe('3 CÓPIAS NOVAS.');
+    expect(mensagemDaBusca(doc({ estado: 'concluida', new_releases_found: 1 }), AGORA).aviso)
+      .toBe('1 CÓPIA NOVA.');
+  });
+
+  it('o erro do servidor chega inteiro', () => {
+    const p = mensagemDaBusca(doc({ estado: 'erro', erro: 'O Prowlarr devolveu algo que não é JSON.' }), AGORA);
+    expect(p.erro).toContain('NÃO É JSON');
+    expect(p.ocupado).toBe(false);
+  });
+
+  // `enfileirada` e `buscando` existem separados justamente para isto.
+  it('na fila há muito tempo acusa o worker; há pouco, não', () => {
+    expect(mensagemDaBusca(doc({ estado: 'enfileirada', iniciada_em: hÁ(20) }), AGORA).aviso)
+      .toContain('NINGUÉM A PEGOU');
+    expect(mensagemDaBusca(doc({ estado: 'enfileirada', iniciada_em: hÁ(5) }), AGORA).aviso)
+      .toBe('');
+  });
+
+  it('vasculhando mostra o contador andando', () => {
+    expect(mensagemDaBusca(doc({ estado: 'buscando', iniciada_em: hÁ(42) }), AGORA).rotuloDoBotao)
+      .toBe('[ VASCULHANDO... 42s ]');
+  });
+
+  it('passado o tempo do indexador lento, explica a espera', () => {
+    expect(mensagemDaBusca(doc({ estado: 'buscando', iniciada_em: hÁ(60) }), AGORA).aviso)
+      .toContain('ATÉ 100s');
+  });
+
+  it('o botão fica travado enquanto há busca em voo', () => {
+    for (const estado of ['enfileirada', 'buscando'] as const) {
+      expect(mensagemDaBusca(doc({ estado, iniciada_em: hÁ(1) }), AGORA).ocupado).toBe(true);
+    }
+    for (const estado of ['ociosa', 'concluida', 'erro'] as const) {
+      expect(mensagemDaBusca(doc({ estado }), AGORA).ocupado).toBe(false);
+    }
+  });
+
+  it('a falha parcial do Prowlarr aparece mesmo com a busca concluída', () => {
+    const p = mensagemDaBusca(doc({
+      estado: 'concluida', new_releases_found: 5,
+      consultas_falhas: ['Os Infiltrados 2006: caiu'],
+    }), AGORA);
+    expect(p.aviso).toContain('PODE NÃO SER TUDO');
+  });
+
+  it('data de início inválida não derruba o contador', () => {
+    const p = mensagemDaBusca(doc({ estado: 'buscando', iniciada_em: 'lixo' }), AGORA);
+    expect(p.rotuloDoBotao).toBe('[ VASCULHANDO... 0s ]');
+  });
+});
+
+describe('useRelogio', () => {
+  // O contador travou em "VASCULHANDO... 2s" na verificação ao vivo: o React
+  // Query não re-renderiza quando o documento volta estruturalmente igual, e
+  // durante `buscando` ele volta igual toda vez.
+  it('anda enquanto a busca está em voo', async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useRelogio(true));
+      const inicio = result.current.getTime();
+
+      await act(async () => { vi.advanceTimersByTime(3000); });
+
+      expect(result.current.getTime()).toBeGreaterThan(inicio);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('não anda quando não há busca — nada de setInterval à toa', async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useRelogio(false));
+      const inicio = result.current.getTime();
+
+      await act(async () => { vi.advanceTimersByTime(5000); });
+
+      expect(result.current.getTime()).toBe(inicio);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
