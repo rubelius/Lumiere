@@ -64,15 +64,44 @@ def prepare_session(self, session_id: str):
             copia = melhor_copia(item.movie)
             item.selected_release = copia
             item.download_status = 'ready' if copia else 'failed'
-            item.save(update_fields=['selected_release', 'download_status'])
+            item.download_progress = 100 if copia else 0
+            item.save(update_fields=['selected_release', 'download_status',
+                                     'download_progress'])
 
             if copia:
                 prontos += 1
             else:
                 sem_copia.append(item.movie.title)
 
-        sessao.status = 'ready' if prontos and not sem_copia else 'planning'
-        sessao.save(update_fields=['status', 'updated_at'])
+        total = prontos + len(sem_copia)
+        completa = bool(prontos) and not sem_copia
+        andamento = int(100 * prontos / total) if total else 0
+
+        sessao.status = 'ready' if completa else 'planning'
+
+        # As quatro flags que o painel da sessão lê. Sem escrevê-las, a sessão
+        # ficava `ready` e a tela continuava dizendo que nada tinha acontecido:
+        # "Busca de Mídia" e "Download" sem marca, e as duas barras em zero.
+        #
+        # Escritas SEMPRE, não só no caminho feliz: uma preparação que falha
+        # depois de uma que deu certo precisa poder derrubar as marcas, senão
+        # viram mais flags que só sobem.
+        sessao.all_movies_selected = total > 0
+        sessao.all_torrents_found = completa
+        # `melhor_copia` só elege cópia que já está no Real-Debrid COM links,
+        # ou seja, que toca agora — achar a cópia e ter o download pronto são a
+        # mesma coisa neste caminho. Ainda assim cada flag é escrita a partir
+        # da sua própria definição, para a igualdade não virar suposição se a
+        # regra de eleição mudar.
+        sessao.all_downloads_ready = completa
+        sessao.preparation_progress = andamento
+        sessao.download_progress = andamento
+
+        sessao.save(update_fields=[
+            'status', 'all_movies_selected', 'all_torrents_found',
+            'all_downloads_ready', 'preparation_progress', 'download_progress',
+            'updated_at',
+        ])
 
     logger.info('Sessão %s: %s filme(s) prontos, %s sem cópia -> %s',
                 session_id, prontos, len(sem_copia), sessao.status)

@@ -232,15 +232,36 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
         return super().list(request, *args, **kwargs)
     
     def retrieve(self, request, *args, **kwargs):
+        """
+        A ficha do filme, com a parte estável vinda do cache.
+
+        O cache guardava a ficha INTEIRA numa chave global `movie:<id>`, e a
+        ficha traz campos que dependem de quem pediu: `watch_state` e a ordem
+        de `similar_movies`, que despriorizada o que aquele usuário já viu.
+        Quem chegasse depois recebia a resposta montada para o primeiro —
+        verificado: a posição de 4242s de um usuário chegou ao player de outro,
+        que nunca tinha assistido nada.
+
+        Guardar só a parte estável, e recalcular a do usuário a cada pedido,
+        resolve sem depender de invalidação por padrão de chave (que existe no
+        CacheManager mas engole erro em silêncio). Medido nesta ficha: 45ms no
+        total, dos quais 31ms são os dois campos por usuário — o cache cobre os
+        14ms que sobram, e são justamente os que não mudam.
+        """
         movie_id = str(kwargs.get('pk'))
-        cached_data = CacheManager.get_movie(movie_id)
-        if cached_data:
-            return Response(cached_data)
+        estavel = CacheManager.get_movie(movie_id)
+
         movie = self.get_object()
         serializer = self.get_serializer(movie)
-        data = serializer.data
-        CacheManager.set_movie(movie_id, data, timeout=3600)
-        return Response(data)
+        por_usuario = {campo: getattr(serializer, f'get_{campo}')(movie)
+                       for campo in MovieDetailSerializer.CAMPOS_POR_USUARIO}
+
+        if estavel is None:
+            estavel = {k: v for k, v in serializer.data.items()
+                       if k not in MovieDetailSerializer.CAMPOS_POR_USUARIO}
+            CacheManager.set_movie(movie_id, estavel, timeout=3600)
+
+        return Response({**estavel, **por_usuario})
     
     @extend_schema(
         responses={

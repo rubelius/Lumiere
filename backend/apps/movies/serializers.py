@@ -188,6 +188,15 @@ class MovieDetailSerializer(serializers.ModelSerializer):
     similar_movies = serializers.SerializerMethodField()
     watch_state = serializers.SerializerMethodField()
 
+    # Os campos que dependem de QUEM está pedindo.
+    #
+    # A lista vive aqui, ao lado dos campos que nomeia, porque quem
+    # acrescentar um campo por usuário precisa tropeçar nela. A view guarda a
+    # ficha numa chave global `movie:<id>`, e um campo por usuário que escape
+    # desta lista passa a ser servido a todo mundo: era o caso de
+    # `watch_state`, e a posição de um usuário chegava ao player de outro.
+    CAMPOS_POR_USUARIO = ('watch_state', 'similar_movies')
+
     class Meta:
         model = Movie
         # 'embedding' e um vetor de EMBEDDING_DIMENSIONS posicoes, usado so pelo recomendador:

@@ -147,3 +147,112 @@ def test_add_movie_responde_erro_do_cliente_como_erro_do_cliente(client):
 
     assert api.post(url, {'movie_id': str(filme.id)}, format='json').status_code == 200
     assert api.post(url, {'movie_id': str(filme.id)}, format='json').status_code == 409
+
+
+# ── as flags que o painel lê ──────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_sessao_pronta_marca_as_flags_que_a_tela_le(django_user_model):
+    """
+    O painel de app/session/page.tsx lê `all_torrents_found` (marca "Busca de
+    Mídia"), `all_downloads_ready` ("Download"), `download_progress` (o
+    percentual) e `preparation_progress` (a barra). A task deixava as quatro no
+    default: a sessão ficava `ready` e a tela continuava dizendo que nada tinha
+    acontecido.
+    """
+    user = django_user_model.objects.create_user(username='a', password='x')
+    sessao = cria_sessao(user)
+    for i, nome in enumerate(['Alphaville', 'Solaris'], start=1):
+        filme = Movie.objects.create(title=nome, year=1965 + i)
+        com_copia_no_realdebrid(filme)
+        SessionMovie.objects.create(session=sessao, movie=filme, order=i)
+
+    prepare_session(str(sessao.id))
+
+    sessao.refresh_from_db()
+    assert sessao.status == 'ready'
+    assert sessao.all_movies_selected is True
+    assert sessao.all_torrents_found is True
+    assert sessao.all_downloads_ready is True
+    assert sessao.preparation_progress == 100
+    assert sessao.download_progress == 100
+
+
+@pytest.mark.django_db
+def test_preparacao_parcial_mostra_o_quanto_andou(django_user_model):
+    user = django_user_model.objects.create_user(username='a', password='x')
+    sessao = cria_sessao(user)
+    com = Movie.objects.create(title='Com cópia', year=1965)
+    com_copia_no_realdebrid(com)
+    sem = Movie.objects.create(title='Sem cópia', year=1966)
+    SessionMovie.objects.create(session=sessao, movie=com, order=1)
+    SessionMovie.objects.create(session=sessao, movie=sem, order=2)
+
+    prepare_session(str(sessao.id))
+
+    sessao.refresh_from_db()
+    assert sessao.status == 'planning'
+    assert sessao.all_torrents_found is False
+    assert sessao.all_downloads_ready is False
+    assert sessao.preparation_progress == 50, 'a barra precisa dizer que metade andou'
+
+
+@pytest.mark.django_db
+def test_uma_preparacao_que_falha_derruba_as_marcas_da_anterior(django_user_model):
+    """
+    Mais um caso de flag que só sobe: a sessão que já esteve pronta e depois
+    perdeu uma cópia continuaria anunciando download pronto.
+    """
+    user = django_user_model.objects.create_user(username='a', password='x')
+    sessao = cria_sessao(user, all_torrents_found=True, all_downloads_ready=True,
+                         preparation_progress=100, download_progress=100)
+    sem = Movie.objects.create(title='Sem cópia', year=1966)
+    SessionMovie.objects.create(session=sessao, movie=sem, order=1)
+
+    prepare_session(str(sessao.id))
+
+    sessao.refresh_from_db()
+    assert sessao.all_torrents_found is False
+    assert sessao.all_downloads_ready is False
+    assert sessao.download_progress == 0
+
+
+@pytest.mark.django_db
+def test_o_progresso_de_cada_filme_tambem_e_gravado(django_user_model):
+    """`sm.download_progress` alimenta a barra por filme na mesma tela."""
+    user = django_user_model.objects.create_user(username='a', password='x')
+    sessao = cria_sessao(user)
+    com = Movie.objects.create(title='Com cópia', year=1965)
+    com_copia_no_realdebrid(com)
+    sem = Movie.objects.create(title='Sem cópia', year=1966)
+    SessionMovie.objects.create(session=sessao, movie=com, order=1)
+    SessionMovie.objects.create(session=sessao, movie=sem, order=2)
+
+    prepare_session(str(sessao.id))
+
+    assert SessionMovie.objects.get(session=sessao, movie=com).download_progress == 100
+    assert SessionMovie.objects.get(session=sessao, movie=sem).download_progress == 0
+
+
+@pytest.mark.django_db
+def test_a_api_publica_as_flags_recem_gravadas(django_user_model):
+    """
+    Escrever no banco não basta: os campos precisam sair no serializer que a
+    tela consome.
+    """
+    from rest_framework.test import APIClient
+
+    user = django_user_model.objects.create_user(username='a', password='x')
+    sessao = cria_sessao(user)
+    filme = Movie.objects.create(title='Alphaville', year=1965)
+    com_copia_no_realdebrid(filme)
+    SessionMovie.objects.create(session=sessao, movie=filme, order=1)
+    prepare_session(str(sessao.id))
+
+    cliente = APIClient()
+    cliente.force_authenticate(user=user)
+    dados = cliente.get(f'/api/sessions/{sessao.id}/').data
+
+    assert dados['all_torrents_found'] is True
+    assert dados['all_downloads_ready'] is True
+    assert dados['preparation_progress'] == 100
