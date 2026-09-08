@@ -189,6 +189,35 @@ class RealDebridClient:
             print(f"Error getting torrent info: {e}")
             return {}
     
+    async def list_torrents_pagina(self, limit: int = 1000, page: int = 1) -> List[Dict]:
+        """
+        Uma página dos torrents da conta, com paginação e SEM engolir erro.
+
+        `list_torrents` devolve `[]` quando a chamada falha, o que chega ao
+        chamador idêntico a "a conta está vazia" — e tratar os dois igual faria
+        toda cópia parecer ausente por causa de um blip de rede. Aqui a falha
+        levanta.
+
+        Um 404 na última página é o Real-Debrid dizendo "não há mais nada", não
+        um erro: vira lista vazia e encerra a varredura.
+        """
+        try:
+            response = await self.client.get(
+                f"{self.BASE_URL}/torrents",
+                params={'limit': limit, 'page': page})
+            if response.status_code == 404:
+                return []
+            response.raise_for_status()
+            dados = response.json()
+        except httpx.HTTPError as e:
+            raise RealDebridIndisponivel(
+                f'Não foi possível listar os torrents da conta: {e}') from e
+        except ValueError as e:
+            raise RealDebridIndisponivel(
+                'O Real-Debrid devolveu algo que não é JSON.') from e
+
+        return dados if isinstance(dados, list) else []
+
     async def list_torrents(
         self,
         limit: int = 100,

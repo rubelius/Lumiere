@@ -94,6 +94,7 @@ export function MovieCard({
   priority = false
 }: MovieCardProps) {
   const [imageLoaded, setImageLoaded] = React.useState(false)
+  const temImagem = Boolean(imageUrl && imageUrl.trim())
   
   return (
     <motion.div
@@ -114,11 +115,24 @@ export function MovieCard({
         {/* Image Container */}
         <div className="absolute inset-0">
           {/* Skeleton Loader */}
-          {!imageLoaded && (
+          {temImagem && !imageLoaded && (
             <div className="absolute inset-0 bg-neutral-300 animate-pulse z-0" />
           )}
           
-          {/* Next.js Image */}
+          {/* Sem poster, sem <Image>. Passar string vazia para `src` faz o
+              navegador rebaixar a página inteira, e o Next reclama três vezes:
+              "An empty string was passed to the src attribute",
+              "ReactDOM.preload() ... href was an empty string" e
+              "Image is missing required src property". 758 dos 25.908 filmes
+              do acervo não têm poster, então o caminho vazio é rotina, não
+              exceção. */}
+          {!temImagem ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-300">
+              <span className="font-mono text-[8px] tracking-[0.2em] text-neutral-500 text-center px-3">
+                SEM PÔSTER
+              </span>
+            </div>
+          ) : (
           <Image 
             src={imageUrl} 
             alt={`${title} (${year}) poster`}
@@ -135,6 +149,7 @@ export function MovieCard({
             )}
             onLoad={() => setImageLoaded(true)}
           />
+          )}
 
           {watched && <SeloAssistido />}
           
@@ -204,6 +219,7 @@ export function FeaturedMovieCard({
   index = 0
 }: FeaturedMovieCardProps) {
   const [imageLoaded, setImageLoaded] = React.useState(false)
+  const temImagem = Boolean(imageUrl && imageUrl.trim())
   
   return (
     <motion.div
@@ -221,10 +237,13 @@ export function FeaturedMovieCard({
       >
         {/* Image Container */}
         <div className="absolute inset-0">
-          {!imageLoaded && (
+          {temImagem && !imageLoaded && (
             <div className="absolute inset-0 bg-neutral-300 animate-pulse z-0" />
           )}
           
+          {!temImagem ? (
+            <div className="absolute inset-0 z-10 bg-neutral-300" />
+          ) : (
           <Image 
             src={imageUrl}
             alt={`${title} (${year}) background`}
@@ -238,7 +257,8 @@ export function FeaturedMovieCard({
             )}
             onLoad={() => setImageLoaded(true)}
           />
-          
+          )}
+
           <div className="absolute inset-0 z-20 pointer-events-none bg-linear-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-70 transition-opacity duration-500" />
         </div>
         

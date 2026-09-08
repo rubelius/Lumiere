@@ -138,5 +138,4 @@ class TorrentReleaseFilter(django_filters.FilterSet):
             'is_remux': ['exact'],
             'has_atmos': ['exact'],
             'has_dolby_vision': ['exact'],
-            'instantly_available': ['exact'],
         }

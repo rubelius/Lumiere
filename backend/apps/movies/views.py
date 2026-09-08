@@ -32,6 +32,7 @@ from apps.ml.similarity import (agenda_retreino_do_gosto, diversifica,
 from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
 from .realdebrid_sync import atualiza_resumo
+from .realdebrid_estado import sincroniza_filme
 from .release_search import (estado_da_busca, libera, marca_enfileirada,
                              normaliza_filtros)
 from apps.tasks.torrents import search_torrents_for_movie
@@ -519,6 +520,31 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         responses=OpenApiTypes.OBJECT,
+        description='Confere na conta do Real-Debrid o estado das cópias deste filme.',
+    )
+    @action(detail=True, methods=['post'])
+    def realdebrid_state(self, request, pk=None):
+        """
+        Pergunta ao Real-Debrid o que ele já tem deste filme.
+
+        Substitui a checagem de cache que o provedor desativou. A pergunta
+        antiga — "este hash está no acervo do Real-Debrid?" — não tem mais
+        resposta; esta — "está na MINHA conta, e em que pé?" — tem.
+
+        A varredura da conta fica guardada por alguns minutos, então abrir o
+        segundo filme não custa nada.
+        """
+        movie = self.get_object()
+        falhou = sincroniza_filme(movie, request.user)
+        releases = (TorrentRelease.objects.filter(movie=movie)
+                    .order_by('-quality_score', '-seeders'))
+        return Response({
+            'consulta_falhou': falhou,
+            'releases': TorrentReleaseSerializer(releases, many=True).data,
+        })
+
+    @extend_schema(
+        responses=OpenApiTypes.OBJECT,
         description='O que está acontecendo com a busca de cópias deste filme.',
     )
     @action(detail=True, methods=['get'])
@@ -540,7 +566,7 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
     queryset = TorrentRelease.objects.all()
     serializer_class = TorrentReleaseSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['movie', 'resolution', 'is_remux', 'has_atmos', 'instantly_available', 'in_realdebrid']
+    filterset_fields = ['movie', 'resolution', 'is_remux', 'has_atmos', 'in_realdebrid']
     ordering_fields = ['quality_score', 'seeders', 'found_at']
     ordering = ['-quality_score', '-seeders']
     

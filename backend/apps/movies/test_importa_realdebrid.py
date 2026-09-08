@@ -241,22 +241,16 @@ def test_importar_atualiza_o_resumo_que_o_card_le(cliente, copia, rd):
 
 
 @pytest.mark.django_db
-def test_cache_desativado_no_rd_nao_derruba_a_busca(cliente, copia, monkeypatch):
+def test_conta_ilegivel_nao_derruba_a_busca(copia, usuario, monkeypatch):
     """
-    O Real-Debrid desativou instantAvailability. A busca precisa terminar
-    assim mesmo, avisando que o estado de cache está sem resposta — e não
-    estourar 500 em cima de uma busca que funcionou.
+    O Real-Debrid desativou instantAvailability; a leitura da conta é o que
+    ficou no lugar. Quando ela falha, a busca precisa terminar assim mesmo,
+    avisando que o estado das cópias está sem resposta — e não estourar 500 em
+    cima de uma busca que funcionou.
     """
-    from apps.integrations.realdebrid import ConsultaDeCacheDesativada
-    from apps.movies import release_search
+    from apps.movies.realdebrid_estado import sincroniza_filme
 
-    async def recusa(self, hashes):
-        raise ConsultaDeCacheDesativada('o provedor removeu a rota')
+    monkeypatch.setattr('apps.movies.realdebrid_estado.mapa_da_conta',
+                        lambda user, refazer=False: None)
 
-    monkeypatch.setattr(
-        'apps.integrations.realdebrid.RealDebridClient.check_instant_availability', recusa)
-
-    falhou = __import__('asgiref.sync', fromlist=['async_to_sync']).async_to_sync(
-        release_search._marca_cacheadas)([copia], cliente.handler._force_user)
-
-    assert falhou is True, 'a tela precisa saber que a coluna está sem resposta'
+    assert sincroniza_filme(copia.movie, usuario) is True

@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 import asyncio
 import logging
 import re
+from urllib.parse import quote_plus
 
 import httpx
 from django.conf import settings
@@ -64,6 +65,29 @@ def consultas_para(title: str, original_title: Optional[str],
     # e a tela dizia "sem releases" em vez de "sem ano".
     sufixo = f' {year}' if year else ''
     return [f'{nome}{sufixo}' for nome in vistos]
+
+
+def magnet_de(info_hash: str, titulo: str = '') -> str:
+    """
+    Monta o magnet a partir do hash.
+
+    O `magnetUrl` do Prowlarr não é magnet: para a maioria dos indexadores ele
+    é uma URL de proxy para o arquivo .torrent
+    (`http://prowlarr:9696/2/download?apikey=...`). Verificado no acervo: das
+    61 cópias gravadas, ZERO tinham magnet de verdade e 56 guardavam uma URL
+    dessas. O Real-Debrid respondia 404 em `addMagnet` — para ele aquilo não
+    era magnet nenhum, e o botão de importar nunca funcionou.
+
+    O hash basta. Um magnet só com `xt` é válido, e o Real-Debrid o aceita
+    (verificado: 201 em addMagnet com um hash de teste). O `dn` entra só como
+    cortesia para quem for ler o link.
+    """
+    if not info_hash:
+        return ''
+    link = f'magnet:?xt=urn:btih:{info_hash}'
+    if titulo:
+        link += f'&dn={quote_plus(titulo[:120])}'
+    return link
 
 
 def _inteiro(valor) -> int:
@@ -249,7 +273,9 @@ class ProwlarrClient:
             parsed.append({
                 'title': (item.get('title') or '')[:500],
                 'info_hash': info_hash[:40],
-                'magnet_link': item.get('magnetUrl') or '',
+                # Do hash, e não do `magnetUrl`: aquele campo costuma trazer
+                # uma URL de download do Prowlarr, que o Real-Debrid recusa.
+                'magnet_link': magnet_de(info_hash, item.get('title') or ''),
                 'size_bytes': _inteiro(item.get('size')),
                 # `.get(chave, 0)` só protege contra chave AUSENTE. O Prowlarr
                 # manda `"seeders": null` para indexador que não reporta

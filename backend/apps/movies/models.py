@@ -231,6 +231,10 @@ class TorrentRelease(models.Model):
     realdebrid_completed_at = models.DateTimeField(null=True, blank=True)
     realdebrid_links = models.JSONField(default=list, blank=True)
     
+    # Herança da checagem de cache que o Real-Debrid desativou
+    # (/torrents/instantAvailability responde 403 com error_code 37). Nada
+    # escreve nem lê este campo; fica pela migração que ele custaria, e para
+    # não perder o histórico de quando a pergunta ainda tinha resposta.
     instantly_available = models.BooleanField(default=False)
     instant_check_at = models.DateTimeField(null=True, blank=True)
     
@@ -254,7 +258,6 @@ class TorrentRelease(models.Model):
     ESTADOS_MORTOS = ('error', 'magnet_error', 'virus', 'dead')
 
     PRONTA = 'pronta'
-    INSTANTANEA = 'instantanea'
     BAIXANDO = 'baixando'
     AUSENTE = 'ausente'
 
@@ -263,24 +266,23 @@ class TorrentRelease(models.Model):
         """
         Em que pé esta cópia está, do ponto de vista de quem quer assistir.
 
-        Três flags — `in_realdebrid`, `realdebrid_status` e
-        `instantly_available` — respondem perguntas diferentes, e cada tela
-        combinava as suas por conta própria. A aba de cópias chamava de "toca
-        agora" tudo que tinha `instantly_available`, mas isso só diz que o
-        hash está no acervo do Real-Debrid: ainda falta importar para a conta
-        antes de existir link para tocar.
+        Duas flags — `in_realdebrid` e `realdebrid_status` — respondem
+        perguntas diferentes, e cada tela combinava as suas por conta própria.
 
         - `pronta`: está na conta e completa, toca agora.
-        - `instantanea`: o RD já tem o arquivo; importar leva segundos.
         - `baixando`: já foi enviada, mas o RD ainda está buscando.
-        - `ausente`: ninguém pediu ainda, e pode demorar.
+        - `ausente`: não está na conta; importar é um clique.
+
+        Havia um quarto, `instantanea`, para o hash que já morava no acervo do
+        Real-Debrid e importaria em segundos. Ele saiu porque a pergunta que o
+        preenchia — `/torrents/instantAvailability` — foi desativada pelo
+        provedor, e um estado que nada consegue afirmar é pior que estado
+        nenhum.
         """
         if self.in_realdebrid and self.realdebrid_status in self.ESTADOS_CONCLUIDOS:
             return self.PRONTA
         if self.in_realdebrid and self.realdebrid_status not in self.ESTADOS_MORTOS:
             return self.BAIXANDO
-        if self.instantly_available:
-            return self.INSTANTANEA
         return self.AUSENTE
 
     @property
@@ -295,7 +297,7 @@ class TorrentRelease(models.Model):
         """
         if not self.magnet_link:
             return False
-        return self.disponibilidade in (self.INSTANTANEA, self.AUSENTE)
+        return self.disponibilidade == self.AUSENTE
 
     def __str__(self):
         return f'{self.title} [{self.quality_score}/100]'

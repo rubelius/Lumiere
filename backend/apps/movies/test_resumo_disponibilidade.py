@@ -57,17 +57,19 @@ def test_copia_na_conta_com_link_deixa_o_filme_disponivel(filme):
 
 
 @pytest.mark.django_db
-def test_copia_cacheada_mas_nao_importada_e_o_estado_do_meio(filme):
+def test_cached_in_realdebrid_nao_afirma_mais_nada(filme):
     """
-    Não dá play ainda — falta importar — mas chamar isso de OFFLINE esconde
-    justamente a cópia mais fácil de conseguir.
+    O campo existia para o estado "o RD tem o arquivo, importar é instantâneo",
+    que vinha de `/torrents/instantAvailability`. O provedor desativou a rota
+    (403, error_code 37) e não há substituto. Zerado sempre: uma afirmação que
+    nada consegue sustentar é pior que nenhuma.
     """
     copia(filme, instantly_available=True, quality_score=80, resolution='1080p')
 
     atualiza_resumo(filme)
+
     filme.refresh_from_db()
-    assert filme.available_instantly is False
-    assert filme.cached_in_realdebrid is True
+    assert filme.cached_in_realdebrid is False
 
 
 @pytest.mark.django_db
@@ -85,21 +87,23 @@ def test_copia_na_conta_sem_link_ainda_nao_toca(filme):
 
 
 @pytest.mark.django_db
-def test_perder_a_copia_cacheada_desliga_a_marca(filme):
+def test_perder_a_copia_na_conta_desliga_a_marca(filme):
     """
-    O padrão que já apareceu três vezes neste projeto: flag que só sobe.
-    Se o Real-Debrid deixa de ter o arquivo, o card tem que voltar atrás.
+    O padrão que já apareceu quatro vezes neste projeto: flag que só sobe.
+    Se a cópia sai da conta do Real-Debrid, o card tem que voltar atrás.
     """
-    c = copia(filme, instantly_available=True, quality_score=80)
+    c = copia(filme, in_realdebrid=True, realdebrid_status='downloaded',
+              realdebrid_links=['https://rd/x'], quality_score=80)
     atualiza_resumo(filme)
     filme.refresh_from_db()
-    assert filme.cached_in_realdebrid is True
+    assert filme.available_instantly is True
 
-    c.instantly_available = False
-    c.save(update_fields=['instantly_available'])
+    c.in_realdebrid = False
+    c.realdebrid_links = []
+    c.save(update_fields=['in_realdebrid', 'realdebrid_links'])
     atualiza_resumo(filme)
     filme.refresh_from_db()
-    assert filme.cached_in_realdebrid is False
+    assert filme.available_instantly is False
 
 
 @pytest.mark.django_db

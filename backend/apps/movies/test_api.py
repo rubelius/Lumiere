@@ -1,7 +1,7 @@
 # apps/movies/test_api.py
 
 import pytest
-from apps.movies.models import Movie
+from apps.movies.models import Movie, TorrentRelease
 from rest_framework.test import APIClient
 
 
@@ -179,87 +179,87 @@ def test_copia_cacheada_desempata(authenticated_client):
 
 
 @pytest.mark.django_db
-def test_marca_cacheadas_grava_quem_toca_agora(monkeypatch, django_user_model):
+def test_a_conta_do_realdebrid_diz_o_que_esta_pronto(monkeypatch, django_user_model):
     """
-    Sem esta checagem, toda release recém-encontrada voltava com
-    instantly_available=False e a tela dizia que nenhuma tocava agora — a
-    marcação só chegava horas depois, pela task noturna. Saber na hora é o
-    ponto de buscar: é o que distingue "dá play" de "vai baixar".
+    Substitui os testes de `_marca_cacheadas`, que perguntava a uma rota
+    desativada pelo Real-Debrid (403, error_code 37). A pergunta que restou é
+    "o que está na MINHA conta", respondida por hash.
     """
-    from asgiref.sync import async_to_sync
+    from apps.movies.realdebrid_estado import sincroniza_filme
 
-    from apps.movies.models import Movie, TorrentRelease
-    from apps.movies.release_search import _marca_cacheadas
-
-    u = django_user_model.objects.create_user(username='u1', password='x',
-                                              realdebrid_api_key='chave')
+    u = django_user_model.objects.create_user(
+        username='rd', password='x', realdebrid_api_key='k')
     filme = Movie.objects.create(title='Stalker', year=1979)
-    cacheada = TorrentRelease.objects.create(movie=filme, title='A', size_bytes=1,
-                                             info_hash='a' * 40)
-    fria = TorrentRelease.objects.create(movie=filme, title='B', size_bytes=1,
-                                         info_hash='b' * 40)
-
-    async def falso(self, hashes):
-        return {'a' * 40: True, 'b' * 40: False}
+    na_conta = TorrentRelease.objects.create(
+        movie=filme, title='a', info_hash='a' * 40, size_bytes=1)
+    fora = TorrentRelease.objects.create(
+        movie=filme, title='b', info_hash='b' * 40, size_bytes=1)
 
     monkeypatch.setattr(
-        'apps.integrations.realdebrid.RealDebridClient.check_instant_availability', falso)
+        'apps.movies.realdebrid_estado.mapa_da_conta',
+        lambda user, refazer=False: {'a' * 40: {'id': 'T1', 'status': 'downloaded',
+                                                'progress': 100, 'links': ['rd://x']}})
 
-    falhou = async_to_sync(_marca_cacheadas)([cacheada, fria], u)
+    assert sincroniza_filme(filme, u) is False
 
-    cacheada.refresh_from_db(); fria.refresh_from_db()
-    assert falhou is False
-    assert cacheada.instantly_available is True
-    assert fria.instantly_available is False
-    assert cacheada.instant_check_at is not None
+    na_conta.refresh_from_db()
+    fora.refresh_from_db()
+    assert na_conta.disponibilidade == TorrentRelease.PRONTA
+    assert fora.disponibilidade == TorrentRelease.AUSENTE
 
 
 @pytest.mark.django_db
-def test_falha_na_checagem_nao_marca_nada_como_offline(monkeypatch, django_user_model):
+def test_falha_ao_ler_a_conta_nao_apaga_o_que_ja_se_sabia(monkeypatch, django_user_model):
     """
-    "Conferi e nenhuma está pronta" e "não consegui conferir" desenham telas
-    diferentes. Tratá-las igual faria o acervo parecer offline por um blip de
-    rede — e a release que ESTAVA cacheada perderia a marca.
+    Conta vazia e falha de leitura não podem chegar iguais: tratá-las igual
+    faria toda cópia parecer ausente por causa de um blip de rede, e o botão
+    de importar apareceria em cima do que já está lá.
     """
-    from asgiref.sync import async_to_sync
+    from apps.movies.realdebrid_estado import sincroniza_filme
 
-    from apps.integrations.realdebrid import RealDebridIndisponivel
-    from apps.movies.models import Movie, TorrentRelease
-    from apps.movies.release_search import _marca_cacheadas
-
-    u = django_user_model.objects.create_user(username='u2', password='x',
-                                              realdebrid_api_key='chave')
+    u = django_user_model.objects.create_user(
+        username='rd2', password='x', realdebrid_api_key='k')
     filme = Movie.objects.create(title='Solaris', year=1972)
-    r = TorrentRelease.objects.create(movie=filme, title='A', size_bytes=1,
-                                      info_hash='c' * 40, instantly_available=True)
+    r = TorrentRelease.objects.create(
+        movie=filme, title='c', info_hash='c' * 40, size_bytes=1,
+        in_realdebrid=True, realdebrid_status='downloaded',
+        realdebrid_links=['rd://y'])
 
-    async def estoura(self, hashes):
-        raise RealDebridIndisponivel('sem rota')
+    monkeypatch.setattr('apps.movies.realdebrid_estado.mapa_da_conta',
+                        lambda user, refazer=False: None)
 
-    monkeypatch.setattr(
-        'apps.integrations.realdebrid.RealDebridClient.check_instant_availability', estoura)
-
-    falhou = async_to_sync(_marca_cacheadas)([r], u)
+    assert sincroniza_filme(filme, u) is True, 'a tela precisa saber que não deu'
 
     r.refresh_from_db()
-    assert falhou is True
-    assert r.instantly_available is True, 'a marca anterior não pode ser apagada'
+    assert r.in_realdebrid is True, 'a marca anterior foi apagada por um blip'
+    assert r.realdebrid_links == ['rd://y']
 
 
 @pytest.mark.django_db
-def test_sem_chave_do_real_debrid_nao_e_falha(django_user_model, settings):
-    """Não ter integração é diferente de ela estar quebrada."""
-    # A chave da instância vem do .env e serviria de fallback; sem zerá-la o
-    # teste chamaria a API de verdade em vez de exercitar o caminho sem chave.
-    settings.REAL_DEBRID_API_KEY = None
-    from asgiref.sync import async_to_sync
+def test_o_torrent_repetido_na_conta_vence_pelo_melhor_estado(monkeypatch,
+                                                              django_user_model):
+    """
+    103 dos 2.071 torrents desta conta repetem hash. Se a última ocorrência
+    vencesse, uma reimportação em andamento esconderia a cópia já pronta.
+    """
+    from apps.movies import realdebrid_estado
 
-    from apps.movies.models import Movie, TorrentRelease
-    from apps.movies.release_search import _marca_cacheadas
+    u = django_user_model.objects.create_user(
+        username='rd3', password='x', realdebrid_api_key='k')
 
-    u = django_user_model.objects.create_user(username='u3', password='x')
-    filme = Movie.objects.create(title='X', year=2000)
-    r = TorrentRelease.objects.create(movie=filme, title='A', size_bytes=1,
-                                      info_hash='d' * 40)
+    monkeypatch.setattr(realdebrid_estado, '_todas_as_paginas', None)
 
-    assert async_to_sync(_marca_cacheadas)([r], u) is False
+    async def duplicado(chave):
+        return [
+            {'hash': 'D' * 40, 'id': '1', 'status': 'downloaded',
+             'progress': 100, 'links': ['rd://bom']},
+            {'hash': 'd' * 40, 'id': '2', 'status': 'downloading',
+             'progress': 3, 'links': []},
+        ]
+
+    monkeypatch.setattr(realdebrid_estado, '_todas_as_paginas', duplicado)
+
+    mapa = realdebrid_estado.mapa_da_conta(u, refazer=True)
+
+    assert mapa['d' * 40]['status'] == 'downloaded'
+    assert mapa['d' * 40]['links'] == ['rd://bom']

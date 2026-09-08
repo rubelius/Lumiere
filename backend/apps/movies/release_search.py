@@ -17,13 +17,14 @@ numa requisição HTTP, então a view enfileira e o cliente pergunta o estado.
 import logging
 from datetime import timedelta
 
-from asgiref.sync import async_to_sync, sync_to_async
+from asgiref.sync import async_to_sync
 from django.core.cache import cache
 from django.utils import timezone
 
 from apps.core.core_cache import CacheManager
 from apps.integrations.prowlarr import ProwlarrClient
 from apps.movies.models import TorrentRelease
+from apps.movies.realdebrid_estado import sincroniza_filme
 from apps.movies.realdebrid_sync import atualiza_resumo
 from apps.movies.utils import (calculate_quality_score, parse_quality_from_title,
                                passa_no_filtro)
@@ -188,46 +189,6 @@ def libera(movie_id) -> None:
 
 # ── a busca em si ─────────────────────────────────────────────────────────
 
-QUANTAS_CHECAR_NO_REALDEBRID = 20
-
-
-async def _marca_cacheadas(releases, user) -> bool:
-    """
-    Pergunta ao Real-Debrid quais destas cópias já estão cacheadas e grava.
-
-    Devolve True quando a consulta NÃO pôde ser feita. Quem chama precisa
-    dessa distinção: "conferi e nenhuma está pronta" e "não consegui
-    conferir" desenham telas diferentes, e tratá-las igual faria o acervo
-    parecer offline por causa de um blip de rede.
-    """
-    from apps.integrations.realdebrid import (RealDebridClient,
-                                              RealDebridIndisponivel,
-                                              chave_do_usuario)
-
-    chave = chave_do_usuario(user)
-    hashes = [r.info_hash for r in releases if r.info_hash]
-    if not (chave and hashes):
-        return False
-
-    cliente = RealDebridClient(chave)
-    try:
-        cacheadas = await cliente.check_instant_availability(hashes)
-    except RealDebridIndisponivel as e:
-        logger.warning('Não deu para checar o cache do Real-Debrid: %s', e)
-        return True
-    finally:
-        await cliente.close()
-
-    agora = timezone.now()
-    for release in releases:
-        release.instantly_available = cacheadas.get((release.info_hash or '').lower(), False)
-        release.instant_check_at = agora
-
-    await sync_to_async(TorrentRelease.objects.bulk_update)(
-        releases, ['instantly_available', 'instant_check_at'])
-    return False
-
-
 async def _pergunta_ao_prowlarr(movie, user):
     """
     Uma consulta ao Prowlarr, do início ao fim, dentro de UM loop só.
@@ -274,10 +235,15 @@ def executa_busca(movie, user, filtros: dict | None = None) -> dict:
         if criada:
             novas += 1
 
-    melhores = list(TorrentRelease.objects.filter(movie=movie)
-                    .order_by('-quality_score')[:QUANTAS_CHECAR_NO_REALDEBRID])
-    cache_falhou = async_to_sync(_marca_cacheadas)(melhores, user)
+    # Confere na conta do Real-Debrid o que já está lá. Substitui a checagem
+    # de cache que o provedor desativou: a pergunta "este hash está no acervo
+    # do RD?" não tem mais resposta, a pergunta "está na MINHA conta?" tem.
+    # `sincroniza_filme` já chama `atualiza_resumo`.
+    cache_falhou = sincroniza_filme(movie, user)
 
+    # Sempre, e não só quando a sincronização falha: `sincroniza_filme` sai
+    # cedo quando o filme não tem cópia nenhuma, e aí a garantia de ordem
+    # abaixo — resumo antes da invalidação — deixaria de valer. É idempotente.
     atualiza_resumo(movie)
 
     # A invalidação vai por ÚLTIMO, e isso é conserto, não detalhe. A view

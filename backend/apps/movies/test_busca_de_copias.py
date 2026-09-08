@@ -241,6 +241,10 @@ def test_a_ficha_e_invalidada_depois_de_o_resumo_ser_recalculado(filme, usuario,
     dados velhos por uma hora.
     """
     ordem = []
+    monkeypatch.setattr('apps.movies.realdebrid_estado.mapa_da_conta',
+                        lambda user, refazer=False: {})
+    monkeypatch.setattr('apps.movies.realdebrid_estado.atualiza_resumo',
+                        lambda m: ordem.append('resumo'))
     monkeypatch.setattr('apps.movies.release_search.atualiza_resumo',
                         lambda m: ordem.append('resumo'))
     monkeypatch.setattr('apps.movies.release_search.CacheManager.invalidate_movie',
@@ -294,6 +298,8 @@ def test_o_cliente_do_prowlarr_vive_e_morre_no_mesmo_loop(filme, usuario, monkey
 
     monkeypatch.setattr('apps.integrations.prowlarr.ProwlarrClient.search_movie', anota_busca)
     monkeypatch.setattr('apps.integrations.prowlarr.ProwlarrClient.close', anota_fechamento)
+    monkeypatch.setattr('apps.movies.realdebrid_estado.mapa_da_conta',
+                        lambda user, refazer=False: {})
 
     release_search.executa_busca(filme, usuario, None)
 

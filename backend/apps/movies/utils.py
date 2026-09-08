@@ -92,9 +92,11 @@ def parse_quality_from_title(title: str) -> Dict[str, Any]:
     result['has_atmos'] = 'ATMOS' in title_upper
     result['has_dtsx'] = any(x in title_upper for x in ['DTS:X', 'DTS-X', 'DTSX'])
     result['has_truehd'] = any(x in title_upper for x in ['TRUEHD', 'TRUE-HD'])
-    result['has_dts_hd_ma'] = any(x in title_upper for x in [
-        'DTS-HD.MA', 'DTS.HD.MA', 'DTSHD.MA', 'DTS-HD-MA'
-    ])
+    # Os separadores variam: ponto, espaço, hífen, ou nada. A lista antiga só
+    # cobria as formas com PONTO, então "DTS-HD MA 5.1" — com espaço, que é
+    # como metade dos indexadores escreve — caía no `DTS` genérico logo abaixo
+    # e valia 15 pontos em vez de 25.
+    result['has_dts_hd_ma'] = bool(re.search(r'DTS[. _-]?HD[. _-]?MA', title_upper))
     
     # AUDIO CODEC
     if result['has_atmos']:
@@ -125,6 +127,10 @@ def parse_quality_from_title(title: str) -> Dict[str, Any]:
         result['audio_channels'] = ''
     
     # RELEASE GROUP (for trust scoring)
+    # Com default: era o único campo do dicionário que podia sair AUSENTE, e
+    # `parse_quality_from_title(t)['release_group']` levantava KeyError num
+    # título sem grupo.
+    result['release_group'] = ''
     group_match = re.search(r'-([A-Za-z0-9]+)(?:\[.*\])?$', title)
     if group_match:
         result['release_group'] = group_match.group(1)
