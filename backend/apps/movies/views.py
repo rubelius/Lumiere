@@ -535,7 +535,14 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
         segundo filme não custa nada.
         """
         movie = self.get_object()
+
+        # Só a leitura da conta, que é barata e vem guardada. A sondagem de
+        # cache — "este magnet toca agora?" — NÃO entra aqui: cada uma adiciona
+        # e remove um torrent na conta, o Real-Debrid limita a taxa, e as cinco
+        # melhores levam ~10 segundos em fila. Ela roda no fim da busca, em
+        # segundo plano, e a ficha lê o que ficou registrado.
         falhou = sincroniza_filme(movie, request.user)
+
         releases = (TorrentRelease.objects.filter(movie=movie)
                     .order_by('-quality_score', '-seeders'))
         return Response({

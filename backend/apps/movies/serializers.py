@@ -98,8 +98,8 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
     # Um estado só, calculado no modelo, em vez de deixar cada tela combinar
     # in_realdebrid + realdebrid_status do seu jeito.
     disponibilidade = serializers.ChoiceField(
-        choices=[TorrentRelease.PRONTA, TorrentRelease.BAIXANDO,
-                 TorrentRelease.AUSENTE],
+        choices=[TorrentRelease.PRONTA, TorrentRelease.INSTANTANEA,
+                 TorrentRelease.BAIXANDO, TorrentRelease.AUSENTE],
         read_only=True,
     )
     # Sem magnet não há o que enviar, e a maioria das cópias vindas da
@@ -119,6 +119,7 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
             'video_codec', 'audio_codec', 'has_atmos', 'has_dtsx',
             'audio_channels', 'release_group', 'seeders', 'leechers',
             'quality_score', 'video_score', 'audio_score', 'hdr_score',
+            'instantly_available', 'instant_check_at',
             'in_realdebrid', 'realdebrid_status',
             'realdebrid_progress', 'disponibilidade', 'pode_importar',
             'motivos_do_score', 'found_at'

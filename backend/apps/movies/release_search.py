@@ -24,6 +24,7 @@ from django.utils import timezone
 from apps.core.core_cache import CacheManager
 from apps.integrations.prowlarr import ProwlarrClient
 from apps.movies.models import TorrentRelease
+from apps.movies.realdebrid_cache import sonda_as_melhores
 from apps.movies.realdebrid_estado import sincroniza_filme
 from apps.movies.realdebrid_sync import atualiza_resumo
 from apps.movies.utils import (calculate_quality_score, parse_quality_from_title,
@@ -240,6 +241,13 @@ def executa_busca(movie, user, filtros: dict | None = None) -> dict:
     # do RD?" não tem mais resposta, a pergunta "está na MINHA conta?" tem.
     # `sincroniza_filme` já chama `atualiza_resumo`.
     cache_falhou = sincroniza_filme(movie, user)
+
+    # A sondagem de cache entra AQUI, e não na abertura da ficha: cada uma
+    # adiciona e remove um torrent na conta, o Real-Debrid limita a taxa
+    # (429 em addMagnet com cinco de uma vez), e a fila com pausa leva ~10
+    # segundos para as cinco melhores. Isso cabe numa task e não cabe num
+    # clique.
+    sonda_as_melhores(movie, user)
 
     # Sempre, e não só quando a sincronização falha: `sincroniza_filme` sai
     # cedo quando o filme não tem cópia nenhuma, e aí a garantia de ordem

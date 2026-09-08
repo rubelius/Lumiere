@@ -231,10 +231,11 @@ class TorrentRelease(models.Model):
     realdebrid_completed_at = models.DateTimeField(null=True, blank=True)
     realdebrid_links = models.JSONField(default=list, blank=True)
     
-    # Herança da checagem de cache que o Real-Debrid desativou
-    # (/torrents/instantAvailability responde 403 com error_code 37). Nada
-    # escreve nem lê este campo; fica pela migração que ele custaria, e para
-    # não perder o histórico de quando a pergunta ainda tinha resposta.
+    # "O acervo do Real-Debrid tem este arquivo, e importar seria instantâneo."
+    # A fonte mudou: era `/torrents/instantAvailability`, que o provedor
+    # desativou, e hoje é a sondagem de apps/movies/realdebrid_cache.py.
+    # `instant_check_at` diz quando foi a última resposta — sem isso, uma marca
+    # de meses atrás pareceria fresca.
     instantly_available = models.BooleanField(default=False)
     instant_check_at = models.DateTimeField(null=True, blank=True)
     
@@ -258,6 +259,7 @@ class TorrentRelease(models.Model):
     ESTADOS_MORTOS = ('error', 'magnet_error', 'virus', 'dead')
 
     PRONTA = 'pronta'
+    INSTANTANEA = 'instantanea'
     BAIXANDO = 'baixando'
     AUSENTE = 'ausente'
 
@@ -269,20 +271,30 @@ class TorrentRelease(models.Model):
         Duas flags — `in_realdebrid` e `realdebrid_status` — respondem
         perguntas diferentes, e cada tela combinava as suas por conta própria.
 
-        - `pronta`: está na conta e completa, toca agora.
-        - `baixando`: já foi enviada, mas o RD ainda está buscando.
-        - `ausente`: não está na conta; importar é um clique.
+        - `pronta`: está na conta e completa, com link. Toca agora.
+        - `instantanea`: não está na conta, mas o acervo do Real-Debrid tem o
+          arquivo — importar leva segundos.
+        - `baixando`: já foi enviada, e o Real-Debrid ainda está buscando.
+        - `ausente`: nem uma coisa nem outra. Importar pode demorar, ou nem
+          completar.
 
-        Havia um quarto, `instantanea`, para o hash que já morava no acervo do
-        Real-Debrid e importaria em segundos. Ele saiu porque a pergunta que o
-        preenchia — `/torrents/instantAvailability` — foi desativada pelo
-        provedor, e um estado que nada consegue afirmar é pior que estado
-        nenhum.
+        A diferença entre `pronta` e `instantanea` é de conta, não de espera; a
+        que separa as duas de `ausente` é a que importa na hora de escolher.
+
+        `instantanea` chegou a ser removido: vinha de
+        `/torrents/instantAvailability`, que o provedor desativou (403,
+        error_code 37). Voltou com outra fonte, em
+        apps/movies/realdebrid_cache.py — uma sondagem que adiciona o magnet,
+        observa se o Real-Debrid entrega os metadados na hora, e desfaz o que
+        criou. Medido: 2 segundos para responder, contra os 9 que o caso sem
+        resposta leva para desistir.
         """
         if self.in_realdebrid and self.realdebrid_status in self.ESTADOS_CONCLUIDOS:
             return self.PRONTA
         if self.in_realdebrid and self.realdebrid_status not in self.ESTADOS_MORTOS:
             return self.BAIXANDO
+        if self.instantly_available:
+            return self.INSTANTANEA
         return self.AUSENTE
 
     @property

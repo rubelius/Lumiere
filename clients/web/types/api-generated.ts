@@ -1015,11 +1015,12 @@ export interface components {
         };
         /**
          * @description * `pronta` - pronta
+         *     * `instantanea` - instantanea
          *     * `baixando` - baixando
          *     * `ausente` - ausente
          * @enum {string}
          */
-        DisponibilidadeEnum: "pronta" | "baixando" | "ausente";
+        DisponibilidadeEnum: "pronta" | "instantanea" | "baixando" | "ausente";
         /**
          * @description * `pending` - Pending
          *     * `searching` - Searching
@@ -1521,6 +1522,9 @@ export interface components {
             readonly video_score?: number;
             readonly audio_score?: number;
             readonly hdr_score?: number;
+            instantly_available?: boolean;
+            /** Format: date-time */
+            instant_check_at?: string | null;
             in_realdebrid?: boolean;
             realdebrid_status?: string;
             realdebrid_progress?: number;
@@ -1786,6 +1790,9 @@ export interface components {
             readonly video_score: number;
             readonly audio_score: number;
             readonly hdr_score: number;
+            instantly_available?: boolean;
+            /** Format: date-time */
+            instant_check_at?: string | null;
             in_realdebrid?: boolean;
             realdebrid_status?: string;
             realdebrid_progress?: number;

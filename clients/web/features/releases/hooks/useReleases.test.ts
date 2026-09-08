@@ -94,19 +94,19 @@ describe('rotuloDaCopia', () => {
   it('oferece importar o que não está na conta', () => {
     const r = rotuloDaCopia({ disponibilidade: 'ausente' });
     expect(r.podeImportar).toBe(true);
-    expect(r.texto).toBe('IMPORTAR');
+    expect(r.texto).toBe('PRECISA BAIXAR');
   });
 
   // O tipo gerado diz que `disponibilidade` sempre vem, mas uma resposta
   // guardada em cache de antes deste campo existir chega sem ele.
   it('trata a cópia sem estado como a menos otimista', () => {
     for (const d of [undefined, 'coisa-nova']) {
-      expect(rotuloDaCopia({ disponibilidade: d as never }).texto).toBe('IMPORTAR');
+      expect(rotuloDaCopia({ disponibilidade: d as never }).texto).toBe('PRECISA BAIXAR');
     }
   });
 
   it('dá uma cor a cada leitura', () => {
-    for (const d of ['pronta', 'baixando', 'ausente'] as const) {
+    for (const d of ['pronta', 'instantanea', 'baixando', 'ausente'] as const) {
       expect(CORES_DA_COPIA[rotuloDaCopia({ disponibilidade: d }).cor]).toBeDefined();
     }
   });
@@ -129,7 +129,7 @@ describe('rotuloDaCopia e o que dá para importar', () => {
     const r = rotuloDaCopia({ disponibilidade: 'ausente', pode_importar: false });
     expect(r.podeImportar).toBe(false);
     // O estado continua sendo anunciado: o que muda é só a oferta do botão.
-    expect(r.texto).toBe('IMPORTAR');
+    expect(r.texto).toBe('PRECISA BAIXAR');
   });
 
   it('respeita o backend também no estado ausente', () => {

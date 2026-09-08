@@ -131,6 +131,12 @@ const ROTULOS: Record<Disponibilidade, Rotulo> = {
     cor: 'pronta',
     podeImportar: false,
   },
+  instantanea: {
+    texto: 'TOCA NA HORA',
+    detalhe: 'O Real-Debrid já tem este arquivo no acervo — importar leva segundos.',
+    cor: 'pronta',
+    podeImportar: true,
+  },
   baixando: {
     texto: 'BAIXANDO',
     detalhe: 'Já foi enviada. O Real-Debrid ainda está buscando.',
@@ -138,10 +144,9 @@ const ROTULOS: Record<Disponibilidade, Rotulo> = {
     podeImportar: false,
   },
   ausente: {
-    texto: 'IMPORTAR',
-    detalhe: 'Não está na sua conta do Real-Debrid. Importar costuma ser instantâneo '
-      + 'quando o arquivo já está no acervo deles, e demorar quando não está — '
-      + 'não há mais como saber de antemão qual dos dois é.',
+    texto: 'PRECISA BAIXAR',
+    detalhe: 'O Real-Debrid não tem este arquivo no acervo: importar significa '
+      + 'esperar ele baixar, o que pode levar horas ou nem completar.',
     cor: 'ausente',
     podeImportar: true,
   },
@@ -177,10 +182,17 @@ export function explicaOScore(r: Pick<Release, 'quality_score' | 'motivos_do_sco
 /**
  * Como anunciar o estado de uma cópia.
  *
- * Três estados, e não quatro: havia um "IMPORTA NA HORA" para o hash que já
- * morava no acervo do Real-Debrid, e ele saiu porque a rota que o preenchia
- * foi desativada pelo provedor. Um estado que nada consegue afirmar é pior
- * que estado nenhum.
+ * Quatro estados, e a diferença entre eles é a que decide a escolha:
+ *
+ *   TOCA AGORA    já está na conta, com link. Aperta play.
+ *   TOCA NA HORA  o acervo do Real-Debrid tem o arquivo; importar leva segundos.
+ *   BAIXANDO      já foi enviada, e o Real-Debrid ainda está buscando.
+ *   IMPORTAR      nem uma coisa nem outra. Pode demorar, ou nem completar.
+ *
+ * `TOCA NA HORA` chegou a ser removido: vinha de instantAvailability, que o
+ * provedor desativou. Voltou com outra fonte — uma sondagem que adiciona o
+ * magnet, observa se o Real-Debrid entrega os metadados na hora, e desfaz o
+ * que criou.
  */
 // Partial e não Pick: uma resposta guardada em cache de antes destes campos
 // existirem chega sem eles, e o tipo gerado os dá como sempre presentes.
