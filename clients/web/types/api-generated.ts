@@ -141,7 +141,22 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description ViewSet para filmes - MOTOR HÍBRIDO DEFINITIVO (Trigramas + Força-Bruta) */
+        /**
+         * @description A ficha do filme, com a parte estável vinda do cache.
+         *
+         *     O cache guardava a ficha INTEIRA numa chave global `movie:<id>`, e a
+         *     ficha traz campos que dependem de quem pediu: `watch_state` e a ordem
+         *     de `similar_movies`, que despriorizada o que aquele usuário já viu.
+         *     Quem chegasse depois recebia a resposta montada para o primeiro —
+         *     verificado: a posição de 4242s de um usuário chegou ao player de outro,
+         *     que nunca tinha assistido nada.
+         *
+         *     Guardar só a parte estável, e recalcular a do usuário a cada pedido,
+         *     resolve sem depender de invalidação por padrão de chave (que existe no
+         *     CacheManager mas engole erro em silêncio). Medido nesta ficha: 45ms no
+         *     total, dos quais 31ms são os dois campos por usuário — o cache cobre os
+         *     14ms que sobram, e são justamente os que não mudam.
+         */
         get: operations["movies_retrieve"];
         put?: never;
         post?: never;
@@ -188,6 +203,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/{id}/realdebrid_state/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Confere na conta do Real-Debrid o estado das cópias deste filme. */
+        post: operations["movies_realdebrid_state_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/{id}/recommendations/": {
         parameters: {
             query?: never;
@@ -205,6 +237,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/{id}/search_status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description O que está acontecendo com a busca de cópias deste filme. */
+        get: operations["movies_search_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/{id}/search_torrents/": {
         parameters: {
             query?: never;
@@ -214,7 +263,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description ViewSet para filmes - MOTOR HÍBRIDO DEFINITIVO (Trigramas + Força-Bruta) */
+        /** @description Enfileira a busca de cópias e devolve o documento de estado. A busca leva de 40 a 100 segundos e não cabe numa requisição. */
         post: operations["movies_search_torrents_create"];
         delete?: never;
         options?: never;
@@ -966,12 +1015,11 @@ export interface components {
         };
         /**
          * @description * `pronta` - pronta
-         *     * `instantanea` - instantanea
          *     * `baixando` - baixando
          *     * `ausente` - ausente
          * @enum {string}
          */
-        DisponibilidadeEnum: "pronta" | "instantanea" | "baixando" | "ausente";
+        DisponibilidadeEnum: "pronta" | "baixando" | "ausente";
         /**
          * @description * `pending` - Pending
          *     * `searching` - Searching
@@ -1473,12 +1521,14 @@ export interface components {
             readonly video_score?: number;
             readonly audio_score?: number;
             readonly hdr_score?: number;
-            instantly_available?: boolean;
             in_realdebrid?: boolean;
             realdebrid_status?: string;
             realdebrid_progress?: number;
             readonly disponibilidade?: components["schemas"]["DisponibilidadeEnum"];
             readonly pode_importar?: boolean;
+            readonly motivos_do_score?: {
+                [key: string]: unknown;
+            }[];
             /** Format: date-time */
             readonly found_at?: string;
         };
@@ -1736,12 +1786,14 @@ export interface components {
             readonly video_score: number;
             readonly audio_score: number;
             readonly hdr_score: number;
-            instantly_available?: boolean;
             in_realdebrid?: boolean;
             realdebrid_status?: string;
             realdebrid_progress?: number;
             readonly disponibilidade: components["schemas"]["DisponibilidadeEnum"];
             readonly pode_importar: boolean;
+            readonly motivos_do_score: {
+                [key: string]: unknown;
+            }[];
             /** Format: date-time */
             readonly found_at: string;
         };
@@ -2085,6 +2137,36 @@ export interface operations {
             };
         };
     };
+    movies_realdebrid_state_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Movie"];
+                "application/x-www-form-urlencoded": components["schemas"]["Movie"];
+                "multipart/form-data": components["schemas"]["Movie"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     movies_recommendations_retrieve: {
         parameters: {
             query?: never;
@@ -2103,6 +2185,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Movie"];
+                };
+            };
+        };
+    };
+    movies_search_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -2130,7 +2236,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Movie"];
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -2391,7 +2499,6 @@ export interface operations {
             query?: {
                 has_atmos?: boolean;
                 in_realdebrid?: boolean;
-                instantly_available?: boolean;
                 is_remux?: boolean;
                 movie?: string;
                 /** @description Qual campo usar ao ordenar os resultados. */

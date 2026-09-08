@@ -131,12 +131,6 @@ const ROTULOS: Record<Disponibilidade, Rotulo> = {
     cor: 'pronta',
     podeImportar: false,
   },
-  instantanea: {
-    texto: 'IMPORTA NA HORA',
-    detalhe: 'O Real-Debrid já tem este arquivo; importar leva segundos.',
-    cor: 'espera',
-    podeImportar: true,
-  },
   baixando: {
     texto: 'BAIXANDO',
     detalhe: 'Já foi enviada. O Real-Debrid ainda está buscando.',
@@ -144,8 +138,10 @@ const ROTULOS: Record<Disponibilidade, Rotulo> = {
     podeImportar: false,
   },
   ausente: {
-    texto: 'PRECISA BAIXAR',
-    detalhe: 'Ninguém pediu esta cópia ainda; o Real-Debrid vai ter que buscá-la.',
+    texto: 'IMPORTAR',
+    detalhe: 'Não está na sua conta do Real-Debrid. Importar costuma ser instantâneo '
+      + 'quando o arquivo já está no acervo deles, e demorar quando não está — '
+      + 'não há mais como saber de antemão qual dos dois é.',
     cor: 'ausente',
     podeImportar: true,
   },
@@ -159,13 +155,32 @@ export const CORES_DA_COPIA: Record<Rotulo['cor'], { texto: string; borda: strin
 };
 
 /**
+ * A conta do score, em texto, para o título do número na tabela.
+ *
+ * Um REMUX 2160p somando 57 parece defeito e quase nunca é: 30 de vídeo já é o
+ * teto, e o que falta costuma estar no áudio sem Atmos, na ausência de Dolby
+ * Vision e num torrent sem semeadores. Sem a conta à vista, a única leitura
+ * possível é desconfiar do número.
+ */
+export function explicaOScore(r: Pick<Release, 'quality_score' | 'motivos_do_score'>): string {
+  const motivos = r.motivos_do_score ?? [];
+  if (motivos.length === 0) {
+    return `Nota ${r.quality_score ?? 0} de 100.`;
+  }
+  const linhas = motivos.map((m) => {
+    const item = m as { rotulo?: string; pontos?: number; teto?: number; motivo?: string };
+    return `${item.rotulo}: ${item.pontos}/${item.teto} — ${item.motivo}`;
+  });
+  return [`Nota ${r.quality_score ?? 0} de 100`, ...linhas].join('\n');
+}
+
+/**
  * Como anunciar o estado de uma cópia.
  *
- * A tabela dizia "toca agora" para tudo que tinha `instantly_available`, mas
- * essa flag só conta que o hash está no acervo do Real-Debrid — sem importar
- * para a conta, não existe link nenhum para reproduzir. São estados
- * diferentes, e prometer o primeiro no lugar do segundo é a diferença entre
- * apertar play e descobrir que não há nada do outro lado.
+ * Três estados, e não quatro: havia um "IMPORTA NA HORA" para o hash que já
+ * morava no acervo do Real-Debrid, e ele saiu porque a rota que o preenchia
+ * foi desativada pelo provedor. Um estado que nada consegue afirmar é pior
+ * que estado nenhum.
  */
 // Partial e não Pick: uma resposta guardada em cache de antes destes campos
 // existirem chega sem eles, e o tipo gerado os dá como sempre presentes.
@@ -178,6 +193,28 @@ export function rotuloDaCopia(
   // saberia dar erro.
   if (r.pode_importar === false) return { ...rotulo, podeImportar: false };
   return rotulo;
+}
+
+/**
+ * Confere na conta do Real-Debrid o que já está lá, ao abrir a ficha.
+ *
+ * Substitui a checagem de cache que o provedor desativou. A varredura da conta
+ * fica guardada alguns minutos no servidor, então abrir o segundo filme não
+ * custa nada.
+ */
+export function useEstadoNoRealDebrid(movieId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      http.post<{ consulta_falhou: boolean; releases: Release[] }>(
+        `/api/movies/${movieId}/realdebrid_state/`),
+    onSuccess: () => {
+      if (movieId) {
+        queryClient.invalidateQueries({ queryKey: movieKeys.detail(movieId) });
+      }
+    },
+  });
 }
 
 // A partir daqui, "enfileirada" sem ninguém ter pegado vira notícia: é o

@@ -299,6 +299,77 @@ class TorrentRelease(models.Model):
             return False
         return self.disponibilidade == self.AUSENTE
 
+    # De onde vem cada ponto, e quanto vale no máximo. A tela precisa poder
+    # responder "por que 57 e não 90?" sem que ninguém abra o código.
+    TETOS_DO_SCORE = (
+        ('video', 'Vídeo', 30),
+        ('audio', 'Áudio', 40),
+        ('hdr', 'HDR', 15),
+        ('release', 'Grupo', 10),
+        ('seeds', 'Semeadores', 5),
+    )
+
+    @property
+    def motivos_do_score(self) -> list:
+        """
+        A conta do score, parcela a parcela.
+
+        Um REMUX 2160p somando 57 parece defeito e quase nunca é: são 30 de
+        vídeo, que é o teto, e o que falta costuma estar no áudio sem Atmos, na
+        ausência de Dolby Vision e num torrent sem semeadores. Sem a conta à
+        vista, a única leitura possível é desconfiar do número.
+        """
+        motivos = {
+            'video': self._motivo_do_video(),
+            'audio': self._motivo_do_audio(),
+            'hdr': self._motivo_do_hdr(),
+            'release': self._motivo_do_grupo(),
+            'seeds': (f'{self.seeders} semeando' if self.seeders
+                      else 'ninguém semeando'),
+        }
+        return [
+            {
+                'chave': chave,
+                'rotulo': rotulo,
+                'pontos': getattr(self, f'{chave}_score', 0) or 0,
+                'teto': teto,
+                'motivo': motivos[chave],
+            }
+            for chave, rotulo, teto in self.TETOS_DO_SCORE
+        ]
+
+    def _motivo_do_video(self) -> str:
+        if self.is_remux:
+            return 'remux, sem recompressão'
+        if self.is_4k:
+            return '2160p recomprimido'
+        return self.resolution or 'resolução não identificada'
+
+    def _motivo_do_audio(self) -> str:
+        if self.has_atmos:
+            faixa = 'Dolby Atmos'
+        elif self.has_dtsx:
+            faixa = 'DTS:X'
+        elif self.audio_codec:
+            faixa = self.audio_codec
+        else:
+            faixa = 'áudio não identificado no nome'
+        canais = f', {self.audio_channels}' if self.audio_channels else ''
+        return f'{faixa}{canais}'
+
+    def _motivo_do_hdr(self) -> str:
+        if self.has_dolby_vision:
+            return 'Dolby Vision'
+        if self.has_hdr10_plus:
+            return 'HDR10+'
+        if self.has_hdr:
+            return 'HDR10'
+        return 'sem HDR'
+
+    def _motivo_do_grupo(self) -> str:
+        return self.release_group or 'grupo não identificado no nome'
+
+
     def __str__(self):
         return f'{self.title} [{self.quality_score}/100]'
     

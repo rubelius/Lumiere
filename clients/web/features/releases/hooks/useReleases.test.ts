@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { APIError, normalizaErro } from '@/services/http/errors';
-import { CORES_DA_COPIA, especificacaoDaCopia, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, tamanhoLegivel, useRelogio } from './useReleases';
+import { CORES_DA_COPIA, especificacaoDaCopia, explicaOScore, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, tamanhoLegivel, useRelogio } from './useReleases';
 import type { EstadoDaBusca } from './useReleases';
 
 function erroDaApi(corpo: unknown, status: number) {
@@ -75,9 +75,8 @@ describe('tamanhoLegivel', () => {
 describe('rotuloDaCopia', () => {
   // O defeito de origem: `instantly_available` virava "TOCA AGORA", mas essa
   // flag só diz que o Real-Debrid tem o arquivo. Sem importar, não há link.
-  it('não promete reprodução para o que ainda não foi importado', () => {
-    const r = rotuloDaCopia({ disponibilidade: 'instantanea' });
-    expect(r.texto).toBe('IMPORTA NA HORA');
+  it('não promete reprodução para o que não está na conta', () => {
+    const r = rotuloDaCopia({ disponibilidade: 'ausente' });
     expect(r.texto).not.toContain('TOCA');
     expect(r.podeImportar).toBe(true);
   });
@@ -92,22 +91,22 @@ describe('rotuloDaCopia', () => {
     expect(rotuloDaCopia({ disponibilidade: 'baixando' }).podeImportar).toBe(false);
   });
 
-  it('oferece importar o que ninguém pediu ainda', () => {
+  it('oferece importar o que não está na conta', () => {
     const r = rotuloDaCopia({ disponibilidade: 'ausente' });
     expect(r.podeImportar).toBe(true);
-    expect(r.texto).toBe('PRECISA BAIXAR');
+    expect(r.texto).toBe('IMPORTAR');
   });
 
   // O tipo gerado diz que `disponibilidade` sempre vem, mas uma resposta
   // guardada em cache de antes deste campo existir chega sem ele.
   it('trata a cópia sem estado como a menos otimista', () => {
     for (const d of [undefined, 'coisa-nova']) {
-      expect(rotuloDaCopia({ disponibilidade: d as never }).texto).toBe('PRECISA BAIXAR');
+      expect(rotuloDaCopia({ disponibilidade: d as never }).texto).toBe('IMPORTAR');
     }
   });
 
   it('dá uma cor a cada leitura', () => {
-    for (const d of ['pronta', 'instantanea', 'baixando', 'ausente'] as const) {
+    for (const d of ['pronta', 'baixando', 'ausente'] as const) {
       expect(CORES_DA_COPIA[rotuloDaCopia({ disponibilidade: d }).cor]).toBeDefined();
     }
   });
@@ -127,14 +126,19 @@ describe('motivoDaFalha com texto próprio', () => {
 
 describe('rotuloDaCopia e o que dá para importar', () => {
   it('não oferece importar a cópia que o backend disse não ter como', () => {
-    const r = rotuloDaCopia({ disponibilidade: 'instantanea', pode_importar: false });
+    const r = rotuloDaCopia({ disponibilidade: 'ausente', pode_importar: false });
     expect(r.podeImportar).toBe(false);
     // O estado continua sendo anunciado: o que muda é só a oferta do botão.
-    expect(r.texto).toBe('IMPORTA NA HORA');
+    expect(r.texto).toBe('IMPORTAR');
   });
 
   it('respeita o backend também no estado ausente', () => {
     expect(rotuloDaCopia({ disponibilidade: 'ausente', pode_importar: false }).podeImportar).toBe(false);
+  });
+
+  it('não oferece importar o que já está na conta', () => {
+    expect(rotuloDaCopia({ disponibilidade: 'pronta' }).podeImportar).toBe(false);
+    expect(rotuloDaCopia({ disponibilidade: 'baixando' }).podeImportar).toBe(false);
   });
 
   it('sem o campo, decide pelo estado — resposta antiga não esconde o botão', () => {
@@ -254,5 +258,31 @@ describe('useRelogio', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('explicaOScore', () => {
+  // "Por que 57 e não 90?" era impossível de responder olhando a tela: o
+  // número aparecia sozinho, sem dizer sequer que era uma nota.
+  it('mostra a conta parcela a parcela', () => {
+    const texto = explicaOScore({
+      quality_score: 76,
+      motivos_do_score: [
+        { rotulo: 'Vídeo', pontos: 30, teto: 30, motivo: 'remux, sem recompressão' },
+        { rotulo: 'Semeadores', pontos: 0, teto: 5, motivo: 'ninguém semeando' },
+      ],
+    } as never);
+
+    expect(texto).toContain('Nota 76 de 100');
+    expect(texto).toContain('Vídeo: 30/30 — remux, sem recompressão');
+    expect(texto).toContain('Semeadores: 0/5 — ninguém semeando');
+  });
+
+  it('sem os motivos, ainda diz que o número é uma nota', () => {
+    expect(explicaOScore({ quality_score: 42 } as never)).toBe('Nota 42 de 100.');
+  });
+
+  it('nota ausente não vira "undefined" na tela', () => {
+    expect(explicaOScore({} as never)).toBe('Nota 0 de 100.');
   });
 });

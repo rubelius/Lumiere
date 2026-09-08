@@ -5,6 +5,9 @@ from .models import Movie, TorrentRelease, WatchHistory
 from .utils import calculate_quality_score, parse_quality_from_title
 
 
+MAX_COPIAS_NA_FICHA = 60
+
+
 def campos_da_listagem() -> list:
     """
     Colunas que a listagem precisa carregar do banco.
@@ -103,6 +106,10 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
     # sincronização com o Real-Debrid não tem. O cliente não precisa ver o
     # magnet para saber disso.
     pode_importar = serializers.BooleanField(read_only=True)
+    # A conta do score, parcela a parcela. Sem ela, um REMUX 2160p somando 57
+    # só pode ser lido como defeito — e quase nunca é.
+    motivos_do_score = serializers.ListField(
+        child=serializers.DictField(), read_only=True)
 
     class Meta:
         model = TorrentRelease
@@ -113,7 +120,8 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
             'audio_channels', 'release_group', 'seeders', 'leechers',
             'quality_score', 'video_score', 'audio_score', 'hdr_score',
             'in_realdebrid', 'realdebrid_status',
-            'realdebrid_progress', 'disponibilidade', 'pode_importar', 'found_at'
+            'realdebrid_progress', 'disponibilidade', 'pode_importar',
+            'motivos_do_score', 'found_at'
         ]
         read_only_fields = [
             'quality_score', 'video_score', 'audio_score', 
@@ -220,9 +228,13 @@ class MovieDetailSerializer(serializers.ModelSerializer):
         Cacheada no Real-Debrid desempata: entre duas cópias de nota
         parecida, a que toca agora vale mais que a que exigiria baixar.
         """
+        # Sem corte em cinco. A caixa da aba 03 rola, e mostrar só as cinco
+        # melhores fazia a tela dizer "05 LOCALIZADAS" para um filme com 26
+        # cópias. O teto existe só para o payload não crescer sem limite num
+        # filme muito procurado — 60 é folga larga sobre o maior caso medido.
         melhores = (
             obj.torrent_releases
-            .order_by('-in_realdebrid', '-quality_score', '-seeders')[:5]
+            .order_by('-in_realdebrid', '-quality_score', '-seeders')[:MAX_COPIAS_NA_FICHA]
         )
         return TorrentReleaseSerializer(melhores, many=True).data
     

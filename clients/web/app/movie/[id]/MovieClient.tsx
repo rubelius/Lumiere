@@ -1,8 +1,8 @@
 'use client'; 
-import { useEffect, useState } from "react"; 
+import { useEffect, useRef, useState } from "react"; 
 import { useQueryClient } from '@tanstack/react-query';
 import { movieKeys } from '@/features/movies/hooks/useMovies';
-import { CORES_DA_COPIA, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useEstadoDaBusca, useImportarRelease, useRelogio, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
+import { CORES_DA_COPIA, explicaOScore, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useEstadoDaBusca, useEstadoNoRealDebrid, useImportarRelease, useRelogio, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
 import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion"; 
@@ -125,6 +125,18 @@ export default function MovieClient() {
   const [erroDaBusca, setErroDaBusca] = useState('');
 
   const importar = useImportarRelease();
+  const estadoNoRD = useEstadoNoRealDebrid(movie.id as string);
+
+  // Uma vez por abertura de ficha: pergunta ao Real-Debrid o que da lista ele
+  // já tem. Substitui a checagem de cache que o provedor desativou — a conta
+  // é a única fonte que restou, e a varredura fica guardada no servidor.
+  const jaPerguntou = useRef(false);
+  useEffect(() => {
+    if (jaPerguntou.current || !movie.id) return;
+    jaPerguntou.current = true;
+    estadoNoRD.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movie.id]);
 
   useEffect(() => {
     if (!buscar.isError) return setErroDaBusca('');
@@ -509,17 +521,29 @@ export default function MovieClient() {
                       )}
 
                       {releases.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid rgba(86,84,80,0.3)', backgroundColor: 'var(--void)', overflowX: 'auto' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid rgba(86,84,80,0.3)', backgroundColor: 'var(--void)', overflowX: 'auto', maxHeight: 520, overflowY: 'auto' }}>
                           {releases.map((release, i) => {
                             const specs = especificacaoDaCopia(release);
                             const rotulo = rotuloDaCopia(release);
                             const importandoEsta = importar.isPending && importar.variables === release.id;
                             return (
-                              <div key={release.id} style={{ display: 'grid', gridTemplateColumns: '64px minmax(220px, 1fr) 120px 96px 150px', alignItems: 'center', padding: '16px', borderBottom: i !== releases.length - 1 ? '1px solid rgba(86,84,80,0.3)' : 'none', gap: 12 }}>
-                                {/* A nota que o acervo já calcula, e pela qual
-                                    a lista vem ordenada. */}
-                                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '15px', color: 'var(--gold)', textAlign: 'center' }}>
-                                  {release.quality_score ?? '--'}
+                              <div key={release.id} style={{ display: 'grid', gridTemplateColumns: '76px minmax(200px, 1fr) 92px 88px 190px', alignItems: 'center', padding: '16px', borderBottom: i !== releases.length - 1 ? '1px solid rgba(86,84,80,0.3)' : 'none', gap: 12 }}>
+                                {/* O número sozinho não se explicava: nada dizia
+                                    que era nota, nem de quanto, nem por quê. O
+                                    título traz a conta parcela a parcela — é a
+                                    diferença entre desconfiar de um 57 e
+                                    entender que 30 de vídeo já é o teto. */}
+                                <div
+                                  title={explicaOScore(release)}
+                                  style={{ textAlign: 'center', cursor: 'help' }}
+                                >
+                                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '17px', color: 'var(--gold)', lineHeight: 1 }}>
+                                    {release.quality_score ?? '--'}
+                                    <span style={{ fontSize: '9px', color: 'var(--m3)' }}>/100</span>
+                                  </div>
+                                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '7px', color: 'var(--m3)', letterSpacing: '0.18em', marginTop: 4 }}>
+                                    NOTA
+                                  </div>
                                 </div>
 
                                 <div style={{ minWidth: 0 }}>
