@@ -86,6 +86,11 @@ class ProwlarrClient:
         # ProwlarrIndisponivel. O tempo é do indexador mais lento, não nosso:
         # "Generic Torznab" sozinho responde em 40s; os outros oito somados
         # levam menos de 2.
+        # As consultas que falharam na última busca. `search_movie` só levanta
+        # quando TODAS caem; a falha PARCIAL vira um logger.warning e o
+        # resultado volta menor, sem ninguém notar. Guardar aqui é o que
+        # permite a tela dizer "o que está abaixo pode não ser tudo".
+        self.consultas_falhas: list[str] = []
         self.client = httpx.AsyncClient(
             timeout=httpx.Timeout(SEGUNDOS_DE_ESPERA, connect=10.0),
             headers={'X-Api-Key': api_key}
@@ -116,6 +121,7 @@ class ProwlarrClient:
         if categories is None:
             categories = [2000]  # Filmes
 
+        self.consultas_falhas = []
         consultas = consultas_para(title, original_title, year)
         if not consultas:
             return []
@@ -140,6 +146,7 @@ class ProwlarrClient:
         if falhas and len(falhas) == len(consultas):
             raise falhas[0][1]
         for consulta, erro in falhas:
+            self.consultas_falhas.append(f'{consulta}: {erro}')
             logger.warning('Busca por %r falhou: %s', consulta, erro)
 
         return self._parse_results(self._sem_repetidos(crus), imdb_id)

@@ -248,7 +248,7 @@ def test_cache_desativado_no_rd_nao_derruba_a_busca(cliente, copia, monkeypatch)
     estourar 500 em cima de uma busca que funcionou.
     """
     from apps.integrations.realdebrid import ConsultaDeCacheDesativada
-    from apps.movies import views
+    from apps.movies import release_search
 
     async def recusa(self, hashes):
         raise ConsultaDeCacheDesativada('o provedor removeu a rota')
@@ -257,6 +257,6 @@ def test_cache_desativado_no_rd_nao_derruba_a_busca(cliente, copia, monkeypatch)
         'apps.integrations.realdebrid.RealDebridClient.check_instant_availability', recusa)
 
     falhou = __import__('asgiref.sync', fromlist=['async_to_sync']).async_to_sync(
-        views._marca_cacheadas)([copia], cliente.handler._force_user)
+        release_search._marca_cacheadas)([copia], cliente.handler._force_user)
 
     assert falhou is True, 'a tela precisa saber que a coluna está sem resposta'

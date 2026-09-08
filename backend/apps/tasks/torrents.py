@@ -1,135 +1,60 @@
 import asyncio
 import logging
 
-from apps.integrations.prowlarr import ProwlarrClient, ProwlarrIndisponivel
 from apps.movies.models import Movie, TorrentRelease
-from apps.movies.utils import passa_no_filtro, calculate_quality_score, parse_quality_from_title
 from celery import shared_task
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3)
+@shared_task(bind=True, max_retries=0)
 def search_torrents_for_movie(self, movie_id: str, user_id: str, filters: dict = None):
     """
-    Busca torrents para um filme específico
-    
-    Args:
-        movie_id: UUID do filme
-        user_id: UUID do usuário (para pegar credenciais Prowlarr)
-        filters: Dict com min_resolution, prefer_remux, etc.
-    
-    Returns:
-        Dict com total_found, new_releases
+    Procura cópias de um filme e registra o desfecho onde a tela consegue ler.
+
+    O trabalho todo mora em apps/movies/release_search.py. Esta task existe
+    para tirá-lo do caminho da requisição — a busca leva de 40 a 100 segundos —
+    e para transformar qualquer falha num documento legível.
+
+    Antes havia aqui uma segunda cópia da lógica da view, já divergida: sem a
+    checagem de cache no Real-Debrid, sem recalcular o resumo do filme, sem
+    invalidar a ficha, e com um `movie.save()` que reescrevia a linha inteira.
+
+    `max_retries=0` de propósito. Repetir em 60s e 120s enquanto uma pessoa
+    olha o botão é prometer um progresso que ela não vê; e a versão anterior
+    já se recusava a repetir ProwlarrIndisponivel, com comentário dizendo
+    exatamente isso. Agora vale para toda falha: o erro chega à tela, e quem
+    decide tentar de novo é quem está olhando.
     """
     from django.contrib.auth import get_user_model
-    User = get_user_model()
-    
+    from django.core.exceptions import ObjectDoesNotExist
+
+    from apps.movies.release_search import (executa_busca, grava_conclusao,
+                                            grava_erro, marca_buscando)
+
     try:
         movie = Movie.objects.get(id=movie_id)
-        user = User.objects.get(id=user_id)
-        
-        if not user.prowlarr_url or not user.prowlarr_api_key:
-            logger.error(f"User {user_id} has no Prowlarr config")
-            return {'error': 'Prowlarr not configured'}
-        
-        # Default filters
-        if filters is None:
-            filters = {}
-        
-        min_resolution = filters.get('min_resolution', '1080p')
-        prefer_remux = filters.get('prefer_remux', False)
-        require_advanced_audio = filters.get('require_advanced_audio', False)
-        min_seeders = filters.get('min_seeders', 5)
-        
-        # Search via Prowlarr
-        async def search_async():
-            client = ProwlarrClient(user.prowlarr_url, user.prowlarr_api_key)
-            try:
-                results = await client.search_movie(
-                    title=movie.title,
-                    year=movie.year,
-                    imdb_id=movie.imdb_id,
-                    original_title=movie.original_title
-                )
-                return results
-            finally:
-                await client.close()
-        
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            prowlarr_results = loop.run_until_complete(search_async())
-        except ProwlarrIndisponivel as e:
-            # Erro de integração não se resolve tentando de novo: chave
-            # errada continua errada na terceira tentativa. Devolver o motivo
-            # é mais útil que três retries e um FAILURE sem explicação.
-            logger.warning('Busca de releases indisponível: %s', e)
-            return {'error': str(e), 'retryable': False}
-        finally:
-            loop.close()
-        
-        # Process and save releases
-        new_count = 0
-        total_count = 0
-        
-        for result in prowlarr_results:
-            total_count += 1
-            
-            # Parse quality
-            quality_data = parse_quality_from_title(result['title'])
-            result.update(quality_data)
-            
-            # Calculate scores
-            scores = calculate_quality_score(result)
-            result.update(scores)
-            
-            # Filtro compartilhado com a view. Eram duas cópias, e a da
-            # view tinha perdido o critério de resolução pelo caminho.
-            if not passa_no_filtro(result, {
-                'min_seeders': min_seeders,
-                'prefer_remux': prefer_remux,
-                'require_advanced_audio': require_advanced_audio,
-                'min_resolution': min_resolution,
-            }):
-                continue
-            
-            # Create or update release
-            release, created = TorrentRelease.objects.update_or_create(
-                info_hash=result['info_hash'],
-                defaults={
-                    'movie': movie,
-                    **result
-                }
-            )
-            
-            if created:
-                new_count += 1
-        
-        # Update movie availability
-        best_release = movie.torrent_releases.order_by('-quality_score').first()
-        if best_release:
-            movie.current_quality_score = best_release.quality_score
-            movie.save()
-        
-        logger.info(f"Found {total_count} torrents for {movie.title}, {new_count} new")
-        
-        return {
-            'movie_id': str(movie_id),
-            'total_found': total_count,
-            'new_releases': new_count,
-            'best_quality_score': best_release.quality_score if best_release else 0
-        }
-    
-    except Movie.DoesNotExist:
-        logger.error(f"Movie {movie_id} not found")
-        return {'error': 'Movie not found'}
-    
+        user = get_user_model().objects.get(id=user_id)
+    except (Movie.DoesNotExist, ObjectDoesNotExist) as e:
+        # Registro apagado entre o clique e a execução. Sem gravar o erro, a
+        # chave de andamento ficaria cinco minutos e a tela diria "na fila"
+        # para uma busca que nunca vai acontecer.
+        grava_erro(str(movie_id), f'A busca não pôde começar: {e}')
+        return {'error': str(e)}
+
+    marca_buscando(str(movie_id))
+
+    try:
+        resultado = executa_busca(movie, user, filters)
     except Exception as e:
-        logger.error(f"Error searching torrents: {e}")
-        # Retry with exponential backoff
-        raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+        logger.warning('Busca de cópias falhou para %s: %s', movie_id, e)
+        grava_erro(str(movie_id), str(e))
+        return {'error': str(e)}
+
+    grava_conclusao(str(movie_id), resultado)
+    return resultado
+
 
 
 @shared_task

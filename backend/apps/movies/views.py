@@ -21,12 +21,10 @@ from asgiref.sync import async_to_sync, sync_to_async
 
 from apps.core.core_cache import CacheManager
 from apps.core.throttling import ExpensiveOperationThrottle
-from apps.integrations.prowlarr import ProwlarrClient, ProwlarrIndisponivel
 from apps.integrations.realdebrid import (RealDebridClient,
                                              chave_do_usuario)
 from apps.movies.playback import resolve_playback
 from apps.movies.subtitle_service import busca_legendas, obtem_vtt
-from apps.movies.utils import calculate_quality_score, parse_quality_from_title
 from apps.ml.models import MovieSimilarity
 from apps.ml.similarity import (agenda_retreino_do_gosto, diversifica,
                                  recomenda_para)
@@ -34,8 +32,10 @@ from apps.ml.similarity import (agenda_retreino_do_gosto, diversifica,
 from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
 from .realdebrid_sync import atualiza_resumo
+from .release_search import (estado_da_busca, libera, marca_enfileirada,
+                             normaliza_filtros)
+from apps.tasks.torrents import search_torrents_for_movie
 from .paises import origens_distintas
-from .utils import passa_no_filtro
 from .serializers import (
     ArchiveStatsSerializer,
     campos_da_listagem,
@@ -86,43 +86,6 @@ class MarcaAssistidos:
         serializer.context['assistidos'] = ids_assistidos(
             getattr(self.request, 'user', None), filmes)
         return serializer
-
-
-async def _marca_cacheadas(releases, user) -> bool:
-    """
-    Pergunta ao Real-Debrid quais destas cópias já estão cacheadas e grava.
-
-    Devolve True quando a consulta NÃO pôde ser feita. Quem chama precisa
-    dessa distinção: "conferi e nenhuma está pronta" e "não consegui
-    conferir" desenham telas diferentes, e tratá-las igual faria o acervo
-    parecer offline por causa de um blip de rede.
-    """
-    from apps.integrations.realdebrid import (RealDebridClient,
-                                              RealDebridIndisponivel,
-                                              chave_do_usuario)
-
-    chave = chave_do_usuario(user)
-    hashes = [r.info_hash for r in releases if r.info_hash]
-    if not (chave and hashes):
-        return False
-
-    cliente = RealDebridClient(chave)
-    try:
-        cacheadas = await cliente.check_instant_availability(hashes)
-    except RealDebridIndisponivel as e:
-        logger.warning('Não deu para checar o cache do Real-Debrid: %s', e)
-        return True
-    finally:
-        await cliente.close()
-
-    agora = timezone.now()
-    for release in releases:
-        release.instantly_available = cacheadas.get((release.info_hash or '').lower(), False)
-        release.instant_check_at = agora
-
-    await sync_to_async(TorrentRelease.objects.bulk_update)(
-        releases, ['instantly_available', 'instant_check_at'])
-    return False
 
 
 class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
@@ -505,95 +468,71 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
         } for sim in similarities]
         return Response({'based_on': MovieListSerializer(movie).data, 'recommendations': recommendations})
     
+    @extend_schema(
+        responses=OpenApiTypes.OBJECT,
+        description=(
+            'Enfileira a busca de cópias e devolve o documento de estado. '
+            'A busca leva de 40 a 100 segundos e não cabe numa requisição.'
+        ),
+    )
     @action(detail=True, methods=['post'], throttle_classes=[ExpensiveOperationThrottle])
     def search_torrents(self, request, pk=None):
-        # Ação síncrona: o dispatch desta ViewSet é síncrono (list/retrieve
-        # são sync), então uma action `async def` devolveria a corrotina sem
-        # ninguém aguardá-la e o DRF estoura com "Expected a Response".
-        # O corpo segue assíncrono, executado por async_to_sync.
+        """
+        Toca a campainha. Quem trabalha é o worker.
 
-        async def _executar():
-            movie = await sync_to_async(self.get_object)()
-            user = request.user
-            if not user.prowlarr_url or not user.prowlarr_api_key:
-                return Response({'error': 'O Prowlarr não está configurado. Ajuste em Configurações.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-            min_resolution = request.data.get('min_resolution', '1080p')
-            prefer_remux = request.data.get('prefer_remux', False)
-            require_advanced_audio = request.data.get('require_advanced_audio', False)
-            min_seeders = int(request.data.get('min_seeders', 5))
-        
-            client = ProwlarrClient(user.prowlarr_url, user.prowlarr_api_key)
-            try:
-                prowlarr_results = await client.search_movie(
-                    title=movie.title, year=movie.year, imdb_id=movie.imdb_id,
-                    original_title=movie.original_title)
-            except ProwlarrIndisponivel as e:
-                # 502 e não 200 com lista vazia: "não achei nada" e "a
-                # integração está quebrada" são respostas diferentes, e a tela
-                # precisa poder dizer qual das duas aconteceu.
-                return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
-            finally:
-                await client.close()
-        
-            created_releases = []
-            for result in prowlarr_results:
-                quality_data = parse_quality_from_title(result['title'])
-                result.update(quality_data)
-                scores = calculate_quality_score(result)
-                result.update(scores)
-            
-                # Filtro compartilhado com a task. Esta cópia lia
-                # min_resolution do pedido e nunca o aplicava: releases abaixo
-                # do piso eram gravadas e devolvidas assim mesmo.
-                if not passa_no_filtro(result, {
-                    'min_seeders': min_seeders,
-                    'prefer_remux': prefer_remux,
-                    'require_advanced_audio': require_advanced_audio,
-                    'min_resolution': min_resolution,
-                }):
-                    continue
-            
-                release, created = await sync_to_async(TorrentRelease.objects.update_or_create)(
-                    info_hash=result['info_hash'], defaults={'movie': movie, **result}
-                )
-                if created:
-                    created_releases.append(release)
-                
-            await sync_to_async(CacheManager.invalidate_movie)(str(movie.id))
+        Era síncrona e prendia a requisição de 40 a 100 segundos — medido
+        contra o Prowlarr real. O gargalo é um indexador só, que agrega os
+        indexadores do Jackett; os outros oito somados respondem em menos de
+        dois segundos. Nenhum ajuste nosso encurta isso, então a busca sai do
+        caminho do pedido.
+        """
+        movie = self.get_object()
+        user = request.user
 
-            saved_releases = await sync_to_async(list)(
-                TorrentRelease.objects.filter(movie=movie)
-                .order_by('-quality_score')[:20])
+        if not user.prowlarr_url or not user.prowlarr_api_key:
+            return Response(
+                {'error': 'O Prowlarr não está configurado. Ajuste em Configurações.'},
+                status=status.HTTP_400_BAD_REQUEST)
 
-            # Sem esta checagem, toda release recém-encontrada voltava com
-            # instantly_available=False e a tela dizia que nenhuma tocava
-            # agora — a marcação só chegava horas depois, pela task noturna.
-            # Que a pessoa saiba na hora quais já estão cacheadas é o ponto
-            # de buscar: é o que distingue "dá play" de "vai baixar".
-            cache_falhou = await _marca_cacheadas(saved_releases, user)
+        filtros = normaliza_filtros(request.data)
+        doc = marca_enfileirada(str(movie.id))
 
-            # O card do filme lê campos do próprio filme, não das cópias. Sem
-            # recalcular aqui, ele continuaria dizendo OFFLINE até a próxima
-            # sincronização horária, mesmo com cópia cacheada recém-descoberta.
-            await sync_to_async(atualiza_resumo)(movie)
+        if doc is None:
+            # Já há busca em voo para este filme. Não enfileira outra: as duas
+            # telas passam a acompanhar a mesma, e o Prowlarr é visitado uma
+            # vez só.
+            return Response(estado_da_busca(str(movie.id)),
+                            status=status.HTTP_202_ACCEPTED)
 
-            serializer = TorrentReleaseSerializer(saved_releases, many=True)
-            total_count = await sync_to_async(
-                TorrentRelease.objects.filter(movie=movie).count)()
+        try:
+            search_torrents_for_movie.delay(str(movie.id), str(user.id), filtros)
+        except Exception as e:
+            # Solta a reivindicação na hora: sem isto o botão ficaria travado
+            # cinco minutos por causa de um broker fora do ar.
+            libera(str(movie.id))
+            logger.warning('A busca não foi enfileirada: %s', e)
+            return Response(
+                {'error': 'A fila de tarefas não respondeu; a busca não foi enfileirada.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-            return Response({
-                'movie_id': movie.id,
-                'releases': serializer.data,
-                'new_releases_found': len(created_releases),
-                'total_releases': total_count,
-                # A tela precisa saber que a coluna "toca agora" está sem
-                # resposta, para não desenhar todas como se não estivessem
-                # cacheadas.
-                'cache_check_failed': cache_falhou,
-            })
+        return Response(doc, status=status.HTTP_202_ACCEPTED)
 
-        return async_to_sync(_executar)()
+    @extend_schema(
+        responses=OpenApiTypes.OBJECT,
+        description='O que está acontecendo com a busca de cópias deste filme.',
+    )
+    @action(detail=True, methods=['get'])
+    def search_status(self, request, pk=None):
+        """
+        O estado da busca, para o cliente perguntar enquanto espera.
+
+        Action SEPARADA, e não `methods=['get', 'post']` na de cima: o
+        `throttle_classes` do decorator vira atributo da instância e valeria
+        para os dois verbos. Com o ExpensiveOperationThrottle a 10 por hora, a
+        consulta de 2 em 2 segundos tomaria 429 em meio minuto — e um 429 no
+        polling é o tipo de falha que não aparece na tela.
+        """
+        return Response(estado_da_busca(str(self.get_object().id)))
 
 
 class TorrentReleaseViewSet(viewsets.ModelViewSet):

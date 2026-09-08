@@ -189,7 +189,7 @@ def test_marca_cacheadas_grava_quem_toca_agora(monkeypatch, django_user_model):
     from asgiref.sync import async_to_sync
 
     from apps.movies.models import Movie, TorrentRelease
-    from apps.movies.views import _marca_cacheadas
+    from apps.movies.release_search import _marca_cacheadas
 
     u = django_user_model.objects.create_user(username='u1', password='x',
                                               realdebrid_api_key='chave')
@@ -225,7 +225,7 @@ def test_falha_na_checagem_nao_marca_nada_como_offline(monkeypatch, django_user_
 
     from apps.integrations.realdebrid import RealDebridIndisponivel
     from apps.movies.models import Movie, TorrentRelease
-    from apps.movies.views import _marca_cacheadas
+    from apps.movies.release_search import _marca_cacheadas
 
     u = django_user_model.objects.create_user(username='u2', password='x',
                                               realdebrid_api_key='chave')
@@ -255,7 +255,7 @@ def test_sem_chave_do_real_debrid_nao_e_falha(django_user_model, settings):
     from asgiref.sync import async_to_sync
 
     from apps.movies.models import Movie, TorrentRelease
-    from apps.movies.views import _marca_cacheadas
+    from apps.movies.release_search import _marca_cacheadas
 
     u = django_user_model.objects.create_user(username='u3', password='x')
     filme = Movie.objects.create(title='X', year=2000)
