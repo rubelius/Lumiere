@@ -293,7 +293,7 @@ def test_procura_pelo_titulo_original_e_pelo_localizado():
     """
     from apps.integrations.prowlarr import consultas_para
 
-    assert consultas_para('Os Infiltrados', 'The Departed', 2006) == [
+    assert consultas_para(['The Departed', 'Os Infiltrados'], 2006) == [
         'The Departed 2006', 'Os Infiltrados 2006']
 
 
@@ -301,7 +301,7 @@ def test_o_original_vem_primeiro():
     """O original é o que os trackers usam; a ordem reflete a aposta."""
     from apps.integrations.prowlarr import consultas_para
 
-    assert consultas_para('Os Infiltrados', 'The Departed', 2006)[0].startswith('The Departed')
+    assert consultas_para(['The Departed', 'Os Infiltrados'], 2006)[0].startswith('The Departed')
 
 
 def test_titulo_em_kanji_nao_dispensa_o_localizado():
@@ -312,29 +312,29 @@ def test_titulo_em_kanji_nao_dispensa_o_localizado():
     """
     from apps.integrations.prowlarr import consultas_para
 
-    assert len(consultas_para('Era Uma Vez em Tóquio', '東京物語', 1953)) == 2
+    assert len(consultas_para(['東京物語', 'Era Uma Vez em Tóquio', 'Tokyo Story'], 1953)) == 3
 
 
 def test_titulo_igual_ao_original_nao_vira_busca_dobrada():
     from apps.integrations.prowlarr import consultas_para
 
-    assert consultas_para('Stalker', 'Stalker', 1979) == ['Stalker 1979']
+    assert consultas_para(['Stalker', 'Stalker'], 1979) == ['Stalker 1979']
     # Diferença de caixa é o mesmo título: uma busca só, com a grafia do
     # original, que é a que os trackers usam.
-    assert consultas_para('Stalker', 'STALKER', 1979) == ['STALKER 1979']
+    assert consultas_para(['STALKER', 'Stalker'], 1979) == ['STALKER 1979']
 
 
 def test_sem_ano_nenhuma_consulta_carrega_a_palavra_None():
     from apps.integrations.prowlarr import consultas_para
 
-    for consulta in consultas_para('Aurora', 'Sunrise', None):
+    for consulta in consultas_para(['Sunrise', 'Aurora'], None):
         assert 'None' not in consulta
 
 
 def test_sem_titulo_algum_nao_ha_o_que_buscar():
     from apps.integrations.prowlarr import consultas_para
 
-    assert consultas_para('', None, 1979) == []
+    assert consultas_para(['', None], 1979) == []
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ player tocar outra obra. Por isso tudo aqui é conservador — na dúvida, devol
 None e o item fica como "não casado" para inspeção humana.
 """
 
+import html
 import re
 import unicodedata
 from typing import Optional, Tuple
@@ -106,3 +107,126 @@ def normaliza_titulo(titulo: str) -> str:
     # alcançar "Spider Man".
     sem_apostrofo = re.sub(r"['\u2019\u02bc`]", '', sem_acento.lower())
     return re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', ' ', sem_apostrofo)).strip()
+
+
+# Os países cujo título alternativo os indexadores costumam usar. O inglês é o
+# que aparece em praticamente todo tracker; os outros entram porque um release
+# europeu às vezes cataloga pelo nome local.
+PAISES_UTEIS = ('US', 'GB', 'XX')
+
+
+def nomes_conhecidos(movie) -> set:
+    """
+    Todo nome pelo qual este filme é catalogado, em forma comparável.
+
+    O acervo guarda o título localizado e o original, e o TMDB traz os
+    alternativos — é lá que mora "Tokyo Story" para um filme cujo original é
+    "東京物語" e cujo título local é "Era Uma Vez em Tóquio". Nenhum dos dois
+    que temos aparece num tracker; o alternativo aparece em todos.
+
+    16.934 dos 25.908 filmes do acervo têm essa lista.
+    """
+    nomes = {movie.title, movie.original_title}
+    for alt in (getattr(movie, 'alternative_titles', None) or []):
+        if isinstance(alt, dict) and alt.get('title'):
+            nomes.add(alt['title'])
+        elif isinstance(alt, str):
+            nomes.add(alt)
+    return {n for n in (normaliza_titulo(x) for x in nomes if x) if n}
+
+
+def titulos_para_buscar(movie) -> list:
+    """
+    Os nomes que vale usar numa busca em indexador.
+
+    Buscar por todos os alternativos seria caro demais — cada consulta ao
+    Prowlarr leva de 40 a 100 segundos. Vale o original, o localizado, e o
+    alternativo em inglês, que é o que os trackers usam.
+    """
+    escolhidos, vistos = [], set()
+    for nome in (movie.original_title, movie.title):
+        if nome and normaliza_titulo(nome) not in vistos:
+            escolhidos.append(nome)
+            vistos.add(normaliza_titulo(nome))
+
+    for alt in (getattr(movie, 'alternative_titles', None) or []):
+        if not isinstance(alt, dict):
+            continue
+        if alt.get('country') not in PAISES_UTEIS:
+            continue
+        nome = (alt.get('title') or '').strip()
+        chave = normaliza_titulo(nome)
+        if nome and chave not in vistos:
+            escolhidos.append(nome)
+            vistos.add(chave)
+            break  # um alternativo basta; cada consulta custa 40s
+
+    return escolhidos
+
+
+def _partes_do_titulo(titulo: str) -> set:
+    """
+    As leituras possíveis de um título de release, normalizadas.
+
+    Trackers russos e italianos empilham nomes: "Отступники / The Departed",
+    "2001 год: Космическая одиссея / 2001: A Space Odyssey". Comparar a linha
+    inteira recusava cópias legítimas — 12 das 105 do acervo, todas do filme
+    certo. A barra é o separador convencional, e cada lado é um nome válido.
+    """
+    partes = {normaliza_titulo(titulo)}
+    for pedaco in re.split(r'\s*/\s*', titulo):
+        limpo = normaliza_titulo(pedaco)
+        if limpo:
+            partes.add(limpo)
+    return {p for p in partes if p}
+
+
+def _bate(parte: str, conhecidos: set) -> bool:
+    """
+    Igualdade, ou nome conhecido no COMEÇO seguido de espaço.
+
+    O prefixo existe porque releases acrescentam coisa depois do nome: o
+    italiano cola o subtítulo local ("The Departed Il bene e il male"), e o
+    brasileiro às vezes cola a resolução antes do ano ("2001 - Uma Odisséia no
+    Espaço 1080p"). São 3 das 105 cópias do acervo, todas do filme certo.
+
+    A fronteira de espaço é o que impede o prefixo de virar substring solto:
+    "Alien" não alcança "Aliens", porque exige "alien " com espaço. E o ano
+    continua sendo exigido antes de chegar aqui.
+    """
+    if parte in conhecidos:
+        return True
+    return any(parte.startswith(nome + ' ') for nome in conhecidos if nome)
+
+
+def e_do_filme(nome_do_release: str, movie) -> bool:
+    """
+    Se esta cópia é deste filme.
+
+    Sem esta pergunta, a busca guardava tudo que o indexador devolvesse. Para
+    "東京物語", que nenhum tracker cataloga, os indexadores não acharam o
+    título, casaram só o ANO, e a ficha ficou com 44 cópias de "From Here to
+    Eternity", "Shane" e "Peter Pan" — todas de 1953, nenhuma do filme.
+
+    O IMDb no nome é prova. Sem ele, exige título conhecido E ano batendo:
+    igualdade exata sobre a forma normalizada, nunca substring. Num acervo de
+    26 mil filmes, casar por substring casaria qualquer coisa — e ligar a cópia
+    de um filme na ficha de outro é pior que não achar cópia nenhuma.
+    """
+    imdb = extrai_imdb_id(nome_do_release)
+    if imdb and getattr(movie, 'imdb_id', ''):
+        return imdb.lower().lstrip('t').lstrip('0') == \
+            movie.imdb_id.lower().lstrip('t').lstrip('0')
+
+    extraido = extrai_titulo_e_ano(html.unescape(nome_do_release))
+    if not extraido:
+        # Sem ano no nome não dá para separar um remake do original, e é
+        # justamente aí que casar errado dói mais.
+        return False
+
+    titulo, ano = extraido
+    if movie.year and ano and int(ano) != int(movie.year):
+        return False
+
+    conhecidos = nomes_conhecidos(movie)
+    return any(_bate(parte, conhecidos) for parte in _partes_do_titulo(titulo))

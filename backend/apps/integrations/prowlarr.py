@@ -39,30 +39,33 @@ def _imdb_numerico(valor) -> Optional[int]:
     return int(digitos.group(1)) if digitos else None
 
 
-def consultas_para(title: str, original_title: Optional[str],
-                  year: Optional[int]) -> List[str]:
+def consultas_para(titulos, year: Optional[int] = None) -> List[str]:
     """
-    As buscas a fazer por um filme.
+    As buscas a fazer por um filme, a partir dos nomes que ele tem.
 
     O acervo guarda o título localizado — 38% dos 25.908 filmes têm `title`
-    diferente de `original_title` ("Os Infiltrados" para "The Departed") — e
-    os indexadores catalogam pelo original. Buscar só por `movie.title`
-    encontrava 7 cópias onde o título original encontra 179.
+    diferente de `original_title` — e os indexadores catalogam pelo original.
+    Mas nem o original basta: "東京物語" não aparece em tracker nenhum, e o
+    nome que aparece é "Tokyo Story", que mora nos títulos alternativos do
+    TMDB. Buscar só pelos dois primeiros trouxe 44 cópias de filmes de 1953
+    que não eram o filme.
 
-    Nenhum dos dois basta sozinho: "東京物語" é o original de "Era Uma Vez em
-    Tóquio", e tracker nenhum cataloga em kanji. Por isso as duas buscas, e
-    não a escolha de uma.
+    Cada consulta custa de 40 a 100 segundos, então quem escolhe a lista é
+    `release_naming.titulos_para_buscar` — e ela para em três.
     """
+    if isinstance(titulos, str):
+        titulos = [titulos]
+
     vistos = []
-    for nome in (original_title, title):
+    for nome in titulos:
         nome = (nome or '').strip()
         if not nome or nome.casefold() in {v.casefold() for v in vistos}:
             continue
         vistos.append(nome)
 
     # `year` é anulável no acervo, e interpolá-lo direto punha a palavra
-    # "None" na busca: o indexador procurava pelo literal e não achava nada,
-    # e a tela dizia "sem releases" em vez de "sem ano".
+    # "None" na busca: o indexador procurava pelo literal e não achava nada, e
+    # a tela dizia "sem releases" em vez de "sem ano".
     sufixo = f' {year}' if year else ''
     return [f'{nome}{sufixo}' for nome in vistos]
 
@@ -79,8 +82,7 @@ def magnet_de(info_hash: str, titulo: str = '') -> str:
     era magnet nenhum, e o botão de importar nunca funcionou.
 
     O hash basta. Um magnet só com `xt` é válido, e o Real-Debrid o aceita
-    (verificado: 201 em addMagnet com um hash de teste). O `dn` entra só como
-    cortesia para quem for ler o link.
+    (verificado: 201). O `dn` entra só como cortesia para quem for ler o link.
     """
     if not info_hash:
         return ''
@@ -127,6 +129,7 @@ class ProwlarrClient:
         imdb_id: Optional[str] = None,
         categories: list[int] | None = None,
         original_title: Optional[str] = None,
+        titulos: Optional[List[str]] = None,
     ) -> List[Dict]:
         """
         Busca releases de um filme nos indexadores.
@@ -146,7 +149,7 @@ class ProwlarrClient:
             categories = [2000]  # Filmes
 
         self.consultas_falhas = []
-        consultas = consultas_para(title, original_title, year)
+        consultas = consultas_para(titulos or [original_title, title], year)
         if not consultas:
             return []
 

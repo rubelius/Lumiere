@@ -24,6 +24,7 @@ from django.utils import timezone
 from apps.core.core_cache import CacheManager
 from apps.integrations.prowlarr import ProwlarrClient
 from apps.movies.models import TorrentRelease
+from apps.movies.release_naming import e_do_filme, titulos_para_buscar
 from apps.movies.realdebrid_cache import sonda_as_melhores
 from apps.movies.realdebrid_estado import sincroniza_filme
 from apps.movies.realdebrid_sync import atualiza_resumo
@@ -204,7 +205,8 @@ async def _pergunta_ao_prowlarr(movie, user):
     try:
         resultados = await cliente.search_movie(
             title=movie.title, year=movie.year, imdb_id=movie.imdb_id,
-            original_title=movie.original_title)
+            original_title=movie.original_title,
+            titulos=titulos_para_buscar(movie))
         return resultados, list(cliente.consultas_falhas)
     finally:
         await cliente.close()
@@ -222,9 +224,18 @@ def executa_busca(movie, user, filtros: dict | None = None) -> dict:
     resultados, consultas_falhas = async_to_sync(_pergunta_ao_prowlarr)(movie, user)
 
     novas = 0
+    fora_do_filme = 0
     for resultado in resultados:
         resultado.update(parse_quality_from_title(resultado['title']))
         resultado.update(calculate_quality_score(resultado))
+
+        # É deste filme? Sem esta pergunta, a busca guardava tudo que o
+        # indexador devolvesse: para "東京物語", que nenhum tracker cataloga,
+        # os indexadores casaram só o ANO e a ficha ficou com 44 cópias de
+        # "From Here to Eternity", "Shane" e "Peter Pan".
+        if not e_do_filme(resultado['title'], movie):
+            fora_do_filme += 1
+            continue
 
         if not passa_no_filtro(resultado, filtros):
             continue
@@ -263,7 +274,8 @@ def executa_busca(movie, user, filtros: dict | None = None) -> dict:
     CacheManager.invalidate_movie(str(movie.id))
 
     total = TorrentRelease.objects.filter(movie=movie).count()
-    logger.info('Busca em %r: %d cópias no acervo, %d novas', movie.title, total, novas)
+    logger.info('Busca em %r: %d cópias no acervo, %d novas, %d de outro filme',
+                movie.title, total, novas, fora_do_filme)
 
     return {
         'new_releases_found': novas,

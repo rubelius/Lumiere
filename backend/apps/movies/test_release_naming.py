@@ -126,3 +126,148 @@ def test_pontuacao_tem_dois_comportamentos(a, b):
     pontuação sumindo junta palavra que era duas.
     """
     assert normaliza_titulo(a) == normaliza_titulo(b)
+
+
+# ── esta cópia é deste filme? ─────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_copia_de_outro_filme_do_mesmo_ano_e_recusada():
+    """
+    O defeito de origem, com os nomes reais. Nenhum tracker cataloga
+    "東京物語", então os indexadores casaram só o ANO e devolveram 44 cópias
+    de filmes de 1953 — "From Here to Eternity", "Shane", "Peter Pan". A ficha
+    ficou cheia de cópias de outros filmes.
+    """
+    from apps.movies.models import Movie
+    from apps.movies.release_naming import e_do_filme
+
+    filme = Movie.objects.create(
+        title='Era Uma Vez em Tóquio', original_title='東京物語', year=1953,
+        alternative_titles=[{'title': 'Tokyo Story', 'country': 'US'}])
+
+    assert e_do_filme('Tokyo.Story.1953.Criterion.1080p.BluRay.x265', filme) is True
+    for intruso in [
+        'From.Here.to.Eternity.1953.HDR.DV.2160p.UHD.HEVC.TrueHD.Atmos-SARTRE',
+        'Shane 1953 2160p UHD Blu-ray Remux DV HDR HEVC FLAC1 0-CiNEPHiLES',
+        'Peter Pan 1953 PROPER 1080p BluRay REMUX AVC DTS-HD MA 7 1-FraMeSToR',
+    ]:
+        assert e_do_filme(intruso, filme) is False, intruso
+
+
+@pytest.mark.django_db
+def test_o_ano_errado_e_recusado_mesmo_com_o_titulo_certo():
+    """Remake tem o mesmo nome e não é o mesmo filme."""
+    from apps.movies.models import Movie
+    from apps.movies.release_naming import e_do_filme
+
+    filme = Movie.objects.create(title='Solaris', original_title='Солярис', year=1972)
+
+    assert e_do_filme('Solaris.1972.Criterion.1080p.BluRay', filme) is True
+    assert e_do_filme('Solaris.2002.1080p.BluRay', filme) is False
+
+
+@pytest.mark.django_db
+def test_o_imdb_no_nome_vale_mais_que_o_titulo():
+    from apps.movies.models import Movie
+    from apps.movies.release_naming import e_do_filme
+
+    filme = Movie.objects.create(title='Qualquer', original_title='Qualquer',
+                                 year=1953, imdb_id='tt0046438')
+
+    assert e_do_filme('Nome.Totalmente.Outro.1953.[tt0046438].1080p', filme) is True
+
+
+@pytest.mark.django_db
+def test_sem_ano_no_nome_a_copia_e_recusada():
+    """
+    Sem ano não dá para separar um remake do original, e é justamente aí que
+    casar errado dói mais.
+    """
+    from apps.movies.models import Movie
+    from apps.movies.release_naming import e_do_filme
+
+    filme = Movie.objects.create(title='Solaris', original_title='Solaris', year=1972)
+
+    assert e_do_filme('Solaris 1080p BluRay x264', filme) is False
+
+
+@pytest.mark.django_db
+def test_a_busca_usa_o_titulo_que_os_trackers_conhecem():
+    """
+    "東京物語" não aparece em tracker nenhum; "Tokyo Story" aparece em todos, e
+    mora nos títulos alternativos do TMDB — que o acervo já guarda para 16.934
+    dos 25.908 filmes.
+    """
+    from apps.movies.models import Movie
+    from apps.movies.release_naming import titulos_para_buscar
+
+    filme = Movie.objects.create(
+        title='Era Uma Vez em Tóquio', original_title='東京物語', year=1953,
+        alternative_titles=[
+            {'title': 'Cuentos de Tokyo', 'country': 'ES'},
+            {'title': 'Tokyo Story', 'country': 'US'},
+            {'title': 'Die Reise nach Tokyo', 'country': 'DE'},
+        ])
+
+    assert titulos_para_buscar(filme) == ['東京物語', 'Era Uma Vez em Tóquio', 'Tokyo Story']
+
+
+@pytest.mark.django_db
+def test_a_lista_de_busca_para_em_tres():
+    """Cada consulta ao Prowlarr custa de 40 a 100 segundos."""
+    from apps.movies.models import Movie
+    from apps.movies.release_naming import titulos_para_buscar
+
+    filme = Movie.objects.create(
+        title='A', original_title='B', year=2000,
+        alternative_titles=[{'title': f'Nome {i}', 'country': 'US'} for i in range(9)])
+
+    assert len(titulos_para_buscar(filme)) <= 3
+
+
+@pytest.mark.django_db
+def test_o_prefixo_nao_confunde_franquia():
+    """
+    O casamento por prefixo aceita "Alien 3" para quem se chama "Alien" — e o
+    que impede o estrago é a exigência do ANO, que roda antes. Sequência
+    raramente estreia no mesmo ano do original.
+    """
+    from apps.movies.models import Movie
+    from apps.movies.release_naming import _bate, e_do_filme
+
+    # A regra crua é permissiva, e isso é reconhecido:
+    assert _bate('alien 3', {'alien'}) is True
+    # Mas o espaço impede o prefixo de virar substring solto:
+    assert _bate('aliens', {'alien'}) is False
+
+    alien = Movie.objects.create(title='Alien', original_title='Alien', year=1979)
+    assert e_do_filme('Alien.1979.1080p.BluRay', alien) is True
+    assert e_do_filme('Alien.3.1992.1080p.BluRay', alien) is False, 'o ano é a guarda'
+
+
+@pytest.mark.django_db
+def test_titulo_multiplo_de_tracker_russo_e_reconhecido():
+    """
+    Trackers russos e italianos empilham nomes com barra. Comparar a linha
+    inteira recusava 12 cópias legítimas das 105 do acervo.
+    """
+    from apps.movies.models import Movie
+    from apps.movies.release_naming import e_do_filme
+
+    filme = Movie.objects.create(title='Os Infiltrados', original_title='The Departed',
+                                 year=2006)
+
+    assert e_do_filme(
+        'Отступники / The Departed [2006, США, триллер, BDRemux 2160p]', filme) is True
+
+
+@pytest.mark.django_db
+def test_entidade_html_no_nome_nao_atrapalha():
+    from apps.movies.models import Movie
+    from apps.movies.release_naming import e_do_filme
+
+    filme = Movie.objects.create(title='2001: Uma Odisséia no Espaço',
+                                 original_title='2001: A Space Odyssey', year=1968)
+
+    assert e_do_filme(
+        '2001 - Uma Odiss&eacute;ia no Espa&ccedil;o 1080p (1968) Dublado', filme) is True
