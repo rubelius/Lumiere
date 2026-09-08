@@ -57,17 +57,30 @@ def test_copia_na_conta_com_link_deixa_o_filme_disponivel(filme):
 
 
 @pytest.mark.django_db
-def test_cached_in_realdebrid_nao_afirma_mais_nada(filme):
+def test_cache_no_acervo_acende_a_marca_do_filme(filme):
     """
-    O campo existia para o estado "o RD tem o arquivo, importar é instantâneo",
-    que vinha de `/torrents/instantAvailability`. O provedor desativou a rota
-    (403, error_code 37) e não há substituto. Zerado sempre: uma afirmação que
-    nada consegue sustentar é pior que nenhuma.
+    É esta marca que decide se o botão de projeção pulsa. Ficou órfã quando o
+    Real-Debrid desativou instantAvailability; hoje vem da sondagem.
     """
     copia(filme, instantly_available=True, quality_score=80, resolution='1080p')
 
     atualiza_resumo(filme)
 
+    filme.refresh_from_db()
+    assert filme.cached_in_realdebrid is True
+
+
+@pytest.mark.django_db
+def test_sem_nenhuma_copia_imediata_a_marca_apaga(filme):
+    """Mais uma que precisa poder descer: o acervo do RD não é eterno."""
+    c = copia(filme, instantly_available=True, quality_score=80)
+    atualiza_resumo(filme)
+    filme.refresh_from_db()
+    assert filme.cached_in_realdebrid is True
+
+    c.instantly_available = False
+    c.save(update_fields=['instantly_available'])
+    atualiza_resumo(filme)
     filme.refresh_from_db()
     assert filme.cached_in_realdebrid is False
 

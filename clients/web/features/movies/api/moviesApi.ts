@@ -15,7 +15,9 @@ export const moviesApi = {
 
   // Resolve a fonte de reprodução: Real-Debrid > Jellyfin > Plex.
   // 404 quando nenhuma tem o filme.
-  playback: (id: string) => http.get<PlaybackSource>(`/api/movies/${id}/playback/`),
+  playback: (id: string, releaseId?: string) =>
+    http.get<PlaybackSource>(`/api/movies/${id}/playback/`,
+      releaseId ? { params: { release: releaseId } } : undefined),
 
   // Legendas externas. Vazio quando a chave do OpenSubtitles não está posta.
   subtitles: (id: string, languages: string) =>

@@ -38,20 +38,114 @@ class PlaybackSource:
     label: str  # rótulo técnico para a UI, ex.: 'DIRECT PLAY'
     container: Optional[str] = None
     quality: str = ''
+    # Qual cópia está tocando. A tela precisa saber para dizer, sem rodeios, o
+    # que exatamente foi posto no ar.
+    release_id: Optional[str] = None
 
 
-async def _from_realdebrid(movie, user) -> Optional[PlaybackSource]:
-    """Melhor release do acervo já presente no Real-Debrid."""
-    api_key = chave_do_usuario(user)
-    if not api_key:
-        return None
-
-    release = await sync_to_async(
+async def _melhor_ja_na_conta(movie):
+    return await sync_to_async(
         lambda: movie.torrent_releases.filter(in_realdebrid=True)
         .exclude(realdebrid_links=[])
         .order_by('-quality_score')
         .first()
     )()
+
+
+async def _melhor_com_disponibilidade_imediata(movie):
+    """
+    A melhor cópia que o acervo do Real-Debrid já tem, mas que ainda não foi
+    importada para a conta.
+
+    É o caso que fazia o player dizer "nenhuma fonte disponível" com cinco
+    cópias tocáveis na tela: sem estar na conta não há link, e o resolvedor
+    parava aí. Importar uma que o Real-Debrid já tem leva ~2 segundos — menos
+    do que o player levaria para carregar de qualquer jeito.
+    """
+    return await sync_to_async(
+        lambda: movie.torrent_releases.filter(instantly_available=True)
+        .exclude(magnet_link='')
+        .order_by('-quality_score')
+        .first()
+    )()
+
+
+async def _importa_para_a_conta(release, api_key) -> bool:
+    """
+    Traz a cópia para a conta e guarda os links. Devolve se conseguiu.
+
+    Só faz sentido para quem já está no acervo do Real-Debrid: aí o
+    `downloaded` volta na hora. Para o que não está, isto viraria uma espera
+    indefinida dentro de um clique de play — por isso o torrent é REMOVIDO
+    quando não vem pronto.
+    """
+    client = RealDebridClient(api_key)
+    try:
+        torrent_id = await client.add_magnet(release.magnet_link)
+        info = await client.get_torrent_info(torrent_id)
+        arquivos = info.get('files') or []
+        if not arquivos:
+            await client.delete_torrent(torrent_id)
+            return False
+        maior = max(arquivos, key=lambda f: f.get('bytes', 0))
+        if not await client.select_files(torrent_id, [maior['id']]):
+            await client.delete_torrent(torrent_id)
+            return False
+
+        depois = await client.get_torrent_info(torrent_id)
+        if depois.get('status') != 'downloaded':
+            await client.delete_torrent(torrent_id)
+            return False
+
+        release.in_realdebrid = True
+        release.realdebrid_id = torrent_id
+        release.realdebrid_status = 'downloaded'
+        release.realdebrid_links = depois.get('links') or []
+        release.realdebrid_progress = 100
+        await sync_to_async(release.save)(update_fields=[
+            'in_realdebrid', 'realdebrid_id', 'realdebrid_status',
+            'realdebrid_links', 'realdebrid_progress'])
+        return bool(release.realdebrid_links)
+    finally:
+        await client.close()
+
+
+async def _from_realdebrid(movie, user, release_id=None) -> Optional[PlaybackSource]:
+    """
+    A melhor cópia que toca agora, importando-a se preciso.
+
+    Duas camadas, nesta ordem:
+
+      1. já na conta, com link — não custa nada;
+      2. no acervo do Real-Debrid mas fora da conta — importa e toca, ~2s.
+
+    A segunda é o conserto de um defeito visível: o player dizia "nenhuma fonte
+    disponível" enquanto a tela mostrava cinco cópias com disponibilidade
+    imediata. Ter o arquivo no acervo e ter link na conta são coisas
+    diferentes, e só a segunda impedia tocar.
+
+    `release_id` deixa a tela pedir uma cópia específica — é o que faz o selo
+    de disponibilidade imediata virar um botão que toca AQUELA cópia.
+    """
+    api_key = chave_do_usuario(user)
+    if not api_key:
+        return None
+
+    if release_id:
+        release = await sync_to_async(
+            lambda: movie.torrent_releases.filter(pk=release_id).first())()
+        if not release:
+            return None
+        if not release.realdebrid_links and not await _importa_para_a_conta(
+                release, api_key):
+            return None
+    else:
+        release = await _melhor_ja_na_conta(movie)
+        if not release:
+            candidata = await _melhor_com_disponibilidade_imediata(movie)
+            if candidata and await _importa_para_a_conta(candidata, api_key):
+                release = candidata
+
     if not release or not release.realdebrid_links:
         return None
 
@@ -72,6 +166,7 @@ async def _from_realdebrid(movie, user) -> Optional[PlaybackSource]:
         label='DIRECT PLAY',
         container=(unrestricted.get('filename') or '').rsplit('.', 1)[-1] or None,
         quality=release.title or '',
+        release_id=str(release.id),
     )
 
 
@@ -139,11 +234,17 @@ async def _from_plex(movie, user) -> Optional[PlaybackSource]:
 RESOLVEDORES: List[Callable] = [_from_realdebrid, _from_jellyfin, _from_plex]
 
 
-async def resolve_playback(movie, user) -> Optional[PlaybackSource]:
+async def resolve_playback(movie, user, release_id=None) -> Optional[PlaybackSource]:
     """
     Primeira fonte que responder, na ordem Real-Debrid > Jellyfin > Plex.
     Devolve None quando nenhuma tem o filme.
+
+    Com `release_id`, a escolha é do usuário: ele apontou uma cópia na lista, e
+    Jellyfin ou Plex não substituem aquela. Sem ele, vale a cadeia inteira.
     """
+    if release_id:
+        return await _from_realdebrid(movie, user, release_id=release_id)
+
     for resolvedor in RESOLVEDORES:
         try:
             fonte = await resolvedor(movie, user)

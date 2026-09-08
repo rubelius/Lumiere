@@ -402,7 +402,10 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
         # (list/retrieve são sync), então uma action `async def` devolveria a
         # corrotina sem ninguém aguardá-la.
         movie = self.get_object()
-        fonte = async_to_sync(resolve_playback)(movie, request.user)
+        # `release` deixa a tela pedir uma cópia específica — o selo de
+        # disponibilidade imediata é um botão que toca AQUELA.
+        fonte = async_to_sync(resolve_playback)(
+            movie, request.user, release_id=request.query_params.get('release') or None)
 
         if not fonte:
             return Response(

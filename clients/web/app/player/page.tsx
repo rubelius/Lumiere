@@ -16,11 +16,14 @@ function PlayerExperience() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const movieId = searchParams.get('id') || '';
+  // Qual cópia tocar. Sem isto, apontar uma cópia específica na lista levava
+  // ao player e tocava outra — ou nenhuma.
+  const releaseId = searchParams.get('release') || undefined;
   const { data: movie } = useMovie(movieId);
   const { reporta: reportaProgresso, reportaAgora } = useProgressoDeExibicao(movieId);
   const jaRetomou = useRef(false);
   // Real-Debrid > Jellyfin > Plex, resolvido no backend.
-  const { data: fonte, isLoading: resolvendoFonte } = usePlayback(movieId);
+  const { data: fonte, isLoading: resolvendoFonte } = usePlayback(movieId, releaseId);
   const { data: legendas } = useSubtitles(movieId);
   // Índice da faixa ativa; null = desligada. O acervo é de cinema estrangeiro,
   // então a primeira (pt-BR, por causa da ordem pedida na busca) entra ligada.

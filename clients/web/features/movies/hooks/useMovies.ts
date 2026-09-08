@@ -86,10 +86,12 @@ export function useMovie(id: string) {
  * Plex. Um 404 é resposta legítima — quer dizer que nenhuma fonte tem a obra —
  * então não vale repetir a requisição.
  */
-export function usePlayback(id: string) {
+export function usePlayback(id: string, releaseId?: string) {
   return useQuery({
-    queryKey: movieKeys.playback(id),
-    queryFn: () => moviesApi.playback(id),
+    // A cópia entra na chave: pedir outra é outra pergunta, e reaproveitar a
+    // resposta anterior tocaria o arquivo errado.
+    queryKey: [...movieKeys.playback(id), releaseId ?? 'melhor'],
+    queryFn: () => moviesApi.playback(id, releaseId),
     enabled: !!id,
     retry: (falhas, erro) => !(erro instanceof APIError) && falhas < 2,
     staleTime: 60_000,

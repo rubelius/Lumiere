@@ -122,6 +122,8 @@ interface Rotulo {
   detalhe: string;
   cor: 'pronta' | 'espera' | 'ausente';
   podeImportar: boolean;
+  /** Dá para apertar e assistir esta cópia agora. */
+  podeTocar: boolean;
 }
 
 const ROTULOS: Record<Disponibilidade, Rotulo> = {
@@ -130,18 +132,21 @@ const ROTULOS: Record<Disponibilidade, Rotulo> = {
     detalhe: 'Está na sua conta do Real-Debrid, com link pronto.',
     cor: 'pronta',
     podeImportar: false,
+    podeTocar: true,
   },
   instantanea: {
-    texto: 'TOCA NA HORA',
+    texto: 'DISPONIBILIDADE IMEDIATA',
     detalhe: 'O Real-Debrid já tem este arquivo no acervo — importar leva segundos.',
     cor: 'pronta',
-    podeImportar: true,
+    podeImportar: false,
+    podeTocar: true,
   },
   baixando: {
     texto: 'BAIXANDO',
     detalhe: 'Já foi enviada. O Real-Debrid ainda está buscando.',
     cor: 'espera',
     podeImportar: false,
+    podeTocar: false,
   },
   ausente: {
     texto: 'PRECISA BAIXAR',
@@ -149,6 +154,7 @@ const ROTULOS: Record<Disponibilidade, Rotulo> = {
       + 'esperar ele baixar, o que pode levar horas ou nem completar.',
     cor: 'ausente',
     podeImportar: true,
+    podeTocar: false,
   },
 };
 
@@ -185,11 +191,12 @@ export function explicaOScore(r: Pick<Release, 'quality_score' | 'motivos_do_sco
  * Quatro estados, e a diferença entre eles é a que decide a escolha:
  *
  *   TOCA AGORA    já está na conta, com link. Aperta play.
- *   TOCA NA HORA  o acervo do Real-Debrid tem o arquivo; importar leva segundos.
+ *   DISPONIBILIDADE IMEDIATA  o acervo do Real-Debrid tem o arquivo; importar
+ *                             leva ~2 segundos, e o botão já leva ao player.
  *   BAIXANDO      já foi enviada, e o Real-Debrid ainda está buscando.
  *   IMPORTAR      nem uma coisa nem outra. Pode demorar, ou nem completar.
  *
- * `TOCA NA HORA` chegou a ser removido: vinha de instantAvailability, que o
+ * A disponibilidade imediata chegou a ser removida: vinha de instantAvailability, que o
  * provedor desativou. Voltou com outra fonte — uma sondagem que adiciona o
  * magnet, observa se o Real-Debrid entrega os metadados na hora, e desfaz o
  * que criou.

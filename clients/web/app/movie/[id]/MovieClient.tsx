@@ -527,7 +527,7 @@ export default function MovieClient() {
                             const rotulo = rotuloDaCopia(release);
                             const importandoEsta = importar.isPending && importar.variables === release.id;
                             return (
-                              <div key={release.id} style={{ display: 'grid', gridTemplateColumns: '76px minmax(200px, 1fr) 92px 88px 190px', alignItems: 'center', padding: '16px', borderBottom: i !== releases.length - 1 ? '1px solid rgba(86,84,80,0.3)' : 'none', gap: 12 }}>
+                              <div key={release.id} style={{ display: 'grid', gridTemplateColumns: '76px minmax(180px, 1fr) 88px 84px 250px', alignItems: 'center', padding: '16px', borderBottom: i !== releases.length - 1 ? '1px solid rgba(86,84,80,0.3)' : 'none', gap: 12 }}>
                                 {/* O número sozinho não se explicava: nada dizia
                                     que era nota, nem de quanto, nem por quê. O
                                     título traz a conta parcela a parcela — é a
@@ -571,19 +571,39 @@ export default function MovieClient() {
                                     já toca, importa em segundos, ainda vem
                                     baixando, ou ninguém pediu ainda. */}
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
-                                  <span
-                                    title={rotulo.detalhe}
-                                    style={{
-                                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                                      fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em',
-                                      padding: '5px 9px', whiteSpace: 'nowrap',
-                                      color: CORES_DA_COPIA[rotulo.cor].texto,
-                                      border: `1px solid ${CORES_DA_COPIA[rotulo.cor].borda}`,
-                                    }}
-                                  >
-                                    {rotulo.cor === 'pronta' && <Play style={{ width: 10, height: 10 }} />}
-                                    {rotulo.texto}
-                                  </span>
+                                  {/* Quando toca, o selo É o botão: apontar que
+                                      a cópia está pronta e não deixar assistir
+                                      era mostrar a porta sem a maçaneta. */}
+                                  {rotulo.podeTocar ? (
+                                    <button
+                                      onClick={() => router.push(`/player?id=${movie.id}&release=${release.id}`)}
+                                      title={`${rotulo.detalhe} Clique para assistir esta cópia.`}
+                                      style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                                        fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em',
+                                        padding: '5px 9px', whiteSpace: 'nowrap', cursor: 'pointer',
+                                        background: 'transparent',
+                                        color: CORES_DA_COPIA[rotulo.cor].texto,
+                                        border: `1px solid ${CORES_DA_COPIA[rotulo.cor].borda}`,
+                                      }}
+                                    >
+                                      <Play style={{ width: 10, height: 10 }} />
+                                      {rotulo.texto}
+                                    </button>
+                                  ) : (
+                                    <span
+                                      title={rotulo.detalhe}
+                                      style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                                        fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.15em',
+                                        padding: '5px 9px', whiteSpace: 'nowrap',
+                                        color: CORES_DA_COPIA[rotulo.cor].texto,
+                                        border: `1px solid ${CORES_DA_COPIA[rotulo.cor].borda}`,
+                                      }}
+                                    >
+                                      {rotulo.texto}
+                                    </span>
+                                  )}
 
                                   {rotulo.podeImportar && (
                                     <button

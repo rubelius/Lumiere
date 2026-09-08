@@ -253,10 +253,12 @@ def atualiza_resumo(filme) -> bool:
     filme.best_quality_available = rotulo_de_qualidade(melhor)
     filme.current_quality_score = melhor.quality_score
     filme.available_instantly = toca_agora(filme)
-    # `cached_in_realdebrid` morreu com a rota que o preenchia: a pergunta
-    # "o Real-Debrid tem este arquivo no acervo dele?" não tem mais resposta.
-    # Zerado sempre, para nenhuma tela seguir lendo uma afirmação órfã.
-    filme.cached_in_realdebrid = False
+    # "Alguma cópia toca na hora?" — a pergunta que decide se o botão de
+    # projeção pulsa. Chegou a ficar órfã quando o Real-Debrid desativou
+    # instantAvailability; hoje é alimentada pela sondagem de
+    # apps/movies/realdebrid_cache.py.
+    filme.cached_in_realdebrid = filme.torrent_releases.filter(
+        instantly_available=True).exists()
     filme.save(update_fields=['best_quality_available', 'current_quality_score',
                               'available_instantly', 'cached_in_realdebrid'])
     return True

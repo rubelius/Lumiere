@@ -10,7 +10,22 @@ import { FestivalLaurels } from "@/components/movie/FestivalLaurels";
 
 export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie: any, posterUrl: string, ytId: string | null, onPlayTrailer: () => void }) => {
   const router = useRouter();
-  const [isCollectionOpen, setIsCollectionOpen] = useState(false); 
+  const [isCollectionOpen, setIsCollectionOpen] = useState(false);
+  const [escolhaAberta, setEscolhaAberta] = useState(false);
+
+  // Toca agora quer dizer duas coisas, e as duas servem: já há link na conta,
+  // ou o acervo do Real-Debrid tem o arquivo e importar leva ~2 segundos.
+  const tocaAgora = Boolean(movie.available_instantly || movie.cached_in_realdebrid);
+
+  const projetar = () => {
+    if (tocaAgora) {
+      router.push(`/player?id=${movie.id}`);
+      return;
+    }
+    // Sem nada imediato, começar a tocar seria prometer o que não se pode
+    // cumprir. A escolha é do usuário, e as duas saídas têm custo diferente.
+    setEscolhaAberta(true);
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1, ease: FINE_ART_EASE }} style={{ width: '320px', flexShrink: 0 }}> 
@@ -34,13 +49,57 @@ export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie:
         
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}> 
         <motion.button  
-          onClick={() => router.push(`/player?id=${movie.id}`)} 
-          whileHover={{ backgroundColor: 'var(--gold)', color: 'var(--void)', scale: 1.02, boxShadow: '0 0 20px rgba(191,143,60,0.4)' }} whileTap={{ scale: 0.98 }}  
-          style={{ width: '100%', padding: '16px 0', backgroundColor: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', cursor: 'pointer', transition: 'all 0.3s', position: 'relative' }} 
+          onClick={projetar} 
+          whileHover={{ backgroundColor: tocaAgora ? 'var(--gold)' : 'rgba(237,232,220,0.05)', color: tocaAgora ? 'var(--void)' : 'var(--film)', scale: 1.02 }} whileTap={{ scale: 0.98 }}  
+          style={{ width: '100%', padding: '16px 0', backgroundColor: 'transparent', border: `1px solid ${tocaAgora ? 'var(--gold)' : 'var(--m3)'}`, color: tocaAgora ? 'var(--gold)' : 'var(--m2)', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', cursor: 'pointer', transition: 'all 0.3s', position: 'relative' }} 
         > 
-          <motion.div animate={{ opacity: [0, 0.5, 0], scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2 }} style={{ position: 'absolute', inset: 0, border: '1px solid var(--gold)', pointerEvents: 'none' }} />
+          {/* A pulsação era incondicional, e o botão prometia projeção
+              imediata mesmo quando o player ia responder "nenhuma fonte
+              disponível". Agora ela só acontece quando há de fato uma cópia
+              que toca na hora. */}
+          {tocaAgora && (
+            <motion.div animate={{ opacity: [0, 0.5, 0], scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2 }} style={{ position: 'absolute', inset: 0, border: '1px solid var(--gold)', pointerEvents: 'none' }} />
+          )}
           <Play style={{ width: 16, height: 16 }} /> [ INICIAR PROJEÇÃO ] 
-        </motion.button> 
+        </motion.button>
+
+        <AnimatePresence>
+          {escolhaAberta && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              style={{ border: '1px solid rgba(86,84,80,0.5)', backgroundColor: 'var(--void)', padding: '16px' }}
+            >
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', lineHeight: 1.9, marginBottom: 16 }}>
+                NENHUMA CÓPIA TOCA AGORA. O REAL-DEBRID NÃO TEM NENHUMA DELAS NO ACERVO.
+              </div>
+              <motion.button
+                onClick={() => { setEscolhaAberta(false); router.push(`/movie/${movie.id}#copias`); }}
+                whileHover={{ x: 4 }}
+                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: '1px solid rgba(191,143,60,0.4)', color: 'var(--gold)', padding: '12px 14px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', marginBottom: 10, lineHeight: 1.8 }}
+              >
+                [ BAIXAR PARA O CACHE PRIMEIRO ]
+                <div style={{ color: 'var(--m3)', fontSize: '8px', marginTop: 6 }}>
+                  ESCOLHA UMA CÓPIA NA ABA 03 E IMPORTE. O REAL-DEBRID BAIXA, E DEPOIS TOCA SEM ENGASGO.
+                </div>
+              </motion.button>
+              <div
+                title="Ainda não construído"
+                style={{ width: '100%', textAlign: 'left', border: '1px solid rgba(86,84,80,0.3)', color: 'var(--m3)', padding: '12px 14px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', lineHeight: 1.8, opacity: 0.6 }}
+              >
+                [ TOCAR DIRETO DO TORRENT ]
+                <div style={{ fontSize: '8px', marginTop: 6 }}>
+                  AINDA NÃO EXISTE. EXIGE UM MOTOR DE TORRENT QUE SIRVA O ARQUIVO ENQUANTO BAIXA — E COM POUCOS SEMEADORES A REPRODUÇÃO TRAVA.
+                </div>
+              </div>
+              <button
+                onClick={() => setEscolhaAberta(false)}
+                style={{ marginTop: 12, background: 'transparent', border: 'none', color: 'var(--m3)', fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', cursor: 'pointer' }}
+              >
+                [ FECHAR ]
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
           
         <div style={{ position: 'relative' }}> 
           <motion.button  
