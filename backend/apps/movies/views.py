@@ -1,6 +1,6 @@
 from dataclasses import asdict
 
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework.decorators import api_view, permission_classes
@@ -33,6 +33,7 @@ from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
 from .realdebrid_sync import atualiza_resumo
 from .realdebrid_estado import sincroniza_filme
+from .transcode import NADA, SO_AUDIO, abre_fluxo, o_que_transcodificar
 from .release_search import (estado_da_busca, libera, marca_enfileirada,
                              normaliza_filtros)
 from apps.tasks.torrents import search_torrents_for_movie
@@ -520,6 +521,58 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         return Response(doc, status=status.HTTP_202_ACCEPTED)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='release', description='Qual cópia transcodificar.',
+                             required=False, type=str),
+            OpenApiParameter(name='inicio', description='Segundo em que começar.',
+                             required=False, type=float),
+        ],
+        responses={(200, 'video/mp4'): OpenApiTypes.BINARY},
+        description='O filme convertido para algo que o navegador toca.',
+    )
+    @action(detail=True, methods=['get'])
+    def transcode(self, request, pk=None):
+        """
+        Serve a cópia convertida, enquanto ela é convertida.
+
+        O `<video>` não decodifica DTS, TrueHD nem Dolby Digital, e são essas
+        as faixas das cópias de maior nota. Aqui o fluxo de vídeo é COPIADO e
+        só o áudio é convertido — medido contra um REMUX HEVC + DTS 5.1 do
+        Real-Debrid: 4x a velocidade da reprodução, a 15% de CPU.
+
+        A resposta não aceita requisição por faixa: é um fluxo sendo produzido
+        agora, não um arquivo. Saltar é pedir de novo com `?inicio=`, e por
+        isso o cabeçalho diz `Accept-Ranges: none` — sem ele o navegador tenta
+        a faixa, recebe o começo, e conclui que o vídeo tem a duração errada.
+        """
+        movie = self.get_object()
+        fonte = async_to_sync(resolve_playback)(
+            movie, request.user, release_id=request.query_params.get('release') or None)
+
+        if not fonte:
+            return Response({'error': 'Nenhuma fonte disponível para este filme.'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            inicio = max(0.0, float(request.query_params.get('inicio') or 0))
+        except ValueError:
+            inicio = 0.0
+
+        release = (TorrentRelease.objects.filter(pk=fonte.release_id).first()
+                   if fonte.release_id else None)
+        escopo = o_que_transcodificar(release) if release else SO_AUDIO
+        if escopo == NADA:
+            escopo = SO_AUDIO
+
+        _, pedacos = abre_fluxo(fonte.stream_url, inicio, escopo)
+
+        resposta = StreamingHttpResponse(pedacos, content_type='video/mp4')
+        resposta['Accept-Ranges'] = 'none'
+        resposta['Cache-Control'] = 'no-store'
+        resposta['X-Lumiere-Transcode'] = escopo
+        return resposta
 
     @extend_schema(
         responses=OpenApiTypes.OBJECT,
