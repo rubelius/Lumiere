@@ -382,6 +382,21 @@ class TorrentRelease(models.Model):
         return self.release_group or 'grupo não identificado no nome'
 
 
+    @property
+    def compatibilidade(self) -> str:
+        """
+        Se esta cópia toca num navegador: 'toca', 'nao_toca' ou 'talvez'.
+
+        A nota e o navegador querem coisas opostas: a nota premia REMUX e
+        faixa sem perdas, que é justamente o que o `<video>` recusa. No
+        acervo, a melhor cópia de "2001" faz 76 e não emite som; a melhor que
+        toca faz 29.
+        """
+        from apps.movies.compatibilidade import compatibilidade_no_navegador
+
+        return compatibilidade_no_navegador(self)
+
+
     def __str__(self):
         return f'{self.title} [{self.quality_score}/100]'
     

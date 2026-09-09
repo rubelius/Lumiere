@@ -39,6 +39,9 @@ logger = logging.getLogger(__name__)
 CACHEADO = 'cacheado'
 NAO_CACHEADO = 'nao_cacheado'
 INDETERMINADO = 'indeterminado'
+# O Real-Debrid se recusa a servir este conteúdo. Não é falha nem falta de
+# cache: é um não permanente, e insistir não muda.
+RECUSADO = 'recusado'
 
 CHAVE = 'rd_cache:{}'
 
@@ -56,7 +59,11 @@ INTERVALO_DE_ESPERA = 0.7
 # Quantas cópias sondar de uma vez ao abrir a ficha. Cada sondagem cria e
 # desfaz uma linha na conta do usuário, então o número é pequeno de propósito:
 # são as melhores pela nota, que é onde a escolha realmente acontece.
-QUANTAS_SONDAR = 5
+# Quantas sondar por busca. Era 5, e 5 pela nota nunca chegava às cópias que o
+# navegador toca — elas vivem no fundo da lista. Com a fila por utilidade
+# (ver _em_ordem_de_utilidade), 12 alcança as compatíveis de todos os filmes do
+# acervo e ainda cabe em ~20s de tarefa em segundo plano.
+QUANTAS_SONDAR = 12
 
 # Pausa entre uma sondagem e a seguinte. Cinco de uma vez tomaram
 # `429 Too Many Requests` do Real-Debrid em addMagnet — o provedor limita a
@@ -119,7 +126,14 @@ async def _sonda_e_limpa(chave_api: str, magnet: str, ja_estava_na_conta: bool) 
     except RealDebridIndisponivel as e:
         logger.warning('Sondagem de cache falhou: %s', e)
         return INDETERMINADO
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - refinado logo abaixo
+        if '451' in str(e):
+            # "Unavailable For Legal Reasons": o Real-Debrid se recusa a servir
+            # este hash. Chamar de "indeterminado" faria a sondagem tentar de
+            # novo a cada seis horas, para sempre, por uma resposta que não vai
+            # mudar.
+            logger.info('Real-Debrid recusa este conteúdo (451)')
+            return RECUSADO
         logger.warning('Sondagem de cache falhou de forma inesperada: %s', e)
         return INDETERMINADO
     finally:
@@ -183,11 +197,7 @@ def sonda_as_melhores(movie, user, quantas: int = QUANTAS_SONDAR) -> dict:
     from apps.movies.models import TorrentRelease
     from apps.movies.realdebrid_sync import atualiza_resumo
 
-    candidatas = list(
-        TorrentRelease.objects.filter(movie=movie)
-        .exclude(magnet_link='')
-        .order_by('-quality_score', '-seeders')[:quantas]
-    )
+    candidatas = _em_ordem_de_utilidade(movie, quantas)
 
     agora = timezone.now()
     respostas = _sonda_uma_a_uma(candidatas, user)
@@ -266,3 +276,29 @@ def _sonda_uma_a_uma(candidatas, user) -> dict:
             guarda(release.info_hash, resposta)
 
     return respostas
+
+
+def _em_ordem_de_utilidade(movie, quantas: int) -> list:
+    """
+    Quais cópias sondar, e em que ordem.
+
+    Ordenar só pela nota nunca alcançava as que o navegador toca. As duas
+    coisas são quase opostas — a nota premia REMUX e faixa sem perdas, e é
+    isso que o `<video>` recusa —, então as compatíveis vivem no fundo da
+    lista: em "2001", a melhor que toca faz 29 contra 76 da melhor absoluta.
+    Sondar as cinco de maior nota respondia sobre cinco cópias que, tocando ou
+    não, não iam para o player.
+
+    Então a fila é por utilidade: primeiro as que tocam, depois as que talvez
+    toquem, e por fim as que não tocam — cada grupo pela nota. O teto continua
+    existindo porque cada sondagem cria e desfaz uma linha na conta do usuário
+    e o provedor limita a taxa.
+    """
+    from apps.movies.compatibilidade import NAO_TOCA, TALVEZ, TOCA
+    from apps.movies.models import TorrentRelease
+
+    prioridade = {TOCA: 0, TALVEZ: 1, NAO_TOCA: 2}
+    todas = list(TorrentRelease.objects.filter(movie=movie).exclude(magnet_link=''))
+    todas.sort(key=lambda r: (prioridade.get(r.compatibilidade, 3),
+                              -(r.quality_score or 0), -(r.seeders or 0)))
+    return todas[:quantas]

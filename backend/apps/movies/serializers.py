@@ -110,6 +110,9 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
     # só pode ser lido como defeito — e quase nunca é.
     motivos_do_score = serializers.ListField(
         child=serializers.DictField(), read_only=True)
+    # 'toca' | 'nao_toca' | 'talvez'. Decide para onde o botão de projeção
+    # aponta, e o que a tela oferece quando nada toca.
+    compatibilidade = serializers.CharField(read_only=True)
 
     class Meta:
         model = TorrentRelease
@@ -122,7 +125,7 @@ class TorrentReleaseSerializer(serializers.ModelSerializer):
             'instantly_available', 'instant_check_at',
             'in_realdebrid', 'realdebrid_status',
             'realdebrid_progress', 'disponibilidade', 'pode_importar',
-            'motivos_do_score', 'found_at'
+            'motivos_do_score', 'compatibilidade', 'found_at'
         ]
         read_only_fields = [
             'quality_score', 'video_score', 'audio_score', 

@@ -43,12 +43,31 @@ class PlaybackSource:
     release_id: Optional[str] = None
 
 
+def _por_utilidade(releases: list) -> list:
+    """
+    Ordena por "serve para assistir agora", e não por nota.
+
+    A nota e o navegador querem coisas opostas: ela premia REMUX e faixa sem
+    perdas, que é o que o `<video>` recusa. Mandar a de maior nota para o
+    player entrega imagem sem som — foi exatamente o que aconteceu com o REMUX
+    de nota 76 do acervo.
+
+    Então a ordem é: toca > talvez > não toca, e dentro de cada grupo a maior
+    nota. Assim o botão pega a melhor cópia ENTRE AS QUE SERVEM, que é o que
+    "melhor" quer dizer quando se está prestes a apertar play.
+    """
+    from apps.movies.compatibilidade import NAO_TOCA, TALVEZ, TOCA
+
+    prioridade = {TOCA: 0, TALVEZ: 1, NAO_TOCA: 2}
+    return sorted(releases, key=lambda r: (prioridade.get(r.compatibilidade, 3),
+                                           -(r.quality_score or 0)))
+
+
 async def _melhor_ja_na_conta(movie):
     return await sync_to_async(
-        lambda: movie.torrent_releases.filter(in_realdebrid=True)
-        .exclude(realdebrid_links=[])
-        .order_by('-quality_score')
-        .first()
+        lambda: next(iter(_por_utilidade(list(
+            movie.torrent_releases.filter(in_realdebrid=True)
+            .exclude(realdebrid_links=[])))), None)
     )()
 
 
@@ -63,10 +82,9 @@ async def _melhor_com_disponibilidade_imediata(movie):
     do que o player levaria para carregar de qualquer jeito.
     """
     return await sync_to_async(
-        lambda: movie.torrent_releases.filter(instantly_available=True)
-        .exclude(magnet_link='')
-        .order_by('-quality_score')
-        .first()
+        lambda: next(iter(_por_utilidade(list(
+            movie.torrent_releases.filter(instantly_available=True)
+            .exclude(magnet_link='')))), None)
     )()
 
 
