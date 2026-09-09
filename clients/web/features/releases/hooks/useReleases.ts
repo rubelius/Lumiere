@@ -165,6 +165,47 @@ export const CORES_DA_COPIA: Record<Rotulo['cor'], { texto: string; borda: strin
   ausente: { texto: 'var(--m3)', borda: 'rgba(86,84,80,0.4)' },
 };
 
+export type Compatibilidade = 'toca' | 'nao_toca' | 'talvez';
+
+interface RotuloDeCompatibilidade {
+  texto: string;
+  detalhe: string;
+  cor: 'pronta' | 'espera' | 'ausente';
+}
+
+const COMPATIBILIDADE: Record<Compatibilidade, RotuloDeCompatibilidade> = {
+  toca: {
+    texto: 'NAVEGADOR',
+    detalhe: 'Vídeo e áudio que o navegador decodifica. Toca aqui mesmo, sem conversão.',
+    cor: 'pronta',
+  },
+  talvez: {
+    texto: 'TALVEZ',
+    detalhe: 'O nome não diz o áudio. Pode tocar, pode vir sem som — só tentando para saber.',
+    cor: 'espera',
+  },
+  nao_toca: {
+    texto: 'SEM SOM',
+    detalhe: 'Faixa DTS, TrueHD ou Dolby Digital, que o navegador não decodifica: '
+      + 'a imagem anda e não sai áudio. Precisa de conversão ou de um player externo.',
+    cor: 'ausente',
+  },
+};
+
+/**
+ * Como anunciar que uma cópia toca no navegador.
+ *
+ * A nota e o player querem coisas opostas: a nota premia REMUX e faixa sem
+ * perdas, e é isso que o `<video>` recusa. Sem este selo, a cópia de maior
+ * nota parece a melhor escolha e entrega imagem muda.
+ */
+export function rotuloDeCompatibilidade(
+  r: Partial<Pick<Release, 'compatibilidade'>>,
+): RotuloDeCompatibilidade {
+  return COMPATIBILIDADE[(r.compatibilidade as Compatibilidade) ?? 'talvez']
+    ?? COMPATIBILIDADE.talvez;
+}
+
 /**
  * A conta do score, em texto, para o título do número na tabela.
  *

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react"; 
 import { useQueryClient } from '@tanstack/react-query';
 import { movieKeys } from '@/features/movies/hooks/useMovies';
-import { CORES_DA_COPIA, explicaOScore, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useEstadoDaBusca, useEstadoNoRealDebrid, useImportarRelease, useRelogio, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
+import { CORES_DA_COPIA, explicaOScore, mensagemDaBusca, rotuloDeCompatibilidade, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useEstadoDaBusca, useEstadoNoRealDebrid, useImportarRelease, useRelogio, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
 import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion"; 
@@ -525,6 +525,7 @@ export default function MovieClient() {
                           {releases.map((release, i) => {
                             const specs = especificacaoDaCopia(release);
                             const rotulo = rotuloDaCopia(release);
+                            const compat = rotuloDeCompatibilidade(release);
                             const importandoEsta = importar.isPending && importar.variables === release.id;
                             return (
                               <div key={release.id} style={{ display: 'grid', gridTemplateColumns: '76px minmax(180px, 1fr) 88px 84px 250px', alignItems: 'center', padding: '16px', borderBottom: i !== releases.length - 1 ? '1px solid rgba(86,84,80,0.3)' : 'none', gap: 12 }}>
@@ -550,7 +551,18 @@ export default function MovieClient() {
                                   <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m2)', letterSpacing: '0.08em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={release.title}>
                                     {release.title}
                                   </div>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                                    {/* Sem este selo, a cópia de maior nota
+                                        parece a melhor escolha e entrega
+                                        imagem muda: a nota premia faixa sem
+                                        perdas, que é o que o navegador
+                                        recusa. */}
+                                    <span
+                                      title={compat.detalhe}
+                                      style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.1em', padding: '2px 5px', cursor: 'help', color: CORES_DA_COPIA[compat.cor].texto, border: `1px solid ${CORES_DA_COPIA[compat.cor].borda}` }}
+                                    >
+                                      {compat.texto}
+                                    </span>
                                     {specs.length > 0 ? specs.map((s) => (
                                       <span key={s} style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.1em', color: 'var(--m2)', border: '1px solid rgba(86,84,80,0.5)', padding: '2px 5px' }}>{s}</span>
                                     )) : (

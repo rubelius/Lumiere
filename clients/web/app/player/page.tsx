@@ -9,6 +9,7 @@ import { Tv, MonitorPlay } from "lucide-react";
 
 import { PlayerTopBar, PlayerBottomControls, PlayerDiagnosticPanel } from "@/components/player/PlayerUI";
 import { useMovie, usePlayback, useSubtitles } from "@/features/movies/hooks/useMovies";
+import { PLAYERS, urlDaLegenda } from "@/features/movies/playerExterno";
 import { useProgressoDeExibicao } from '@/features/movies/hooks/useProgressoDeExibicao';
 
 
@@ -60,6 +61,12 @@ function PlayerExperience() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [activeMenu, setActiveMenu] = useState<"settings" | "subs" | "cast" | null>(null);
+  const [playerExternoAberto, setPlayerExternoAberto] = useState(false);
+  // A <track> do player usa caminho relativo porque é servida pela mesma
+  // origem; um aplicativo de fora precisa do endereço completo.
+  const legendaExterna = legendas?.[0]?.file_id
+    ? urlDaLegenda(legendas[0].file_id)
+    : undefined;
   const [activeTab, setActiveTab] = useState<"video" | "audio" | "sub">("video"); 
   const [playbackMode, setPlaybackMode] = useState<"local" | "jellyfin" | "direct">("local");
   // Resolução medida no próprio elemento, em vez do "145 MBPS" que era fixo.
@@ -338,6 +345,62 @@ function PlayerExperience() {
               Nenhuma cópia em Real-Debrid, Jellyfin ou Plex
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Abrir fora do navegador.
+          O <video> não decodifica DTS, TrueHD nem Dolby Digital — medido com
+          canPlayType — e são justamente as faixas das cópias de maior nota.
+          Um REMUX 2160p toca no VLC e cala aqui. O link cru fica ao lado
+          porque nenhum esquema de player confirma nada de volta: o navegador
+          dispara e não fica sabendo se algum aplicativo atendeu. */}
+      {fonte?.stream_url && (
+        <div className="absolute z-50" style={{ top: 24, right: 24 }}>
+          <button
+            onClick={() => setPlayerExternoAberto((v) => !v)}
+            title="Abrir num player externo"
+            style={{ background: 'rgba(4,4,2,0.75)', border: '1px solid rgba(86,84,80,0.5)', color: 'var(--m2)', padding: '8px 12px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', backdropFilter: 'blur(8px)' }}
+          >
+            [ ABRIR FORA ]
+          </button>
+
+          {playerExternoAberto && (
+            <div style={{ marginTop: 8, minWidth: 260, background: 'var(--void)', border: '1px solid rgba(86,84,80,0.5)', padding: 14 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.15em', lineHeight: 1.9, marginBottom: 12 }}>
+                O NAVEGADOR NÃO DECODIFICA DTS, TRUEHD NEM DOLBY DIGITAL. UM PLAYER EXTERNO TOCA.
+              </div>
+
+              {PLAYERS.map((p) => (
+                <a
+                  key={p.nome}
+                  href={p.endereco(fonte.stream_url, legendaExterna)}
+                  style={{ display: 'block', color: 'var(--gold)', border: '1px solid rgba(191,143,60,0.4)', padding: '9px 12px', marginBottom: 8, fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textDecoration: 'none' }}
+                >
+                  [ {p.nome.toUpperCase()} ]
+                  <span style={{ color: 'var(--m3)', fontSize: '7px', marginLeft: 8 }}>
+                    {p.levaLegenda && legendaExterna ? 'COM LEGENDA' : 'SÓ O VÍDEO'}
+                  </span>
+                </a>
+              ))}
+
+              <button
+                onClick={() => navigator.clipboard?.writeText(fonte.stream_url)}
+                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: '1px solid rgba(86,84,80,0.4)', color: 'var(--m2)', padding: '9px 12px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer' }}
+              >
+                [ COPIAR O LINK ]
+              </button>
+
+              {legendaExterna && (
+                <a
+                  href={legendaExterna}
+                  download
+                  style={{ display: 'block', marginTop: 8, color: 'var(--m2)', border: '1px solid rgba(86,84,80,0.4)', padding: '9px 12px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textDecoration: 'none' }}
+                >
+                  [ BAIXAR A LEGENDA ]
+                </a>
+              )}
+            </div>
+          )}
         </div>
       )}
 

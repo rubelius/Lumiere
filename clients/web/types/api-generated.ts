@@ -1533,6 +1533,7 @@ export interface components {
             readonly motivos_do_score?: {
                 [key: string]: unknown;
             }[];
+            readonly compatibilidade?: string;
             /** Format: date-time */
             readonly found_at?: string;
         };
@@ -1801,6 +1802,7 @@ export interface components {
             readonly motivos_do_score: {
                 [key: string]: unknown;
             }[];
+            readonly compatibilidade: string;
             /** Format: date-time */
             readonly found_at: string;
         };
