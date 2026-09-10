@@ -11,6 +11,7 @@ from drf_spectacular.views import (SpectacularAPIView, SpectacularRedocView,
                                    SpectacularSwaggerView)
 
 from apps.movies.views import MovieViewSet, TorrentReleaseViewSet, subtitle_vtt
+from apps.notifications.views import NotificationViewSet
 from apps.user_sessions.views import CinemaSessionViewSet, SessionThemeViewSet
 from apps.users.views import UserViewSet
 
@@ -30,6 +31,10 @@ router.register(r'releases', TorrentReleaseViewSet, basename='release')
 router.register(r'sessions', CinemaSessionViewSet, basename='session')
 router.register(r'themes', SessionThemeViewSet, basename='theme')
 router.register(r'users', UserViewSet, basename='user')
+# O app existia inteiro — modelo, serviço, consumer, viewset — e não
+# estava roteado. A tela não tinha como listar aviso nenhum, nem marcar
+# como lido o que chegasse pelo WebSocket.
+router.register(r'notifications', NotificationViewSet, basename='notification')
 
 class LoginThrottled(TokenObtainPairView):
     """

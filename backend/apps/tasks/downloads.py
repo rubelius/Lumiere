@@ -112,18 +112,33 @@ def check_realdebrid_status():
     ).select_related()
 
     spawned = 0
+    sem_dono = 0
     for release in active_releases:
         # A busca da sessão vem ANTES de pegar o lock. Na ordem inversa, uma
         # release sem sessão travava a chave por 26 minutos e saía pelo
         # `continue` — e só o monitor devolve o lock, monitor que nesse
-        # caminho nunca chega a ser disparado. Como a maioria das releases não
-        # está em sessão nenhuma, isso bloqueava justamente as que passassem a
-        # estar nos 26 minutos seguintes.
+        # caminho nunca chega a ser disparado.
         session_movie = SessionMovie.objects.filter(
             selected_release=release
         ).select_related('session__user').first()
 
-        if not session_movie:
+        # Fora de uma sessão, quem responde por este download é quem o pediu.
+        #
+        # Antes o `continue` estava aqui sem alternativa: uma cópia enviada
+        # pela ficha do filme ficava baixando sem ninguém olhando, o progresso
+        # nunca era atualizado e ninguém era avisado ao terminar. Como a
+        # maioria das cópias não está em sessão nenhuma, esse era o caso comum,
+        # não a exceção.
+        if session_movie:
+            user_id = session_movie.session.user.id
+            session_id = session_movie.session.id
+        elif release.pedido_por_id:
+            user_id, session_id = release.pedido_por_id, None
+        else:
+            # Sem sessão e sem quem tenha pedido não há chave de API para
+            # perguntar ao Real-Debrid, nem a quem avisar. É o caso das cópias
+            # que já estavam na conta antes de o Lumière existir.
+            sem_dono += 1
             continue
 
         lock_key = f'rd_monitor_lock_{release.id}'
@@ -135,17 +150,14 @@ def check_realdebrid_status():
             continue  # monitor already running
 
         monitor_realdebrid_download.apply_async(
-            args=[
-                str(release.id),
-                str(session_movie.session.user.id),
-                str(session_movie.session.id)
-            ],
+            args=[str(release.id), str(user_id),
+                  str(session_id) if session_id else None],
             # Pass the lock key so the task can release it on terminal states
             kwargs={'lock_key': lock_key}
         )
         spawned += 1
 
-    return {'spawned': spawned}
+    return {'spawned': spawned, 'sem_dono': sem_dono}
 
 
 @shared_task(bind=True, max_retries=50)
@@ -249,6 +261,11 @@ def monitor_realdebrid_download(self, release_id, user_id, session_id=None, lock
                         data={'status': 'ready', 'all_downloads_ready': True}
                     )
 
+            # Quem esperava o download é avisado. Vale para o download pedido
+            # na ficha do filme tanto quanto para o de uma sessão — e é a
+            # razão de o campo `pedido_por` existir.
+            _avisa_que_ficou_pronto(user, release, session_id)
+
             release_lock()
             return {'status': 'completed', 'links': links}
 
@@ -328,3 +345,26 @@ def sync_realdebrid_account():
         'incompletos': r.incompletos,
         'sem_casamento': r.sem_casamento,
     }
+
+
+def _avisa_que_ficou_pronto(user, release, session_id=None):
+    """
+    Avisa quem pediu que a cópia terminou de baixar.
+
+    O aviso NÃO pode derrubar o monitor. Se o canal de notificação estiver
+    fora, o download continua concluído e os links continuam gravados — perder
+    o aviso é ruim, perder a conclusão do download é pior. Por isso a falha
+    aqui vira log, e não exceção: uma exceção neste ponto faria o Celery
+    repetir a task inteira, refazendo a chamada ao Real-Debrid.
+    """
+    from apps.notifications.service import NotificationService
+
+    sessao = None
+    if session_id:
+        sessao = CinemaSession.objects.filter(pk=session_id).first()
+
+    try:
+        NotificationService.notify_download_complete(user, release.movie, sessao)
+    except Exception:
+        logger.exception('Não foi possível avisar %s sobre %s',
+                         getattr(user, 'id', '?'), release.pk)

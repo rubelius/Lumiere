@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Avisos } from '@/components/system/Avisos'
 import { MotionShell } from '@/components/system/MotionShell'
 import { Providers } from '@/lib/providers'
 import './globals.css'
@@ -24,6 +25,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <MotionShell>
             {children}
           </MotionShell>
+          {/* Fora do MotionShell: os avisos não devem entrar e sair junto com
+              a transição de página — o que chega enquanto se navega tem que
+              continuar na tela do outro lado. */}
+          <Avisos />
         </Providers>
       </body>
     </html>

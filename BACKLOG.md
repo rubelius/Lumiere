@@ -65,6 +65,12 @@ para coisas opostas.
 3. ✅ Player externo (`features/movies/playerExterno.ts`), com a legenda junto
    no Infuse.
 
+**Ligado em 2026-09-10:** a escolha quando nada toca sozinho — converter o
+áudio, reproduzir cru, ou mandar baixar no Real-Debrid e ser avisado. O aviso
+usa a infra de notificação que já existia inteira e desligada (`ws/notifications/`,
+grupo por usuário): faltava alguém do lado do cliente ouvindo, e o monitor de
+download só acompanhava cópias dentro de uma sessão de cinema.
+
 **O que continua aberto:** os controles de faixa de áudio e de volume. A
 conversão entrega uma faixa AAC estéreo só, então "escolher faixa de áudio"
 hoje não tem o que escolher — para o usuário trocar de idioma seria preciso

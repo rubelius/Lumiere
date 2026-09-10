@@ -724,6 +724,10 @@ class TorrentReleaseViewSet(viewsets.ModelViewSet):
             release.realdebrid_status = estado
             release.realdebrid_progress = int(depois.get('progress') or 0)
             release.realdebrid_added_at = timezone.now()
+            # Quem pediu é quem será avisado quando ficar pronto. Sem isto o
+            # monitor não teria a quem notificar, e era por isso que ele só
+            # acompanhava downloads dentro de uma sessão de cinema.
+            release.pedido_por = user
             if estado in TorrentRelease.ESTADOS_CONCLUIDOS:
                 release.realdebrid_completed_at = timezone.now()
                 release.realdebrid_links = depois.get('links') or []

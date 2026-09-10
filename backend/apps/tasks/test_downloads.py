@@ -30,11 +30,15 @@ def limpa_cache():
 
 
 @pytest.mark.django_db
-def test_release_fora_de_sessao_nao_prende_o_lock():
+def test_release_sem_dono_nao_prende_o_lock():
     """
-    A maioria das releases não está em sessão nenhuma. Travar a chave delas
-    por 26 minutos bloqueava as que passassem a estar dentro desse intervalo,
-    e nada devolvia o lock, porque o monitor nunca era disparado.
+    Sem sessão e sem quem tenha pedido, não há chave de API para perguntar ao
+    Real-Debrid nem a quem avisar — é o caso das cópias que já estavam na conta
+    antes de o Lumière existir.
+
+    Travar a chave delas por 26 minutos bloqueava as que passassem a ter dono
+    dentro desse intervalo, e nada devolvia o lock, porque o monitor nunca era
+    disparado.
     """
     release = release_baixando()
 
@@ -133,3 +137,63 @@ def _nada():
     async def falso(self, *a, **k):
         return None
     return falso
+
+
+@pytest.mark.django_db
+def test_quem_pediu_o_download_e_acompanhado_mesmo_fora_de_sessao():
+    """
+    O caso comum, e o que estava descoberto.
+
+    Antes, o monitor só nascia para cópias dentro de uma sessão de cinema —
+    era da sessão que ele tirava o usuário. Uma cópia enviada pela ficha do
+    filme ficava baixando sem ninguém olhando: o progresso nunca subia na tela
+    e ninguém era avisado ao terminar. Que é justamente o que a opção "baixar
+    e me avisar" promete.
+    """
+    from django.contrib.auth import get_user_model
+
+    dono = get_user_model().objects.create_user(username='quem_pediu', password='x')
+    release = release_baixando()
+    release.pedido_por = dono
+    release.save(update_fields=['pedido_por'])
+
+    with patch('apps.tasks.downloads.monitor_realdebrid_download.apply_async') as monitor:
+        check_realdebrid_status()
+
+    assert monitor.call_count == 1
+    args = monitor.call_args.kwargs['args']
+    assert args[1] == str(dono.id), 'monitorou em nome de outra pessoa'
+    assert args[2] is None, 'inventou uma sessão que não existe'
+    assert cache.get(f'rd_monitor_lock_{release.id}') == '1'
+
+
+@pytest.mark.django_db
+def test_a_sessao_ganha_de_quem_pediu():
+    """
+    Estando nas duas situações, a sessão manda: é ela que tem tela esperando o
+    progresso, e é o dono dela que precisa do aviso para começar a projeção.
+    """
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+
+    from apps.user_sessions.models import CinemaSession, SessionMovie
+
+    dono_da_sessao = get_user_model().objects.create_user(username='sessao', password='x')
+    quem_pediu = get_user_model().objects.create_user(username='pediu', password='x')
+
+    release = release_baixando()
+    release.pedido_por = quem_pediu
+    release.save(update_fields=['pedido_por'])
+
+    sessao = CinemaSession.objects.create(
+        user=dono_da_sessao, name='Noite', status='preparing',
+        scheduled_date=timezone.now() + timezone.timedelta(days=1))
+    SessionMovie.objects.create(
+        session=sessao, movie=release.movie, order=1, selected_release=release)
+
+    with patch('apps.tasks.downloads.monitor_realdebrid_download.apply_async') as monitor:
+        check_realdebrid_status()
+
+    args = monitor.call_args.kwargs['args']
+    assert args[1] == str(dono_da_sessao.id)
+    assert args[2] == str(sessao.id)

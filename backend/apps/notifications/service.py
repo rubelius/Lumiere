@@ -196,24 +196,36 @@ class NotificationService:
     
     @staticmethod
     def notify_download_complete(user, movie, session=None):
-        """Notifica download completo"""
-        message = f'Download complete for "{movie.title}" ({movie.year})'
-        
+        """
+        Avisa que uma cópia terminou de baixar e já dá para assistir.
+
+        O texto está em português porque a tela está — este método vinha
+        escrito em inglês, e ninguém tinha reparado porque nada o chamava.
+
+        `action_url` aponta para `/movie/` no singular. Estava `/movies/`, que
+        não é rota do cliente: o aviso levaria a um 404 no primeiro clique.
+        """
+        recado = f'"{movie.title}" terminou de baixar e já pode ser projetado.'
+
         if session:
-            message += f' in session "{session.name}"'
-        
+            recado = (f'"{movie.title}" ficou pronto para a sessão '
+                      f'"{session.name}".')
+
         return NotificationService.create_notification(
             user=user,
             notification_type='download_complete',
-            title='✅ Download Complete',
-            message=message,
+            title='Cópia pronta',
+            message=recado,
             priority='low',
-            action_url=f'/movies/{movie.id}',
-            action_text='View Movie',
+            action_url=f'/movie/{movie.id}',
+            action_text='Assistir',
             related_movie_id=movie.id,
             related_session_id=session.id if session else None,
             send_email=False,
-            send_push=True,
+            # `_send_push` é um esqueleto: o código do Firebase está comentado
+            # e o método só marca `sent_push=True`. Pedir push hoje é gravar
+            # que se enviou algo que não foi enviado.
+            send_push=False,
         )
     
     @staticmethod

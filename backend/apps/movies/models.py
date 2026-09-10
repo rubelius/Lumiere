@@ -236,6 +236,20 @@ class TorrentRelease(models.Model):
     release_score = models.IntegerField(default=0)
     seeds_score = models.IntegerField(default=0)
     
+    # Quem mandou baixar esta cópia, e portanto quem quer ser avisado quando
+    # ela ficar pronta.
+    #
+    # Sem este campo não havia a quem notificar: o monitor de download só
+    # acompanhava cópias dentro de uma sessão de cinema, porque era da sessão
+    # que ele tirava o usuário. Uma cópia enviada pela ficha do filme ficava
+    # baixando sem ninguém olhando, e ninguém era avisado ao terminar.
+    #
+    # `SET_NULL` porque a cópia continua existindo — e continua sendo do
+    # acervo — depois de a conta que a pediu sumir.
+    pedido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='downloads_pedidos')
+
     in_realdebrid = models.BooleanField(default=False)
     realdebrid_id = models.CharField(max_length=100, blank=True)
     realdebrid_status = models.CharField(max_length=50, blank=True)

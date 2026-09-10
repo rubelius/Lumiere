@@ -333,3 +333,41 @@ def conta_retries_envio(monkeypatch):
 
     monkeypatch.setattr(downloads.add_to_realdebrid, 'retry', falso)
     return chamadas
+
+
+@pytest.mark.django_db
+def test_ao_concluir_o_download_quem_pediu_e_avisado(usuario, copia, rd):
+    """
+    A ponta que faltava: o monitor precisa CHAMAR o aviso.
+
+    Testar `_avisa_que_ficou_pronto` isolada não prova nada sobre isso —
+    verificado por mutação: trocar a chamada no monitor por `pass` deixava os
+    sete testes do aviso passando, e a funcionalidade inteira morta.
+    """
+    from unittest.mock import patch
+
+    rd(info={'status': 'downloaded', 'progress': 100}, links=LINKS_BONS)
+
+    with patch('apps.tasks.downloads._avisa_que_ficou_pronto') as aviso:
+        monitor_realdebrid_download(str(copia.id), str(usuario.id))
+
+    assert aviso.call_count == 1
+    avisado, release, sessao = aviso.call_args.args
+    assert avisado.id == usuario.id
+    assert release.id == copia.id
+    assert sessao is None
+
+
+@pytest.mark.django_db
+def test_download_que_ainda_nao_terminou_nao_avisa_ninguem(usuario, copia, rd,
+                                                           conta_retries):
+    """Avisar a cada 30 segundos que o download 'terminou' seria pior que não avisar."""
+    from unittest.mock import patch
+
+    rd(info={'status': 'downloading', 'progress': 42})
+
+    with patch('apps.tasks.downloads._avisa_que_ficou_pronto') as aviso:
+        with pytest.raises(Retry):
+            monitor_realdebrid_download(str(copia.id), str(usuario.id))
+
+    assert aviso.call_count == 0
