@@ -10,6 +10,7 @@ shut down and was killed".
 
 import inspect
 import os
+import subprocess
 import signal
 
 import pytest
@@ -200,3 +201,88 @@ def test_um_ffmpeg_imortal_nao_trava_a_thread():
         transcode.FFMPEG = real
         if processo is not None:
             os.kill(processo.pid, signal.SIGKILL)
+
+
+# ── o valor do -ss, e não só a posição dele ───────────────────────────────
+
+@pytest.mark.parametrize('inicio,esperado', [
+    (0, None), (600.0, '600.000'), (3618.573, '3618.573'), (0.5, '0.500'),
+])
+def test_o_ss_carrega_o_segundo_pedido(inicio, esperado):
+    """
+    A guarda antiga dizia onde o `-ss` estava, nunca com que valor.
+
+    Um ffmpeg que sempre começa do zero passaria nela enquanto todo salto
+    devolvia o começo do filme — e a tela, que soma o deslocamento ao relógio,
+    mostraria 1h sobre a primeira cena.
+    """
+    cmd = comando('http://x/f.mkv', inicio)
+    if esperado is None:
+        assert '-ss' not in cmd
+    else:
+        assert cmd[cmd.index('-ss') + 1] == esperado
+
+
+def test_o_transcode_completo_recodifica_o_video():
+    """
+    O ramo TUDO existe para o vídeo que o navegador não decodifica. Se ele
+    virar `-c:v copy`, a cópia é servida intacta e a tela mostra nada — com
+    todos os outros testes passando, porque nenhum exercitava este ramo.
+    """
+    cmd = comando('http://x/f.mkv', 0, TUDO)
+    assert cmd[cmd.index('-c:v') + 1] == 'h264_videotoolbox'
+    assert '-b:v' in cmd
+
+    assert comando('http://x/f.mkv', 0, SO_AUDIO)[
+        comando('http://x/f.mkv', 0, SO_AUDIO).index('-c:v') + 1] == 'copy'
+
+
+# ── o segundo de partida ──────────────────────────────────────────────────
+
+@pytest.mark.parametrize('bruto,esperado', [
+    (None, 0.0), ('', 0.0), ('abc', 0.0), ('-5', 0.0), ('0', 0.0),
+    ('600', 600.0), ('600.5', 600.5),
+    # `float()` aceita os três sem levantar nada, e o ffmpeg aceita depois:
+    # devolve um fluxo vazio, que o navegador lê como falha.
+    ('inf', 0.0), ('-inf', 0.0), ('nan', 0.0),
+])
+def test_o_segundo_de_partida_recusa_o_que_o_float_aceita(bruto, esperado):
+    assert transcode.segundo_de_partida(bruto) == esperado
+
+
+def test_saltar_para_depois_do_fim_para_antes_do_fim():
+    """Pedir o último segundo devolve fluxo vazio; o clamp deixa sobra."""
+    assert transcode.segundo_de_partida('9999', 9078.741) == pytest.approx(9076.741)
+    assert transcode.segundo_de_partida('5000', 9078.741) == 5000.0
+    # Sem duração conhecida não há como clampar, e inventar um teto seria pior.
+    assert transcode.segundo_de_partida('99999', None) == 99999.0
+
+
+def test_duracao_ilegivel_vira_none_e_nao_zero():
+    """
+    None é 'não sei'; 0 seria 'o filme tem zero segundos' — e a tela divide
+    pela duração para desenhar a barra.
+    """
+    assert transcode.duracao_do_arquivo('/tmp/nao-existe-mesmo.mkv') is None
+
+
+@pytest.mark.parametrize('saida,esperado', [
+    (b'9078.741\n', 9078.741),
+    (b'0.000000\n', None),      # arquivo sem duração: 'não sei', não 'zero'
+    (b'-1\n', None),
+    (b'N/A\n', None),
+    (b'\n', None),
+    (b'', None),
+])
+def test_a_duracao_so_vale_se_for_positiva(monkeypatch, saida, esperado):
+    """
+    Zero não é uma duração, é a ausência de uma.
+
+    A tela divide por este número para desenhar a barra e para decidir se o
+    filme acabou. Um 0 devolvido como se fosse medida faria `totalTime` cair
+    no ramo do buffer e marcar como assistido um filme de duas horas.
+    """
+    monkeypatch.setattr(
+        transcode.subprocess, 'run',
+        lambda *a, **k: subprocess.CompletedProcess(a[0] if a else [], 0, saida, b''))
+    assert transcode.duracao_do_arquivo('http://x/f.mkv') == esperado

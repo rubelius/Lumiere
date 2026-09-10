@@ -33,7 +33,8 @@ from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
 from .realdebrid_sync import atualiza_resumo
 from .realdebrid_estado import sincroniza_filme
-from .transcode import NADA, SO_AUDIO, abre_fluxo, o_que_transcodificar
+from .transcode import (NADA, SO_AUDIO, abre_fluxo, o_que_transcodificar,
+                        segundo_de_partida)
 from .release_search import (estado_da_busca, libera, marca_enfileirada,
                              normaliza_filtros)
 from apps.tasks.torrents import search_torrents_for_movie
@@ -555,13 +556,12 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
             return Response({'error': 'Nenhuma fonte disponível para este filme.'},
                             status=status.HTTP_404_NOT_FOUND)
 
-        try:
-            inicio = max(0.0, float(request.query_params.get('inicio') or 0))
-        except ValueError:
-            inicio = 0.0
-
         release = (TorrentRelease.objects.filter(pk=fonte.release_id).first()
                    if fonte.release_id else None)
+
+        inicio = segundo_de_partida(
+            request.query_params.get('inicio'),
+            fonte.duracao_segundos or (release.duration_seconds if release else None))
         escopo = o_que_transcodificar(release) if release else SO_AUDIO
         if escopo == NADA:
             escopo = SO_AUDIO

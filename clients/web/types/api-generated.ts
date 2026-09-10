@@ -288,6 +288,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/{id}/transcode/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description O filme convertido para algo que o navegador toca. */
+        get: operations["movies_transcode_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/{id}/watched/": {
         parameters: {
             query?: never;
@@ -1577,6 +1594,20 @@ export interface components {
             label: string;
             container: string | null;
             quality: string;
+            release_id: string | null;
+            /**
+             * @description O que o navegador não dá conta de decodificar. Com "audio" ou "tudo", a tela aponta o <video> para /transcode/ em vez de stream_url.
+             *
+             *     * `nada` - nada
+             *     * `audio` - audio
+             *     * `tudo` - tudo
+             */
+            precisa_converter: components["schemas"]["PrecisaConverterEnum"];
+            /**
+             * Format: double
+             * @description Duração real do arquivo. Só vem preenchida quando há conversão: o MP4 fragmentado declara a duração do que já chegou, então o <video> não sabe o tamanho do filme sozinho.
+             */
+            duracao_segundos: number | null;
         };
         /**
          * @description * `playing` - Tocando
@@ -1585,6 +1616,13 @@ export interface components {
          * @enum {string}
          */
         PlaybackStateEnum: "playing" | "paused" | "buffering";
+        /**
+         * @description * `nada` - nada
+         *     * `audio` - audio
+         *     * `tudo` - tudo
+         * @enum {string}
+         */
+        PrecisaConverterEnum: "nada" | "audio" | "tudo";
         /**
          * @description O que o player reporta enquanto o filme roda.
          *
@@ -2288,6 +2326,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedSubtitleList"];
+                };
+            };
+        };
+    };
+    movies_transcode_retrieve: {
+        parameters: {
+            query?: {
+                /** @description Segundo em que começar. */
+                inicio?: number;
+                /** @description Qual cópia transcodificar. */
+                release?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/mp4": string;
                 };
             };
         };

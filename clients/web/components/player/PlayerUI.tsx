@@ -66,7 +66,7 @@ export function PlayerTopBar({ onBack, title, year, quality, resolution, sourceL
 // ── 2. MESA DE CORTE (CONTROLES INFERIORES) ──
 export function PlayerBottomControls(props: any) {
   const { 
-    currentTimeStr, totalTimeStr, progressPercent, bufferedPercent, onSeek, 
+    currentTimeStr, totalTimeStr, progressPercent, bufferedPercent, bufferedStartPercent = 0, onSeek, 
     isPlaying, onTogglePlay, onSkip, 
     volume, isMuted, onVolumeChange, onToggleMute, 
     activeMenu, onToggleMenu, isFullscreen, onToggleFullscreen 
@@ -83,12 +83,16 @@ export function PlayerBottomControls(props: any) {
           {/* Fundo da Barra */}
           <div style={{ position: 'absolute', top: 11, left: 0, right: 0, height: 1, backgroundColor: 'rgba(237,232,220,0.1)' }} />
           
-          {/* 👇 CORREÇÃO 3: Barra de Buffer Real (Sólida, sem efeito fake) */}
+          {/* O que está carregado, e só isso.
+              Começa onde o fluxo abriu, e não em zero: no caminho convertido
+              saltar descarta o buffer anterior, e pintar desde a esquerda
+              afirmaria que o começo do filme continua pronto. */}
           <div 
             style={{ 
-              position: 'absolute', top: 11, left: 0, height: 1, 
-              backgroundColor: 'rgba(237,232,220,0.3)', // Cinza claro semi-transparente
-              width: `${bufferedPercent}%`, 
+              position: 'absolute', top: 11, height: 1, 
+              backgroundColor: 'rgba(237,232,220,0.3)',
+              left: `${bufferedStartPercent}%`,
+              width: `${Math.max(0, bufferedPercent - bufferedStartPercent)}%`, 
               transition: 'width 0.2s ease-out' 
             }} 
           />
@@ -102,9 +106,6 @@ export function PlayerBottomControls(props: any) {
             style={{ position: 'absolute', top: 6, width: 2, height: 12, backgroundColor: 'var(--film)', left: `${progressPercent}%`, transform: 'translateX(-50%)' }}
           />
           
-          {/* Marcadores de Capítulo */}
-          <div style={{ position: 'absolute', top: 8, left: '25%', width: 1, height: 8, backgroundColor: 'var(--m3)' }} />
-          <div style={{ position: 'absolute', top: 8, left: '60%', width: 1, height: 8, backgroundColor: 'var(--m3)' }} />
         </div>
         
         <span style={{ fontSize: '10px', letterSpacing: '0.1em', color: 'var(--m3)', width: 48 }}>{totalTimeStr}</span>

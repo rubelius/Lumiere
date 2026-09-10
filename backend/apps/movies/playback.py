@@ -14,6 +14,7 @@ Plex. Por isso cada resolvedor é chamado dentro de try/except e uma falha vira
 apenas "esta fonte não serve".
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Callable, List, Optional
@@ -25,8 +26,18 @@ from apps.integrations.jellyfin import JellyfinClient
 from apps.integrations.plex import PlexClient
 from apps.integrations.realdebrid import (RealDebridClient,
                                              chave_do_usuario)
+from apps.movies.transcode import (NADA, SO_AUDIO, TUDO, duracao_do_arquivo,
+                                   o_que_transcodificar)
 
 logger = logging.getLogger(__name__)
+
+# O rótulo diz o que vai acontecer de fato. Antes era sempre 'DIRECT PLAY',
+# inclusive sobre a cópia cujo áudio o navegador não decodifica.
+ROTULOS = {
+    NADA: 'DIRECT PLAY',
+    SO_AUDIO: 'ÁUDIO CONVERTIDO',
+    TUDO: 'TRANSCODE',
+}
 
 
 @dataclass
@@ -41,6 +52,15 @@ class PlaybackSource:
     # Qual cópia está tocando. A tela precisa saber para dizer, sem rodeios, o
     # que exatamente foi posto no ar.
     release_id: Optional[str] = None
+    # 'nada' | 'audio' | 'tudo'. Quem resolve a fonte é quem sabe qual cópia
+    # foi escolhida, então é aqui que a pergunta "o navegador dá conta disto?"
+    # tem resposta. Sem este campo a tela teria que reconstruir o julgamento a
+    # partir de `quality`, adivinhando codec por nome de arquivo.
+    precisa_converter: str = NADA
+    # Segundos, medidos no arquivo. None quando não foi possível medir — e a
+    # tela precisa aguentar isso, porque acontece. Só é preenchido quando há
+    # conversão: no caminho direto o navegador lê a duração sozinho.
+    duracao_segundos: Optional[float] = None
 
 
 def _por_utilidade(releases: list) -> list:
@@ -178,13 +198,36 @@ async def _from_realdebrid(movie, user, release_id=None) -> Optional[PlaybackSou
     if not unrestricted or not unrestricted.get('download'):
         return None
 
+    # O que o navegador vai precisar que seja feito por ele. A tela decide com
+    # isto se aponta o <video> para a URL do Real-Debrid ou para o conversor —
+    # e o rótulo deixa de mentir: "DIRECT PLAY" sobre um REMUX com DTS era uma
+    # promessa que a reprodução não cumpria.
+    converter = o_que_transcodificar(release)
+
+    # A duração só é medida quando vai haver conversão, e só na primeira vez
+    # que esta cópia toca. No caminho direto o navegador lê a duração do
+    # próprio arquivo e a sondagem seria 3 segundos jogados fora em cada play.
+    duracao = release.duration_seconds
+    if converter != NADA and not duracao:
+        # Numa thread: o ffprobe bloqueia por segundos e este código roda no
+        # laço de eventos.
+        duracao = await asyncio.to_thread(duracao_do_arquivo, unrestricted['download'])
+        if duracao:
+            # `update` e não `save`: outra aba pode estar mexendo na mesma
+            # linha, e aqui só esta coluna é conhecimento novo.
+            await sync_to_async(
+                type(release).objects.filter(pk=release.pk).update
+            )(duration_seconds=duracao)
+
     return PlaybackSource(
         source='realdebrid',
         stream_url=unrestricted['download'],
-        label='DIRECT PLAY',
+        label=ROTULOS[converter],
         container=(unrestricted.get('filename') or '').rsplit('.', 1)[-1] or None,
         quality=release.title or '',
         release_id=str(release.id),
+        precisa_converter=converter,
+        duracao_segundos=duracao,
     )
 
 

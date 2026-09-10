@@ -54,18 +54,27 @@ nota são justamente REMUX em .mkv com faixa sem perdas, ou seja, exatamente as
 que o navegador não toca. O algoritmo de qualidade e o player estão otimizando
 para coisas opostas.
 
-**Decisões pendentes, e as três mudam o produto:**
+**As três saídas foram construídas, e elas se completam:**
 
-1. Transcodificar sob demanda com ffmpeg — resolve tudo, custa CPU e alguns
-   segundos de latência no play, e exige gerenciar processos.
-2. Preferir cópias compatíveis na hora de tocar — instantâneo e sem
-   infraestrutura, mas escolhe H.264/AAC em vez do REMUX que a nota elogia.
-3. Delegar a um player externo (VLC, Infuse) por link — toca tudo, mas o
-   Lumière deixa de ser onde se assiste.
+1. ✅ Transcodificar sob demanda (`apps/movies/transcode.py`). Quase nunca é
+   preciso recodificar VÍDEO — o que falha é o áudio —, então o normal é
+   `-c:v copy` com só a faixa de som virando AAC. Medido: 4x a velocidade da
+   reprodução a 15% de CPU, e 0 quadros perdidos num REMUX 2160p HEVC.
+2. ✅ Preferir cópias compatíveis (`_por_utilidade` em `playback.py`): toca >
+   talvez > não toca, e dentro de cada grupo a maior nota.
+3. ✅ Player externo (`features/movies/playerExterno.ts`), com a legenda junto
+   no Infuse.
 
-Os controles que não funcionam (faixas de áudio, legendas, volume) são um
-segundo problema, e em parte consequência do primeiro: sem faixa de áudio
-decodificável não há o que selecionar.
+**O que continua aberto:** os controles de faixa de áudio e de volume. A
+conversão entrega uma faixa AAC estéreo só, então "escolher faixa de áudio"
+hoje não tem o que escolher — para o usuário trocar de idioma seria preciso
+mapear as faixas do arquivo (`-map 0:a:N`) e reabrir o fluxo, como o salto já
+faz.
+
+**Limite conhecido:** Jellyfin e Plex nunca passam por essa pergunta —
+`precisa_converter` só é calculado no caminho do Real-Debrid, onde existe uma
+cópia com codecs declarados. Um DTS vindo da biblioteca local ainda toca mudo,
+sob o rótulo 'JELLYFIN DIRECT'.
 
 ## O Real-Debrid não diz mais o que está em cache
 

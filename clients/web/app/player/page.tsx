@@ -10,6 +10,8 @@ import { Tv, MonitorPlay } from "lucide-react";
 import { PlayerTopBar, PlayerBottomControls, PlayerDiagnosticPanel } from "@/components/player/PlayerUI";
 import { useMovie, usePlayback, useSubtitles } from "@/features/movies/hooks/useMovies";
 import { PLAYERS, urlDaLegenda } from "@/features/movies/playerExterno";
+import { RESTO_MINIMO_S, RETOMADA_MINIMA_S, duracaoDoFilme, ehConvertida,
+         pontoDeRetomada, tempoDaCue, urlDoVideo } from "@/features/movies/fonteDeVideo";
 import { useProgressoDeExibicao } from '@/features/movies/hooks/useProgressoDeExibicao';
 
 
@@ -20,7 +22,7 @@ function PlayerExperience() {
   // Qual cópia tocar. Sem isto, apontar uma cópia específica na lista levava
   // ao player e tocava outra — ou nenhuma.
   const releaseId = searchParams.get('release') || undefined;
-  const { data: movie } = useMovie(movieId);
+  const { data: movie, isLoading: carregandoFilme } = useMovie(movieId);
   const { reporta: reportaProgresso, reportaAgora } = useProgressoDeExibicao(movieId);
   const jaRetomou = useRef(false);
   // Real-Debrid > Jellyfin > Plex, resolvido no backend.
@@ -71,6 +73,70 @@ function PlayerExperience() {
   const [playbackMode, setPlaybackMode] = useState<"local" | "jellyfin" | "direct">("local");
   // Resolução medida no próprio elemento, em vez do "145 MBPS" que era fixo.
   const [resolution, setResolution] = useState<string | null>(null);
+
+  // Em que segundo do FILME começa o fluxo que está no ar.
+  //
+  // Zero no caminho direto, e sempre: ali o arquivo inteiro está disponível e
+  // o elemento anda pelo arquivo. No convertido o ffmpeg é ligado a partir de
+  // um ponto, então o `currentTime` do elemento conta a partir DALI — sem
+  // somar este deslocamento, saltar para 1h faria o relógio voltar a zero.
+  // O deslocamento tem duas origens: o ponto onde a pessoa parou (derivado, e
+  // conhecido antes de pedir qualquer byte) e os saltos dela (estado). Manter
+  // o derivado FORA do estado é o que faz a primeira requisição já sair no
+  // segundo certo — antes, a tela pedia o filme do começo e trocava logo
+  // depois, deixando um ffmpeg inteiro nascer e morrer a cada abertura.
+  const [saltouPara, setSaltouPara] = useState<number | null>(null);
+
+  // Congelado na primeira vez que dá para responder, e nunca mais.
+  //
+  // Recalculando, o ponto de partida seguia o `watch_state` — que o próprio
+  // player atualiza a cada trinta segundos. Cada gravação de progresso mudava
+  // o `src` e religava o ffmpeg no ponto novo: o filme reiniciava sozinho, em
+  // laço, meio minuto após o outro. Verificado no log do servidor, dois fluxos
+  // por reprodução, o segundo exatamente 30s adiante do primeiro.
+  const partidaCongelada = useRef<number | null>(null);
+  if (partidaCongelada.current === null && !carregandoFilme && fonte) {
+    partidaCongelada.current = pontoDeRetomada(
+      fonte,
+      movie?.watch_state?.progress_seconds,
+      movie?.watch_state?.completed,
+      duracaoDoFilme(fonte, NaN, movie?.length_minutes),
+    );
+  }
+  const partida = partidaCongelada.current ?? 0;
+  const deslocamento = saltouPara ?? partida;
+  const setDeslocamento = setSaltouPara;
+  const convertida = ehConvertida(fonte);
+
+  // O `src` só sai quando o ponto de partida está decidido.
+  //
+  // `movie` traz o watch_state e costuma chegar depois de `fonte`. Deixando o
+  // elemento pedir antes, a primeira requisição saía do segundo zero e era
+  // trocada meio segundo depois — um ffmpeg inteiro nascendo, puxando do
+  // Real-Debrid e morrendo, a cada abertura do player.
+  const src = carregandoFilme ? undefined : urlDoVideo(fonte, movieId, deslocamento);
+
+  // O relógio começa onde o filme começa. Sem isto a tela mostra 00:00 até o
+  // primeiro `timeupdate` — e num filme retomado aos 32 minutos, pausado, ela
+  // mostraria 00:00 indefinidamente.
+  useEffect(() => {
+    setCurrentTime(deslocamento + (videoRef.current?.currentTime ?? 0));
+  }, [deslocamento]);
+
+  // E a duração também não precisa esperar o elemento carregar: no caminho
+  // convertido ela veio do ffprobe junto com a fonte. Esperar o `metadata`
+  // deixava "00:00" no lugar do total — e, pior, `totalTime` em 0 é o valor
+  // que desliga a barra e o salto.
+  useEffect(() => {
+    const derivada = duracaoDoFilme(fonte, NaN, movie?.length_minutes);
+    if (derivada > 0) setTotalTime(derivada);
+  }, [fonte, movie]);
+  // O fluxo caiu. Estado próprio porque o <video> não conta a ninguém.
+  const [falhouOFluxo, setFalhouOFluxo] = useState(false);
+  // Religar o fluxo recarrega o elemento, e ele volta pausado. Sem lembrar o
+  // que estava acontecendo, todo salto exigiria apertar play de novo.
+  const tocavaAoSaltar = useRef(false);
+  const deslocamentoNoAr = useRef(0);
 
   // 1. 👇 CICLO DE VIDA BLINDADO
   useEffect(() => {
@@ -134,6 +200,29 @@ function PlayerExperience() {
     }
   }, [volume, isMuted]);
 
+  // Religar o fluxo convertido noutro ponto.
+  //
+  // Trocar o `src` já manda o navegador recarregar, mas ele volta pausado —
+  // e um salto que pausa o filme se lê como travamento. O `load()` explícito
+  // está aqui porque o navegador pode reaproveitar o fluxo anterior quando só
+  // a query muda, e aí o vídeo continuaria do ponto velho.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !convertida) return;
+    // Na primeira montagem não há salto nenhum a refazer: recarregar aqui
+    // abortaria o fluxo que acabou de começar a chegar.
+    if (deslocamentoNoAr.current === deslocamento) return;
+    deslocamentoNoAr.current = deslocamento;
+
+    video.load();
+    if (tocavaAoSaltar.current) {
+      video.play().catch(() => {
+        // O navegador recusa play() sem gesto do usuário em algumas
+        // situações. O salto continua válido; só não retoma sozinho.
+      });
+    }
+  }, [deslocamento, convertida]);
+
   // O <track> nasce com mode 'disabled'; quem manda de fato é a TextTrack API.
   // Fazer isso aqui (e não pelo atributo `default`) mantém uma única fonte de
   // verdade para qual legenda está ligada.
@@ -165,8 +254,9 @@ function PlayerExperience() {
             original = { inicio: cue.startTime, fim: cue.endTime };
             temposOriginais.current.set(cue, original);
           }
-          cue.startTime = Math.max(0, original.inicio + atrasoLegenda);
-          cue.endTime = Math.max(0, original.fim + atrasoLegenda);
+          const { inicio, fim } = tempoDaCue(original, atrasoLegenda, deslocamento);
+          cue.startTime = inicio;
+          cue.endTime = fim;
         }
       }
     };
@@ -181,7 +271,7 @@ function PlayerExperience() {
       faixas.removeEventListener('addtrack', aplicar);
       faixas.removeEventListener('change', aplicar);
     };
-  }, [legendaAtiva, legendas, atrasoLegenda, cuesCarregadas]);
+  }, [legendaAtiva, legendas, atrasoLegenda, cuesCarregadas, deslocamento]);
 
   useEffect(() => {
     const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -214,31 +304,92 @@ function PlayerExperience() {
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      const curr = videoRef.current.currentTime;
+      const curr = deslocamento + videoRef.current.currentTime;
       setCurrentTime(curr);
       if (totalTime > 0) setProgress((curr / totalTime) * 100);
 
       // O hook decide quando de fato envia: `timeupdate` dispara umas quatro
       // vezes por segundo. A duração vem do arquivo, não do metadado do
       // acervo — num REMUX os dois divergem em minutos.
-      reportaProgresso(curr, videoRef.current.duration || totalTime);
+      // Só reporta contra uma duração que signifique alguma coisa.
+      //
+      // No fluxo convertido a duração do elemento é o tamanho do buffer, e
+      // usá-la marcaria como assistido um filme de duas horas aos três
+      // segundos. Quando `totalTime` é 0 — ffprobe falhou E o catálogo não
+      // sabe a duração — não há a que comparar, e reportar nada é melhor que
+      // reportar contra o buffer.
+      const escala = convertida ? totalTime : (totalTime || videoRef.current.duration);
+      if (escala > 0) reportaProgresso(curr, escala);
     }
   };
 
   const handleProgress = () => {
-    if (videoRef.current && videoRef.current.buffered.length > 0) {
-      const bufferedEnd = videoRef.current.buffered.end(videoRef.current.buffered.length - 1);
-      const duration = videoRef.current.duration;
-      if (duration > 0) setBufferedPercent((bufferedEnd / duration) * 100);
+    if (videoRef.current && videoRef.current.buffered.length > 0 && totalTime > 0) {
+      const fim = deslocamento
+        + videoRef.current.buffered.end(videoRef.current.buffered.length - 1);
+      setBufferedPercent((fim / totalTime) * 100);
     }
   };
 
+  /** Até que segundo do filme o buffer atual alcança. */
+  const bufferAte = () => {
+    const v = videoRef.current;
+    if (!v || v.buffered.length === 0) return deslocamento;
+    return deslocamento + v.buffered.end(v.buffered.length - 1);
+  };
+
+  /**
+   * Levar a reprodução ao segundo `alvo` do FILME.
+   *
+   * Caminho único de propósito: a barra e os botões de ±10s mandavam cada um
+   * do seu jeito, e o dos botões escrevia `currentTime` cru. No fluxo
+   * convertido isso não é impreciso, é inerte — `seekable` vem vazio e a
+   * atribuição não faz nada, sem erro nenhum.
+   */
+  const vaiPara = (alvo: number) => {
+    const video = videoRef.current;
+    // Sem escala não há para onde ir: `totalTime` é 0 enquanto a duração não
+    // se sabe, e seguir daqui mandaria o filme para o segundo zero a cada
+    // clique.
+    if (!video || !(totalTime > 0)) return;
+
+    const destino = Math.min(Math.max(alvo, 0), totalTime);
+    setProgress((destino / totalTime) * 100);
+
+    if (!convertida) {
+      // Arquivo pronto na CDN: o elemento salta sozinho, por range request.
+      video.currentTime = destino;
+      setCurrentTime(destino);
+      return;
+    }
+
+    // Fluxo sendo convertido agora, e aqui saltar tem dois preços.
+    //
+    // Dentro do que já chegou o elemento anda sozinho e é instantâneo. Fora
+    // disso é preciso religar o ffmpeg noutro ponto: ~5 segundos até o
+    // primeiro quadro, medidos, e o buffer inteiro vai fora. Então o barato
+    // é tentado primeiro, e o caro só quando não há alternativa.
+    const local = destino - deslocamento;
+    if (destino >= deslocamento
+        && destino <= bufferAte() - MARGEM_DO_BUFFER_S
+        && aceitaSalto(video, local)) {
+      video.currentTime = local;
+      setCurrentTime(destino);
+      return;
+    }
+
+    // Fora do buffer: o fluxo é reaberto a partir daqui. O relógio é
+    // adiantado na hora em vez de esperar o primeiro quadro — a alternativa
+    // é a barra voltar ao ponto antigo por cinco segundos e depois pular,
+    // que se lê como travamento.
+    tocavaAoSaltar.current = isPlaying;
+    setDeslocamento(destino);
+    setCurrentTime(destino);
+  };
+
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!videoRef.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const percent = ((e.clientX - rect.left) / rect.width);
-    videoRef.current.currentTime = percent * totalTime;
-    setProgress(percent * 100);
+    vaiPara(((e.clientX - rect.left) / rect.width) * totalTime);
   };
 
   const formatTime = (seconds: number) => {
@@ -263,7 +414,7 @@ function PlayerExperience() {
         <div className="absolute inset-0">
           <video 
             ref={videoRef}
-            src={fonte?.stream_url}
+            src={src}
             playsInline
             className="w-full h-full object-cover"
             style={{
@@ -271,14 +422,36 @@ function PlayerExperience() {
               transition: 'transform 30s ease-linear',
               filter: 'grayscale(30%) contrast(1.1) brightness(0.6)'
             }}
-            onPlay={() => setIsPlaying(true)}
+            onError={() => {
+              // Sem isto a tela gira "AQUISIÇÃO DE STREAM" para sempre: o
+              // <video> falha em silêncio, e o único sinal é o filme que
+              // nunca começa.
+              setIsWaiting(false);
+              setFalhouOFluxo(true);
+            }}
+            onPlay={() => { setIsPlaying(true); setFalhouOFluxo(false); }}
             onPause={() => { setIsPlaying(false); reportaAgora(); }}
-            onEnded={reportaAgora}
+            onEnded={() => {
+              reportaAgora();
+              // Um fluxo convertido que morre no meio NÃO gera evento `error`.
+              // Verificado matando o ffmpeg com o filme rodando: o navegador
+              // registra só `suspend`, fica com `networkState: IDLE` e dispara
+              // `ended` ao esgotar o buffer — ou seja, a interrupção chega
+              // disfarçada de fim de filme.
+              //
+              // A diferença entre as duas está no relógio: um filme que
+              // termina termina perto do fim.
+              const onde = deslocamento + (videoRef.current?.currentTime ?? 0);
+              if (totalTime > 0 && onde < totalTime - FIM_ACEITAVEL_S) {
+                setFalhouOFluxo(true);
+              }
+            }}
             onTimeUpdate={handleTimeUpdate}
             onProgress={handleProgress}
             onLoadedMetadata={() => {
               if (videoRef.current) {
-                const duracao = videoRef.current.duration;
+                const duracao = duracaoDoFilme(
+                  fonte, videoRef.current.duration, movie?.length_minutes);
                 setTotalTime(duracao);
                 const { videoWidth: w, videoHeight: h } = videoRef.current;
                 if (w && h) setResolution(`${w}×${h}`);
@@ -289,7 +462,12 @@ function PlayerExperience() {
                 // onde ele acabou de escolher ficar.
                 const parou = movie?.watch_state?.progress_seconds ?? 0;
                 const terminou = movie?.watch_state?.completed;
-                if (!jaRetomou.current && parou > RETOMADA_MINIMA_S && !terminou
+                // Só o caminho direto retoma aqui. No convertido o ponto de
+                // partida já entrou na URL do primeiro pedido — `pontoDeRetomada`
+                // decide com a duração que veio do ffprobe, sem precisar que o
+                // elemento carregue nada.
+                if (!convertida && !jaRetomou.current
+                    && parou > RETOMADA_MINIMA_S && !terminou
                     && duracao > 0 && parou < duracao - RESTO_MINIMO_S) {
                   jaRetomou.current = true;
                   videoRef.current.currentTime = parou;
@@ -404,15 +582,36 @@ function PlayerExperience() {
         </div>
       )}
 
-      {isWaiting && fonte && playbackMode === "local" && (
+      {isWaiting && !falhouOFluxo && fonte && playbackMode === "local" && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-6 z-40">
           <motion.div 
             animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
             style={{ width: 40, height: 40, border: '1px solid rgba(237,232,220,0.1)', borderTop: '1px solid var(--gold)', borderRadius: '50%' }} 
           />
           <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--gold)', textTransform: 'uppercase' }}>
-            AQUISIÇÃO DE STREAM...
+            {convertida ? 'CONVERTENDO O ÁUDIO...' : 'AQUISIÇÃO DE STREAM...'}
           </div>
+        </div>
+      )}
+
+      {falhouOFluxo && playbackMode === "local" && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-40 text-center px-8">
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.75rem', color: 'var(--film)' }}>
+            A projeção foi interrompida.
+          </div>
+          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'var(--m2)', textTransform: 'uppercase', maxWidth: 420, lineHeight: 1.8 }}>
+            {convertida
+              ? 'A conversão parou de responder. Tentar de novo religa o fluxo.'
+              : 'A fonte parou de responder.'}
+          </div>
+          <button
+            onClick={() => { setFalhouOFluxo(false); setIsWaiting(true); videoRef.current?.load(); }}
+            style={{ marginTop: 8, background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)',
+                     padding: '10px 24px', fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer',
+                     fontFamily: "'DM Mono', monospace" }}
+          >
+            TENTAR DE NOVO
+          </button>
         </div>
       )}
 
@@ -437,10 +636,11 @@ function PlayerExperience() {
             totalTimeStr={formatTime(totalTime)}
             progressPercent={progress}
             bufferedPercent={bufferedPercent}
+            bufferedStartPercent={totalTime > 0 ? (deslocamento / totalTime) * 100 : 0}
             onSeek={handleSeek}
             isPlaying={isPlaying}
             onTogglePlay={togglePlay}
-            onSkip={(amt: number) => { if(videoRef.current) videoRef.current.currentTime += amt }}
+            onSkip={(amt: number) => vaiPara(currentTime + amt)}
             volume={volume}
             isMuted={isMuted}
             onVolumeChange={(e: any) => {
@@ -478,13 +678,36 @@ function PlayerExperience() {
   return createPortal(playerContent, document.body);
 }
 
-// Abaixo disto retomar não economiza nada e ainda confunde: o filme pularia
-// alguns segundos à frente sem razão aparente.
-const RETOMADA_MINIMA_S = 30;
+// Distância mínima da borda do buffer para um salto valer a pena.
+//
+// Cair a meio segundo do fim do que chegou é cair num ponto que existe e
+// acaba na frente do dedo: o filme roda um instante e trava esperando rede.
+// Cinco segundos de pista deixam o buffer voltar a crescer antes de ser
+// alcançado.
+const MARGEM_DO_BUFFER_S = 5;
 
-// E perto demais do fim, retomar joga o usuário direto nos créditos de um
-// filme que ele não terminou — melhor recomeçar do início.
-const RESTO_MINIMO_S = 60;
+// A que distância do fim um `ended` ainda conta como fim de filme. A duração
+// vem do ffprobe sobre o mesmo arquivo que está tocando, então a folga não
+// precisa ser grande — é só para o último fragmento não virar falso alarme.
+const FIM_ACEITAVEL_S = 15;
+
+
+/**
+ * Se o elemento aceita ir a este segundo por conta própria.
+ *
+ * Um fluxo servido com `Accept-Ranges: none` pode chegar ao navegador como se
+ * fosse transmissão ao vivo, e aí `seekable` vem vazio: atribuir `currentTime`
+ * não faz nada — sem erro, sem evento, o filme simplesmente continua de onde
+ * estava. Perguntar antes é o que distingue "não precisa religar o ffmpeg" de
+ * "o clique não fez nada".
+ */
+function aceitaSalto(video: HTMLVideoElement, segundo: number): boolean {
+  const faixas = video.seekable;
+  for (let i = 0; i < faixas.length; i++) {
+    if (segundo >= faixas.start(i) && segundo <= faixas.end(i)) return true;
+  }
+  return false;
+}
 
 export default function Player() {
   return (

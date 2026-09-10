@@ -151,3 +151,79 @@ def abre_fluxo(url: str, inicio: float = 0.0, escopo: str = SO_AUDIO):
                 logger.error('ffmpeg %d sobreviveu ao kill', processo.pid)
 
     return processo, pedacos()
+
+
+FFPROBE = shutil.which('ffprobe') or 'ffprobe'
+
+# Quanto esperar pelo ffprobe. Ele não baixa o arquivo: lê o cabeçalho por
+# range request e para. Medido contra um REMUX de 65 GB no Real-Debrid, 3,3
+# segundos. 20 é folga para uma fonte lenta, e curto o bastante para não
+# segurar o clique de tocar indefinidamente.
+SEGUNDOS_DE_SONDAGEM = 20
+
+
+def duracao_do_arquivo(url: str) -> float | None:
+    """
+    Quantos segundos o arquivo tem de verdade, ou None se não deu para saber.
+
+    Isto existe por causa de uma limitação do MP4 fragmentado: ele não declara
+    duração total — só o que já foi escrito. Um navegador tocando o fluxo
+    convertido vê `duration` crescer junto com o buffer, e sem esta medida a
+    barra de progresso não teria escala nenhuma.
+
+    Devolver None é resposta legítima e o chamador precisa tratá-la: fonte fora
+    do ar, formato que o ffprobe não abre, ou sondagem estourando o tempo.
+    """
+    try:
+        saida = subprocess.run(
+            [FFPROBE, '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=nw=1:nk=1', url],
+            capture_output=True, timeout=SEGUNDOS_DE_SONDAGEM)
+    except (subprocess.TimeoutExpired, OSError) as erro:
+        logger.warning('ffprobe não respondeu: %s', erro)
+        return None
+
+    try:
+        segundos = float(saida.stdout.decode().strip())
+    except (UnicodeDecodeError, ValueError):
+        logger.warning('ffprobe: duração ilegível (%s)',
+                       (saida.stderr or b'').decode(errors='replace')[:200])
+        return None
+
+    # "N/A" já caiu no ValueError acima; 0 e negativo passariam, e uma barra de
+    # progresso dividida por zero é pior que uma sem escala.
+    return segundos if segundos > 0 else None
+
+
+# Quanto antes do fim um salto pode chegar. Pedir exatamente o último segundo
+# devolve um fluxo vazio, que o navegador lê como falha em vez de fim.
+SOBRA_NO_FIM_S = 2.0
+
+
+def segundo_de_partida(bruto, duracao: float | None = None) -> float:
+    """
+    O `?inicio=` da requisição virado num segundo que faz sentido.
+
+    A conversão ingênua — `max(0.0, float(bruto))` — deixa passar coisas que o
+    ffmpeg aceita e não devolve nada: `inf` e `nan` sobrevivem a `float()` sem
+    levantar ValueError, e um salto para além do fim do arquivo produz um
+    fluxo vazio. Nos dois casos o navegador recebe 200 e silêncio, que é o
+    modo de falhar mais caro de diagnosticar.
+    """
+    try:
+        segundo = float(bruto if bruto not in (None, '') else 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+    # `nan` falha TODA comparação, inclusive `nan > 0` e `nan < duracao`, então
+    # precisa ser barrado por identidade e não por intervalo.
+    if segundo != segundo or segundo in (float('inf'), float('-inf')):
+        return 0.0
+
+    if segundo < 0:
+        return 0.0
+
+    if duracao and duracao > 0:
+        return min(segundo, max(0.0, duracao - SOBRA_NO_FIM_S))
+
+    return segundo

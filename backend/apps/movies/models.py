@@ -215,7 +215,20 @@ class TorrentRelease(models.Model):
     seeders = models.IntegerField(default=0)
     leechers = models.IntegerField(default=0)
     upload_date = models.DateTimeField(null=True, blank=True)
-    
+
+    # A duração REAL do arquivo, medida uma vez com ffprobe e guardada.
+    #
+    # Só importa quando o áudio é convertido na hora: o MP4 fragmentado que sai
+    # do ffmpeg declara a duração do que JÁ CHEGOU — medido, 3,5 segundos nos
+    # primeiros 6 MB — então `video.duration` no navegador conta o buffer, não
+    # o filme, e a barra de progresso não tem escala.
+    #
+    # O `length_minutes` do catálogo não serve de substituto: para The Departed
+    # ele diz 151 min contra os 9078,7s do arquivo, 19 segundos de diferença.
+    # Numa barra de 151 minutos isso é meio por cento — e cada salto cairia
+    # meio minuto adiante do que o dedo apontou.
+    duration_seconds = models.FloatField(null=True, blank=True)
+
     quality_score = models.IntegerField(default=0)
     video_score = models.IntegerField(default=0)
     audio_score = models.IntegerField(default=0)

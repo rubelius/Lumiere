@@ -148,6 +148,23 @@ class PlaybackSourceSerializer(serializers.Serializer):
     label = serializers.CharField()
     container = serializers.CharField(allow_null=True)
     quality = serializers.CharField(allow_blank=True)
+    release_id = serializers.CharField(allow_null=True)
+    precisa_converter = serializers.ChoiceField(
+        choices=['nada', 'audio', 'tudo'],
+        help_text=(
+            'O que o navegador não dá conta de decodificar. Com "audio" ou '
+            '"tudo", a tela aponta o <video> para /transcode/ em vez de '
+            'stream_url.'
+        ),
+    )
+    duracao_segundos = serializers.FloatField(
+        allow_null=True,
+        help_text=(
+            'Duração real do arquivo. Só vem preenchida quando há conversão: '
+            'o MP4 fragmentado declara a duração do que já chegou, então o '
+            '<video> não sabe o tamanho do filme sozinho.'
+        ),
+    )
 
 
 class SubtitleSerializer(serializers.Serializer):

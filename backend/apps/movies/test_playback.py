@@ -163,3 +163,34 @@ def test_chave_do_usuario_aceita_objeto_sem_o_campo(settings):
     """
     settings.REAL_DEBRID_API_KEY = 'da-instancia'
     assert chave_do_usuario(object()) == 'da-instancia'
+
+
+# ── o rótulo e o aviso de conversão ───────────────────────────────────────
+
+@pytest.mark.parametrize('audio,video,esperado,rotulo', [
+    ('AAC',  'AVC',  'nada',  'DIRECT PLAY'),
+    ('DTS',  'HEVC', 'audio', 'ÁUDIO CONVERTIDO'),
+    ('FLAC', 'MPEG2','tudo',  'TRANSCODE'),
+])
+def test_a_fonte_avisa_o_que_o_navegador_nao_da_conta(audio, video, esperado, rotulo):
+    """
+    Quem escolhe a cópia é quem sabe se ela toca — e tem que dizer.
+
+    Sem isto a tela reconstruiria o julgamento adivinhando codec pelo nome do
+    arquivo, e 'DIRECT PLAY' continuaria estampado sobre um REMUX com DTS que
+    entrega imagem e silêncio.
+    """
+    from apps.movies.playback import ROTULOS
+    from apps.movies.transcode import o_que_transcodificar
+
+    release = SimpleNamespace(audio_codec=audio, video_codec=video, is_remux=False)
+    assert o_que_transcodificar(release) == esperado
+    assert ROTULOS[esperado] == rotulo
+
+
+def test_toda_conversao_possivel_tem_rotulo():
+    """Um valor novo em transcode.py sem rótulo aqui viraria KeyError no play."""
+    from apps.movies.playback import ROTULOS
+    from apps.movies import transcode
+
+    assert set(ROTULOS) == {transcode.NADA, transcode.SO_AUDIO, transcode.TUDO}
