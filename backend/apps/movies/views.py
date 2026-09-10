@@ -33,6 +33,8 @@ from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
 from .realdebrid_sync import atualiza_resumo
 from .realdebrid_estado import sincroniza_filme
+from apps.tasks.precarga import pede_prioridade
+
 from .como_tocar import como_tocar
 from .transcode import (NADA, SO_AUDIO, abre_fluxo, o_que_transcodificar,
                         segundo_de_partida)
@@ -417,6 +419,40 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(asdict(fonte))
+
+    @extend_schema(
+        responses=OpenApiTypes.OBJECT,
+        description=(
+            'Garante que este filme entre na fila de busca de cópias. Barato e '
+            'sem limite de taxa: só registra o pedido e acorda o rastreador.'
+        ),
+    )
+    @action(detail=True, methods=['post'])
+    def precarrega(self, request, pk=None):
+        """
+        "Alguém abriu a ficha deste filme."
+
+        Existe para que abrir uma ficha nunca mais signifique esperar. São
+        25.908 filmes na base e cada busca leva ~120 segundos: varrer todos
+        leva mais de um mês, então o rastreador varre continuamente, em ordem
+        de ranking — e quem tem ficha aberta fura a fila.
+
+        Não é o botão. O botão dispara a busca na hora e tem limite de taxa
+        (10/hora), porque é um pedido explícito; isto aqui é automático, roda a
+        cada abertura de ficha, e por isso só pode custar uma escrita no Redis.
+        """
+        movie = self.get_object()
+        ja_tem = movie.torrent_releases.exists()
+
+        # Já varrido e com cópias: não há o que pedir. Sem esta guarda, abrir a
+        # mesma ficha dez vezes poria o filme na fila dez vezes.
+        if ja_tem and movie.copias_buscadas_em:
+            return Response({'na_fila': False, 'ja_tem_copias': True,
+                             'buscadas_em': movie.copias_buscadas_em})
+
+        pede_prioridade(movie.pk)
+        return Response({'na_fila': True, 'ja_tem_copias': ja_tem,
+                         'buscadas_em': movie.copias_buscadas_em})
 
     @extend_schema(
         responses=ComoTocarSerializer,

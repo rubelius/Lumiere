@@ -163,7 +163,7 @@ describe('mensagemDaBusca', () => {
 
   it('sem busca nenhuma, o botão está pronto', () => {
     const p = mensagemDaBusca(undefined, AGORA);
-    expect(p.rotuloDoBotao).toBe('[ PROCURAR CÓPIAS ]');
+    expect(p.rotuloDoBotao).toBe('[ ATUALIZAR CÓPIAS ]');
     expect(p.ocupado).toBe(false);
   });
 

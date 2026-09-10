@@ -1,7 +1,7 @@
 // src/features/movies/hooks/useMovies.ts
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { http } from '@/services/http/client';
 import { moviesApi } from '../api/moviesApi';
 import { PaginatedResponse, MovieListItem, MovieDetail } from '../types';
@@ -190,5 +190,23 @@ export function useComoTocar(id: string) {
     queryFn: () => moviesApi.comoTocar(id),
     enabled: !!id,
     staleTime: 30_000,
+  });
+}
+
+
+/**
+ * Avisa o servidor que esta ficha foi aberta, para que as cópias dela sejam
+ * buscadas antes de alguém precisar.
+ *
+ * São 25.908 filmes na base e cada busca leva ~120 segundos: varrer todos leva
+ * mais de um mês, então o rastreador varre continuamente em ordem de ranking —
+ * e quem tem ficha aberta fura a fila.
+ */
+export function usePrecarregarCopias() {
+  return useMutation({
+    mutationFn: (id: string) => moviesApi.precarrega(id),
+    // Sem retry: é um pedido de prioridade, não um dado. Falhou, o rastreador
+    // chega neste filme pela ordem normal.
+    retry: false,
   });
 }

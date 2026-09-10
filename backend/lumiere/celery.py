@@ -27,6 +27,7 @@ app.conf.imports = (
     'apps.tasks.downloads',
     'apps.tasks.integrations',
     'apps.tasks.ml',
+    'apps.tasks.precarga',
     'apps.tasks.recommendations',
     'apps.tasks.sessions',
     'apps.tasks.torrents',
@@ -50,6 +51,20 @@ app.conf.beat_schedule = {
         'schedule': crontab(minute=0, hour='*/6'),
     },
     
+    # Enche o banco de cópias antes de alguém precisar delas.
+    #
+    # De dez em dez minutos, quatro filmes por rodada. O número sai da conta:
+    # cada busca leva ~120 segundos sem a sondagem do Real-Debrid, então quatro
+    # ocupam oito dos dez minutos e não deixam trabalho acumulado na fila.
+    #
+    # Isto não termina, e não deveria: são 25.908 filmes na base, e varrer
+    # todos em série levaria 43 dias. A ordem é que faz a diferença — quem tem
+    # ficha aberta primeiro, depois os mais bem colocados no ranking.
+    'rastreia-copias': {
+        'task': 'apps.tasks.precarga.rastreia_copias',
+        'schedule': crontab(minute='*/10'),
+    },
+
     # Check Real-Debrid downloads every 5 minutes
     'check-realdebrid-downloads': {
         'task': 'apps.tasks.downloads.check_realdebrid_status',

@@ -28,6 +28,14 @@ const CAIXA: React.CSSProperties = {
   marginBottom: 10, cursor: 'pointer',
 };
 
+/** A saída recomendada para esta cópia, e a alternativa. */
+const PRINCIPAL: React.CSSProperties = {
+  border: '1px solid rgba(191,143,60,0.4)', color: 'var(--gold)',
+};
+const SECUNDARIA: React.CSSProperties = {
+  border: '1px solid rgba(86,84,80,0.5)', color: 'var(--m2)',
+};
+
 const DETALHE: React.CSSProperties = {
   color: 'var(--m3)', fontSize: '8px', marginTop: 6, letterSpacing: '0.1em',
 };
@@ -82,30 +90,47 @@ export function EscolhaDeProjecao({
                 {descreve(paraTocar)}
               </div>
 
-              <motion.button
-                onClick={() => onTocar(paraTocar.release_id, 'conversao')}
-                whileHover={{ x: 4 }}
-                style={{ ...CAIXA, border: '1px solid rgba(191,143,60,0.4)', color: 'var(--gold)' }}
-              >
-                [ CONVERTER O ÁUDIO E TOCAR AQUI ]
-                <div style={DETALHE}>
-                  O SERVIDOR CONVERTE ENQUANTO VOCÊ ASSISTE. COPIA O VÍDEO
-                  INTACTO E SÓ REFAZ O SOM — MEDIDO, 15% DE CPU.
-                </div>
-              </motion.button>
-
-              <motion.button
-                onClick={() => onTocar(paraTocar.release_id, 'direto')}
-                whileHover={{ x: 4 }}
-                style={{ ...CAIXA, border: '1px solid rgba(86,84,80,0.5)', color: 'var(--m2)' }}
-              >
-                [ TOCAR SEM CONVERTER ]
-                <div style={DETALHE}>
-                  {paraTocar.precisa_converter === 'tudo'
-                    ? 'O NAVEGADOR PROVAVELMENTE NÃO ABRE ESTE VÍDEO. SERVE PARA MANDAR A UM PLAYER EXTERNO.'
-                    : 'IMAGEM SEM SOM: ESTE ÁUDIO O NAVEGADOR NÃO DECODIFICA. SERVE PARA MANDAR A UM PLAYER EXTERNO.'}
-                </div>
-              </motion.button>
+              {/* A ordem segue o que se sabe da cópia.
+                  `nao_toca` DECLARA um áudio que o navegador recusa: converter
+                  primeiro. `talvez` não declara nada — provavelmente toca, e
+                  oferecer conversão na frente cobraria CPU por uma suspeita. */}
+              {[
+                paraTocar.compatibilidade === 'talvez' ? 'direto' : 'conversao',
+                paraTocar.compatibilidade === 'talvez' ? 'conversao' : 'direto',
+              ].map((qual, posicao) => (
+                qual === 'conversao' ? (
+                  <motion.button
+                    key="conversao"
+                    onClick={() => onTocar(paraTocar.release_id, 'conversao')}
+                    whileHover={{ x: 4 }}
+                    style={{ ...CAIXA, ...(posicao === 0 ? PRINCIPAL : SECUNDARIA) }}
+                  >
+                    [ CONVERTER O ÁUDIO E TOCAR AQUI ]
+                    <div style={DETALHE}>
+                      O SERVIDOR CONVERTE ENQUANTO VOCÊ ASSISTE. COPIA O VÍDEO
+                      INTACTO E SÓ REFAZ O SOM — MEDIDO, 15% DE CPU.
+                      {paraTocar.compatibilidade === 'talvez'
+                        && ' GARANTE O SOM MESMO SEM SABER O CODEC.'}
+                    </div>
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    key="direto"
+                    onClick={() => onTocar(paraTocar.release_id, 'direto')}
+                    whileHover={{ x: 4 }}
+                    style={{ ...CAIXA, ...(posicao === 0 ? PRINCIPAL : SECUNDARIA) }}
+                  >
+                    [ TOCAR SEM CONVERTER ]
+                    <div style={DETALHE}>
+                      {paraTocar.compatibilidade === 'talvez'
+                        ? 'ESTA CÓPIA NÃO DIZ QUAL É O ÁUDIO. COSTUMA TOCAR; SE VIER MUDA, VOLTE E CONVERTA.'
+                        : paraTocar.precisa_converter === 'tudo'
+                          ? 'O NAVEGADOR PROVAVELMENTE NÃO ABRE ESTE VÍDEO. SERVE PARA MANDAR A UM PLAYER EXTERNO.'
+                          : 'IMAGEM SEM SOM: ESTE ÁUDIO O NAVEGADOR NÃO DECODIFICA. SERVE PARA MANDAR A UM PLAYER EXTERNO.'}
+                    </div>
+                  </motion.button>
+                )
+              ))}
 
               <button
                 onClick={() => setParaTocar(null)}

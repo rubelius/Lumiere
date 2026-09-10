@@ -123,6 +123,17 @@ class Movie(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_checked = models.DateTimeField(null=True, blank=True)
+    # Quando o Prowlarr foi perguntado sobre este filme pela última vez.
+    #
+    # É o relógio do rastreador: sem ele não há como varrer 25.908 filmes em
+    # rodadas — não se sabe quem já foi visto nem quem está vencido, e cada
+    # rodada começaria do mesmo lugar. `null` quer dizer "nunca perguntamos",
+    # que é diferente de "perguntamos e não achamos nada".
+    #
+    # Não reaproveita `last_checked`, que está no modelo desde o início sem
+    # ninguém escrever nem ler: um campo de significado desconhecido é pior
+    # que um campo novo.
+    copias_buscadas_em = models.DateTimeField(null=True, blank=True, db_index=True)
     metadata_updated_at = models.DateTimeField(null=True, blank=True)
 
     # --------------------------------------------------------

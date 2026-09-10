@@ -9,27 +9,29 @@ vinha muda.
 
 A regra, decidida com o usuário:
 
-    entre as cópias com DISPONIBILIDADE IMEDIATA que o NAVEGADOR TOCA,
-    a de MELHOR NOTA.
+    entre as cópias com DISPONIBILIDADE IMEDIATA que o navegador
+    COMPROVADAMENTE toca, a de MELHOR NOTA.
 
-Compatibilidade é requisito, não desempate — e a diferença importa. Como
-desempate, o botão poderia escolher uma cópia de nota alta que o navegador não
-aceita, tendo uma aceitável ao lado; como requisito, ele só promete o que
-cumpre. Quando esse conjunto é vazio mas existe algo imediato, a escolha volta
-para quem está assistindo: esperar um download ou tocar agora com conversão são
-custos diferentes, e quem paga decide.
+Duas coisas nessa frase são escolhas, e as duas custam:
 
-MEDIDO NESTE ACERVO, e é o que dimensiona a tela: `toca` de fato — cópia que
-declara codec de áudio que o navegador abre — são 4 em 63. Se compatibilidade
-exigisse esse selo, quase todo filme cairia na pergunta. Mas a peneira aqui é
-`o_que_transcodificar(r) == NADA`, que também deixa passar as `talvez` (31 de
-63, cópias que simplesmente não declaram o áudio). Com isso a pergunta aparece
-em 1 dos 5 filmes do acervo — uma escolha de verdade, e não um pedágio.
+COMPATIBILIDADE É REQUISITO, não desempate. Como desempate, o botão poderia
+escolher uma cópia de nota alta que o navegador recusa tendo uma aceitável ao
+lado.
+
+E COMPROVADAMENTE quer dizer o selo `toca` — cópia que DECLARA um codec de
+áudio que o navegador abre. As `talvez`, que simplesmente não declaram nada,
+ficam de fora. Medido: `toca` são 4 cópias em 63, `talvez` são 31. Com esse
+rigor, quase todo filme cai na pergunta em vez de projetar direto.
+
+É deliberado. A alternativa é o botão prometer projeção sobre uma cópia que
+pode vir muda — o Lumière não sabe, e afirmaria que sabe. A pergunta é honesta,
+e a primeira opção dela toca a cópia na hora.
 """
 
 import logging
 
-from apps.movies.transcode import NADA, o_que_transcodificar
+from apps.movies.compatibilidade import TOCA
+from apps.movies.transcode import o_que_transcodificar
 
 logger = logging.getLogger(__name__)
 
@@ -91,19 +93,23 @@ def como_tocar(movie) -> dict:
     copias.sort(key=lambda r: -(r.quality_score or 0))
     imediatas = [r for r in copias if _toca_agora(r)]
 
-    # "O navegador dá conta desta?" é a MESMA pergunta que decide se o fluxo
-    # passa pelo conversor — perguntá-la por aqui com outro critério criaria
-    # duas respostas para uma coisa só, e elas divergiriam na primeira vez que
-    # a tabela de codecs mudasse.
+    # Só o selo `toca` vale, e a escolha é do usuário.
     #
-    # Inclui `talvez` (cópia que não declara o codec de áudio), e são 31 das 63:
-    # tratá-las como incompatíveis mandaria metade do acervo para o conversor
-    # sem necessidade. O selo na tela continua distinguindo uma coisa da outra.
-    imediatas_para_navegador = [r for r in imediatas
-                                if o_que_transcodificar(r) == NADA]
+    # A alternativa era aceitar também as `talvez` — cópias que simplesmente
+    # não declaram o codec de áudio, e são 31 das 63 do acervo. Aceitá-las faz
+    # o botão prometer projeção sobre uma cópia que PODE vir muda: o Lumière
+    # não sabe, e afirmaria que sabe.
+    #
+    # O preço desta escolha está medido: `toca` de fato são 4 cópias em 63, e
+    # com esse rigor quase todo filme cai na pergunta. Mas a pergunta é honesta
+    # e barata de responder — a primeira opção dela toca a cópia na hora — e um
+    # botão que mente não é barato nenhum.
+    imediatas_para_navegador = [r for r in imediatas if r.compatibilidade == TOCA]
 
-    # A melhor cópia que o navegador toca sem conversão e que ainda precisa ser
-    # baixada — é ela que "baixar e ser avisado" iria buscar.
+    # A melhor cópia com o selo `toca` que ainda precisa ser baixada — é ela
+    # que "baixar e ser avisado" iria buscar. Mesmo critério de cima: oferecer
+    # esperar um download por uma cópia que talvez toque seria vender a espera
+    # por uma promessa que não se pode fazer.
     #
     # `pode_importar` sozinho responde as DUAS condições: ele exige magnet (sem
     # magnet não há o que enviar ao Real-Debrid, e as cópias vindas da
@@ -112,7 +118,7 @@ def como_tocar(movie) -> dict:
     # parecia mais explícito e era código morto — a mutação que o desligava não
     # mudava nenhum resultado.
     candidatas = [r for r in copias
-                  if o_que_transcodificar(r) == NADA
+                  if r.compatibilidade == TOCA
                   and r.pode_importar]
 
     if imediatas_para_navegador:

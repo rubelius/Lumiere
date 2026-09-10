@@ -1,7 +1,7 @@
 'use client'; 
 import { useEffect, useRef, useState } from "react"; 
 import { useQueryClient } from '@tanstack/react-query';
-import { movieKeys } from '@/features/movies/hooks/useMovies';
+import { movieKeys, usePrecarregarCopias } from '@/features/movies/hooks/useMovies';
 import { CORES_DA_COPIA, explicaOScore, mensagemDaBusca, rotuloDeCompatibilidade, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useEstadoDaBusca, useEstadoNoRealDebrid, useImportarRelease, useRelogio, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
 import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
@@ -130,11 +130,16 @@ export default function MovieClient() {
   // Uma vez por abertura de ficha: pergunta ao Real-Debrid o que da lista ele
   // já tem. Substitui a checagem de cache que o provedor desativou — a conta
   // é a única fonte que restou, e a varredura fica guardada no servidor.
+  const precarregar = usePrecarregarCopias();
   const jaPerguntou = useRef(false);
   useEffect(() => {
     if (jaPerguntou.current || !movie.id) return;
     jaPerguntou.current = true;
     estadoNoRD.mutate();
+    // E põe o filme na fila do rastreador. É o que faz "abrir a ficha" deixar
+    // de significar "esperar 144 segundos": quando as cópias já estão no
+    // banco isto não faz nada, e quando não estão a busca começa sozinha.
+    precarregar.mutate(movie.id as string);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movie.id]);
 
@@ -634,8 +639,9 @@ export default function MovieClient() {
                         </div>
                       ) : (
                         <div style={{ padding: '48px 0', fontFamily: "'DM Mono', monospace", fontSize: '10px', color: 'var(--m3)', letterSpacing: '0.15em', lineHeight: 1.9 }}>
-                          NENHUMA CÓPIA NO ACERVO PARA ESTA OBRA.<br />
-                          USE [ PROCURAR CÓPIAS ] PARA VASCULHAR OS INDEXADORES.
+                          NENHUMA CÓPIA NO ACERVO PARA ESTA OBRA — AINDA.<br />
+                          ESTE FILME ENTROU NA FILA DE BUSCA AO ABRIR ESTA PÁGINA.<br />
+                          USE [ ATUALIZAR CÓPIAS ] PARA NÃO ESPERAR A VEZ DELE.
                         </div>
                       )}
                     </motion.div> 

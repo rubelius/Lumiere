@@ -19,6 +19,15 @@ export const moviesApi = {
     http.get<PlaybackSource>(`/api/movies/${id}/playback/`,
       releaseId ? { params: { release: releaseId } } : undefined),
 
+  // "Alguém abriu a ficha deste filme": põe-o na frente da fila do rastreador.
+  //
+  // Barato de propósito — só uma escrita no Redis — porque roda em TODA
+  // abertura de ficha. O botão de atualizar é o caminho caro e limitado a
+  // 10/hora; este é o automático.
+  precarrega: (id: string) =>
+    http.post<{ na_fila: boolean; ja_tem_copias: boolean; buscadas_em: string | null }>(
+      `/api/movies/${id}/precarrega/`, {}),
+
   // O que o botão de projeção vai fazer com este filme.
   //
   // Endpoint próprio, e não campo do detalhe, porque a resposta depende do que

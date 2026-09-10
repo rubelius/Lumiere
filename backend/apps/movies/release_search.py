@@ -212,7 +212,8 @@ async def _pergunta_ao_prowlarr(movie, user):
         await cliente.close()
 
 
-def executa_busca(movie, user, filtros: dict | None = None) -> dict:
+def executa_busca(movie, user, filtros: dict | None = None,
+                  sondar: bool = True) -> dict:
     """
     Procura cópias, grava o que achou e deixa o filme coerente.
 
@@ -258,7 +259,16 @@ def executa_busca(movie, user, filtros: dict | None = None) -> dict:
     # (429 em addMagnet com cinco de uma vez), e a fila com pausa leva ~10
     # segundos para as cinco melhores. Isso cabe numa task e não cabe num
     # clique.
-    sonda_as_melhores(movie, user)
+    #
+    # `sondar=False` é o modo do rastreador, e a diferença não é de velocidade:
+    # ela é 24 dos 144 segundos medidos numa busca, mas são 24 segundos de
+    # ADICIONAR E REMOVER torrents na conta do Real-Debrid. Repetir isso por
+    # 25.908 filmes é pedir para a conta ser sinalizada — o 451 "Unavailable
+    # For Legal Reasons" já aparece em algumas sondagens hoje. Na pré-carga o
+    # que interessa é ter as cópias e as notas no banco; se a cópia toca AGORA
+    # é pergunta perecível, e ela é feita quando alguém abre a ficha.
+    if sondar:
+        sonda_as_melhores(movie, user)
 
     # Sempre, e não só quando a sincronização falha: `sincroniza_filme` sai
     # cedo quando o filme não tem cópia nenhuma, e aí a garantia de ordem
@@ -272,6 +282,11 @@ def executa_busca(movie, user, filtros: dict | None = None) -> dict:
     # parte estável. Qualquer GET nessa janela congelava dados velhos por uma
     # hora inteira.
     CacheManager.invalidate_movie(str(movie.id))
+
+    # O carimbo é o relógio do rastreador, e vai por último: gravado antes,
+    # uma busca que estourasse no meio deixaria o filme marcado como visto.
+    movie.copias_buscadas_em = timezone.now()
+    movie.save(update_fields=['copias_buscadas_em'])
 
     total = TorrentRelease.objects.filter(movie=movie).count()
     logger.info('Busca em %r: %d cópias no acervo, %d novas, %d de outro filme',

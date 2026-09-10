@@ -332,7 +332,11 @@ export function mensagemDaBusca(
   agora: Date,
 ): PainelDaBusca {
   const painel: PainelDaBusca = {
-    rotuloDoBotao: '[ PROCURAR CÓPIAS ]',
+    // "ATUALIZAR" e não "PROCURAR": as cópias já estão no banco quando a
+    // ficha abre — o rastreador as trouxe antes. O botão deixou de ser a
+    // forma de consegui-las e passou a ser a forma de pedir o que existe
+    // agora, que é outra coisa.
+    rotuloDoBotao: '[ ATUALIZAR CÓPIAS ]',
     ocupado: false,
     aviso: '',
     erro: '',

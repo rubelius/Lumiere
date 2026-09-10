@@ -108,16 +108,43 @@ def test_so_pergunta_quando_nada_imediato_toca_no_navegador(filme):
     assert len(r['imediatas']) == 2
 
 
-def test_a_copia_sem_audio_declarado_nao_manda_ninguem_para_a_pergunta(filme):
+def test_a_copia_sem_audio_declarado_nao_basta_para_prometer_projecao(filme):
     """
-    São 31 das 63 cópias do acervo. Tratá-las como incompatíveis mandaria
-    metade da biblioteca para o conversor — e para a pergunta — sem motivo.
+    A escolha do rigor, e ela custa: `talvez` são 31 das 63 cópias do acervo,
+    então quase todo filme passa a cair na pergunta.
+
+    O que se ganha é o botão parar de mentir. Uma cópia que não declara o
+    codec de áudio PODE vir muda — o Lumière não sabe, e tratá-la como
+    compatível seria afirmar que sabe.
     """
     sem_declarar = copia(filme, nota=80, audio='', imediata=True)
     r = como_tocar(filme)
-    assert r['decisao'] == TOCA_AGORA
+    assert r['decisao'] == ESCOLHER
     assert r['escolhida']['release_id'] == str(sem_declarar.id)
     assert r['escolhida']['compatibilidade'] == 'talvez'
+    # E ela continua sendo oferecida para tocar agora — só não em silêncio.
+    assert [c['release_id'] for c in r['imediatas']] == [str(sem_declarar.id)]
+
+
+def test_so_o_selo_toca_dispensa_a_pergunta(filme):
+    declarada = copia(filme, nota=50, audio='AAC', imediata=True)
+    r = como_tocar(filme)
+    assert r['decisao'] == TOCA_AGORA
+    assert r['escolhida']['release_id'] == str(declarada.id)
+    assert r['escolhida']['compatibilidade'] == 'toca'
+
+
+def test_nao_oferece_esperar_download_de_uma_copia_que_talvez_toque(filme):
+    """
+    Vender minutos de espera por uma promessa que não se pode fazer é pior que
+    não oferecer nada.
+    """
+    copia(filme, nota=90, audio='DTS-HD MA', imediata=True)
+    copia(filme, nota=85, audio='', imediata=False)   # talvez, precisa baixar
+
+    r = como_tocar(filme)
+    assert r['decisao'] == ESCOLHER
+    assert r['melhor_para_navegador'] is None
 
 
 def test_remux_sem_audio_declarado_continua_precisando_de_conversao(filme):
