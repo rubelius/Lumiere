@@ -167,6 +167,48 @@ class PlaybackSourceSerializer(serializers.Serializer):
     )
 
 
+class CopiaResumidaSerializer(serializers.Serializer):
+    """Uma cópia como a tela precisa vê-la para explicar uma escolha."""
+
+    release_id = serializers.CharField()
+    title = serializers.CharField()
+    quality_score = serializers.IntegerField()
+    size_gb = serializers.FloatField()
+    resolution = serializers.CharField(allow_blank=True)
+    video_codec = serializers.CharField(allow_blank=True)
+    audio_codec = serializers.CharField(allow_blank=True)
+    compatibilidade = serializers.ChoiceField(choices=['toca', 'nao_toca', 'talvez'])
+    disponibilidade = serializers.ChoiceField(
+        choices=['pronta', 'instantanea', 'baixando', 'ausente'])
+    precisa_converter = serializers.ChoiceField(choices=['nada', 'audio', 'tudo'])
+    pode_importar = serializers.BooleanField()
+
+
+class ComoTocarSerializer(serializers.Serializer):
+    """O que o botão de projeção vai fazer, e o que oferecer se não der."""
+
+    decisao = serializers.ChoiceField(
+        choices=['toca_agora', 'escolher', 'nada'],
+        help_text=(
+            '`toca_agora`: há cópia imediata que o navegador toca — aperta e '
+            'assiste. `escolher`: há cópia imediata, mas nenhuma que o '
+            'navegador aceite sem conversão — a tela pergunta. `nada`: não há '
+            'cópia imediata nenhuma.'
+        ),
+    )
+    escolhida = CopiaResumidaSerializer(
+        allow_null=True,
+        help_text=('A cópia que o botão toca. Em `escolher`, é a sugestão '
+                   'mostrada ao lado da pergunta; None só quando o filme não '
+                   'tem cópia nenhuma.'),
+    )
+    melhor_para_navegador = CopiaResumidaSerializer(
+        allow_null=True,
+        help_text='A melhor cópia que o navegador toca e que ainda precisa baixar.',
+    )
+    imediatas = CopiaResumidaSerializer(many=True)
+
+
 class SubtitleSerializer(serializers.Serializer):
     """Legenda disponível no OpenSubtitles para um filme."""
 

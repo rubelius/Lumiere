@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CONVERSAO,
+  DIRETO,
   FORA_DA_JANELA,
   duracaoDoFilme,
   ehConvertida,
   pontoDeRetomada,
+  rotuloDaFonte,
   tempoDaCue,
   urlDoVideo,
 } from './fonteDeVideo';
@@ -159,5 +162,65 @@ describe('a pergunta que decide o caminho', () => {
   it('fonte ausente não converte nada', () => {
     expect(ehConvertida(null)).toBe(false);
     expect(ehConvertida(undefined)).toBe(false);
+  });
+});
+
+describe('o modo imposto pela tela', () => {
+  const comDts = fonte({ precisa_converter: 'audio', label: 'ÁUDIO CONVERTIDO' });
+  const simples = fonte({ precisa_converter: 'nada', label: 'DIRECT PLAY' });
+
+  it('sem modo, vale a recomendação do backend', () => {
+    expect(ehConvertida(comDts)).toBe(true);
+    expect(ehConvertida(simples)).toBe(false);
+  });
+
+  it('"direto" recusa a conversão que o backend recomendaria', () => {
+    expect(ehConvertida(comDts, DIRETO)).toBe(false);
+    expect(urlDoVideo(comDts, 'filme-1', 0, DIRETO)).toBe('https://cdn.example/filme.mkv');
+  });
+
+  it('"conversao" converte o que passaria direto', () => {
+    expect(ehConvertida(simples, CONVERSAO)).toBe(true);
+    expect(urlDoVideo(simples, 'filme-1', 0, CONVERSAO)).toBe('/api/stream/filme-1?release=rel-1');
+  });
+
+  /**
+   * O rótulo do backend descreve o que ELE faria. Sob um modo imposto ele
+   * passa a descrever algo que não está acontecendo — e "ÁUDIO CONVERTIDO"
+   * sobre uma reprodução crua manda a pessoa procurar defeito no volume.
+   */
+  it('avisa que reproduzir direto uma cópia com DTS não terá som', () => {
+    expect(rotuloDaFonte(comDts, DIRETO)).toBe('DIRETO — SEM ÁUDIO');
+  });
+
+  it('avisa quando nem o vídeo deve abrir', () => {
+    expect(rotuloDaFonte(fonte({ precisa_converter: 'tudo' }), DIRETO))
+      .toBe('DIRETO — PODE NÃO ABRIR');
+  });
+
+  it('diz que a conversão foi pedida, e não necessária', () => {
+    expect(rotuloDaFonte(simples, CONVERSAO)).toBe('CONVERSÃO A PEDIDO');
+  });
+
+  it('sem modo imposto, repete o rótulo do backend', () => {
+    expect(rotuloDaFonte(comDts)).toBe('ÁUDIO CONVERTIDO');
+    expect(rotuloDaFonte(simples)).toBe('DIRECT PLAY');
+    expect(rotuloDaFonte(null)).toBeUndefined();
+  });
+
+  /**
+   * No modo direto o arquivo é o da CDN, que aceita requisição por faixa: o
+   * elemento sabe a duração e salta sozinho. Devolver um ponto de partida aqui
+   * poria um `inicio` numa URL que não o entende.
+   */
+  it('reproduzir direto devolve o salto ao elemento', () => {
+    expect(pontoDeRetomada(comDts, 3667, false, 9078.741)).toBe(3667);
+    expect(pontoDeRetomada(comDts, 3667, false, 9078.741, DIRETO)).toBe(0);
+  });
+
+  it('a duração no modo direto vem do elemento, não do ffprobe', () => {
+    const medida = fonte({ precisa_converter: 'audio', duracao_segundos: 9078.741 });
+    expect(duracaoDoFilme(medida, 3.545, 151)).toBe(9078.741);
+    expect(duracaoDoFilme(medida, 9080.2, 151, DIRETO)).toBe(9080.2);
   });
 });

@@ -11,7 +11,8 @@ import { PlayerTopBar, PlayerBottomControls, PlayerDiagnosticPanel } from "@/com
 import { useMovie, usePlayback, useSubtitles } from "@/features/movies/hooks/useMovies";
 import { PLAYERS, urlDaLegenda } from "@/features/movies/playerExterno";
 import { RESTO_MINIMO_S, RETOMADA_MINIMA_S, duracaoDoFilme, ehConvertida,
-         pontoDeRetomada, tempoDaCue, urlDoVideo } from "@/features/movies/fonteDeVideo";
+         pontoDeRetomada, rotuloDaFonte, tempoDaCue,
+         urlDoVideo } from "@/features/movies/fonteDeVideo";
 import { useProgressoDeExibicao } from '@/features/movies/hooks/useProgressoDeExibicao';
 
 
@@ -22,6 +23,9 @@ function PlayerExperience() {
   // Qual cópia tocar. Sem isto, apontar uma cópia específica na lista levava
   // ao player e tocava outra — ou nenhuma.
   const releaseId = searchParams.get('release') || undefined;
+  // 'direto' | 'conversao'. Sem isto, a recomendação do backend era uma
+  // sentença: não havia como pedir a cópia crua sem sair do navegador.
+  const modo = searchParams.get('modo');
   const { data: movie, isLoading: carregandoFilme } = useMovie(movieId);
   const { reporta: reportaProgresso, reportaAgora } = useProgressoDeExibicao(movieId);
   const jaRetomou = useRef(false);
@@ -100,13 +104,14 @@ function PlayerExperience() {
       fonte,
       movie?.watch_state?.progress_seconds,
       movie?.watch_state?.completed,
-      duracaoDoFilme(fonte, NaN, movie?.length_minutes),
+      duracaoDoFilme(fonte, NaN, movie?.length_minutes, modo),
+      modo,
     );
   }
   const partida = partidaCongelada.current ?? 0;
   const deslocamento = saltouPara ?? partida;
   const setDeslocamento = setSaltouPara;
-  const convertida = ehConvertida(fonte);
+  const convertida = ehConvertida(fonte, modo);
 
   // O `src` só sai quando o ponto de partida está decidido.
   //
@@ -114,7 +119,7 @@ function PlayerExperience() {
   // elemento pedir antes, a primeira requisição saía do segundo zero e era
   // trocada meio segundo depois — um ffmpeg inteiro nascendo, puxando do
   // Real-Debrid e morrendo, a cada abertura do player.
-  const src = carregandoFilme ? undefined : urlDoVideo(fonte, movieId, deslocamento);
+  const src = carregandoFilme ? undefined : urlDoVideo(fonte, movieId, deslocamento, modo);
 
   // O relógio começa onde o filme começa. Sem isto a tela mostra 00:00 até o
   // primeiro `timeupdate` — e num filme retomado aos 32 minutos, pausado, ela
@@ -128,7 +133,7 @@ function PlayerExperience() {
   // deixava "00:00" no lugar do total — e, pior, `totalTime` em 0 é o valor
   // que desliga a barra e o salto.
   useEffect(() => {
-    const derivada = duracaoDoFilme(fonte, NaN, movie?.length_minutes);
+    const derivada = duracaoDoFilme(fonte, NaN, movie?.length_minutes, modo);
     if (derivada > 0) setTotalTime(derivada);
   }, [fonte, movie]);
   // O fluxo caiu. Estado próprio porque o <video> não conta a ninguém.
@@ -451,7 +456,7 @@ function PlayerExperience() {
             onLoadedMetadata={() => {
               if (videoRef.current) {
                 const duracao = duracaoDoFilme(
-                  fonte, videoRef.current.duration, movie?.length_minutes);
+                  fonte, videoRef.current.duration, movie?.length_minutes, modo);
                 setTotalTime(duracao);
                 const { videoWidth: w, videoHeight: h } = videoRef.current;
                 if (w && h) setResolution(`${w}×${h}`);
@@ -623,7 +628,7 @@ function PlayerExperience() {
             year={movie?.year}
             quality={movie?.best_quality_available || undefined}
             resolution={resolution}
-            sourceLabel={fonte?.label}
+            sourceLabel={rotuloDaFonte(fonte, modo)}
             playbackMode={playbackMode}
           />
         )}

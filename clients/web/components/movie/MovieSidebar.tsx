@@ -6,6 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Play, CheckCircle2, Bookmark, Plus, Heart, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FestivalLaurels } from "@/components/movie/FestivalLaurels";
+import { EscolhaDeProjecao } from "@/components/movie/EscolhaDeProjecao";
+import { useComoTocar } from "@/features/movies/hooks/useMovies";
+import { useImportarRelease } from "@/features/releases/hooks/useReleases";
 
 
 export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie: any, posterUrl: string, ytId: string | null, onPlayTrailer: () => void }) => {
@@ -13,17 +16,35 @@ export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie:
   const [isCollectionOpen, setIsCollectionOpen] = useState(false);
   const [escolhaAberta, setEscolhaAberta] = useState(false);
 
-  // Toca agora quer dizer duas coisas, e as duas servem: já há link na conta,
-  // ou o acervo do Real-Debrid tem o arquivo e importar leva ~2 segundos.
-  const tocaAgora = Boolean(movie.available_instantly || movie.cached_in_realdebrid);
+  // Quem decide é o backend, e não uma conta feita aqui.
+  //
+  // A conta que estava nesta linha era `available_instantly ||
+  // cached_in_realdebrid`: ela sabe se EXISTE cópia pronta, e não sabe se o
+  // navegador aguenta alguma delas. Com isso o botão pulsava prometendo
+  // projeção sobre um REMUX com DTS, e a projeção vinha muda.
+  const { data: plano } = useComoTocar(movie.id);
+  const importar = useImportarRelease();
+
+  const tocaAgora = plano?.decisao === 'toca_agora';
+
+  const tocar = (releaseId?: string, modo?: 'direto' | 'conversao') => {
+    const params = new URLSearchParams({ id: movie.id });
+    // A cópia vai explícita na URL para que a escolha mostrada na tela seja a
+    // que toca. Sem ela o player resolve de novo, por outro caminho, e as duas
+    // respostas podem divergir — a tela prometeria uma cópia e tocaria outra.
+    if (releaseId) params.set('release', releaseId);
+    if (modo) params.set('modo', modo);
+    router.push(`/player?${params}`);
+  };
 
   const projetar = () => {
-    if (tocaAgora) {
-      router.push(`/player?id=${movie.id}`);
+    if (tocaAgora && plano?.escolhida) {
+      tocar(plano.escolhida.release_id);
       return;
     }
-    // Sem nada imediato, começar a tocar seria prometer o que não se pode
-    // cumprir. A escolha é do usuário, e as duas saídas têm custo diferente.
+    // Sem cópia que toque aqui e agora, começar a projetar seria prometer o
+    // que não se pode cumprir. As saídas custam coisas diferentes — esperar um
+    // download, ou converter na hora — e quem paga escolhe.
     setEscolhaAberta(true);
   };
 
@@ -63,43 +84,16 @@ export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie:
           <Play style={{ width: 16, height: 16 }} /> [ INICIAR PROJEÇÃO ] 
         </motion.button>
 
-        <AnimatePresence>
-          {escolhaAberta && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-              style={{ border: '1px solid rgba(86,84,80,0.5)', backgroundColor: 'var(--void)', padding: '16px' }}
-            >
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', lineHeight: 1.9, marginBottom: 16 }}>
-                NENHUMA CÓPIA TOCA AGORA. O REAL-DEBRID NÃO TEM NENHUMA DELAS NO ACERVO.
-              </div>
-              <motion.button
-                onClick={() => { setEscolhaAberta(false); router.push(`/movie/${movie.id}#copias`); }}
-                whileHover={{ x: 4 }}
-                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: '1px solid rgba(191,143,60,0.4)', color: 'var(--gold)', padding: '12px 14px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', marginBottom: 10, lineHeight: 1.8 }}
-              >
-                [ BAIXAR PARA O CACHE PRIMEIRO ]
-                <div style={{ color: 'var(--m3)', fontSize: '8px', marginTop: 6 }}>
-                  ESCOLHA UMA CÓPIA NA ABA 03 E IMPORTE. O REAL-DEBRID BAIXA, E DEPOIS TOCA SEM ENGASGO.
-                </div>
-              </motion.button>
-              <div
-                title="Ainda não construído"
-                style={{ width: '100%', textAlign: 'left', border: '1px solid rgba(86,84,80,0.3)', color: 'var(--m3)', padding: '12px 14px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', lineHeight: 1.8, opacity: 0.6 }}
-              >
-                [ TOCAR DIRETO DO TORRENT ]
-                <div style={{ fontSize: '8px', marginTop: 6 }}>
-                  AINDA NÃO EXISTE. EXIGE UM MOTOR DE TORRENT QUE SIRVA O ARQUIVO ENQUANTO BAIXA — E COM POUCOS SEMEADORES A REPRODUÇÃO TRAVA.
-                </div>
-              </div>
-              <button
-                onClick={() => setEscolhaAberta(false)}
-                style={{ marginTop: 12, background: 'transparent', border: 'none', color: 'var(--m3)', fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', cursor: 'pointer' }}
-              >
-                [ FECHAR ]
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {plano && (
+          <EscolhaDeProjecao
+            plano={plano}
+            aberta={escolhaAberta}
+            onFechar={() => setEscolhaAberta(false)}
+            onTocar={(releaseId, modo) => { setEscolhaAberta(false); tocar(releaseId, modo); }}
+            onBaixar={(releaseId) => importar.mutate(releaseId)}
+            baixando={importar.isPending}
+          />
+        )}
           
         <div style={{ position: 'relative' }}> 
           <motion.button  

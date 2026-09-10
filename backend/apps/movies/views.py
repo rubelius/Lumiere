@@ -33,6 +33,7 @@ from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
 from .realdebrid_sync import atualiza_resumo
 from .realdebrid_estado import sincroniza_filme
+from .como_tocar import como_tocar
 from .transcode import (NADA, SO_AUDIO, abre_fluxo, o_que_transcodificar,
                         segundo_de_partida)
 from .release_search import (estado_da_busca, libera, marca_enfileirada,
@@ -48,6 +49,7 @@ from .serializers import (
     MovieDetailSerializer, 
     MovieListSerializer,
     MovieSerializer,
+    ComoTocarSerializer,
     PlaybackSourceSerializer,
     SubtitleSerializer,
     TorrentReleaseSerializer
@@ -415,6 +417,24 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(asdict(fonte))
+
+    @extend_schema(
+        responses=ComoTocarSerializer,
+        description=(
+            'O que o botão de projeção vai fazer com este filme, e o que '
+            'oferecer quando não houver cópia que o navegador toque agora.'
+        ),
+    )
+    @action(detail=True, methods=['get'], url_path='como-tocar')
+    def como_tocar_action(self, request, pk=None):
+        """
+        A decisão do botão, calculada onde estão os dados que ela precisa.
+
+        Antes a tela decidia sozinha, com `available_instantly ||
+        cached_in_realdebrid` — uma conta que não sabe o que o navegador
+        aguenta, e que por isso prometia projeção sobre REMUX com DTS.
+        """
+        return Response(como_tocar(self.get_object()))
 
     @extend_schema(
         parameters=[OpenApiParameter(

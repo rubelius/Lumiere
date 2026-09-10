@@ -18,8 +18,24 @@ type Fonte = components['schemas']['PlaybackSource'];
  *                 fluxo de outro ponto.
  */
 
-export function ehConvertida(fonte?: Fonte | null): boolean {
-  return !!fonte && fonte.precisa_converter !== 'nada';
+/** Modos que a tela pode impor, contra o que o backend recomendaria. */
+export const DIRETO = 'direto';
+export const CONVERSAO = 'conversao';
+
+/**
+ * Se o fluxo vai passar pelo conversor.
+ *
+ * `modo` existe porque a recomendação do backend é uma recomendação, não uma
+ * sentença: quem está assistindo pode preferir tocar a cópia crua — para levá-la
+ * a um player externo, ou porque só quer ver a imagem — e pode preferir
+ * converter uma cópia que provavelmente tocaria sozinha. Sem esse escape, a
+ * única fuga da conversão era sair do navegador.
+ */
+export function ehConvertida(fonte?: Fonte | null, modo?: string | null): boolean {
+  if (!fonte) return false;
+  if (modo === DIRETO) return false;
+  if (modo === CONVERSAO) return true;
+  return fonte.precisa_converter !== 'nada';
 }
 
 /**
@@ -34,9 +50,10 @@ export function urlDoVideo(
   fonte: Fonte | undefined | null,
   movieId: string,
   inicio = 0,
+  modo?: string | null,
 ): string | undefined {
   if (!fonte) return undefined;
-  if (!ehConvertida(fonte)) return fonte.stream_url;
+  if (!ehConvertida(fonte, modo)) return fonte.stream_url;
 
   const params = new URLSearchParams();
   // A cópia que o backend REALMENTE resolveu, e não a que a URL pediu: quando
@@ -64,8 +81,9 @@ export function duracaoDoFilme(
   fonte: Fonte | undefined | null,
   duracaoDoElemento: number,
   minutosDoCatalogo?: number | null,
+  modo?: string | null,
 ): number {
-  if (ehConvertida(fonte)) {
+  if (ehConvertida(fonte, modo)) {
     if (fonte?.duracao_segundos) return fonte.duracao_segundos;
     return minutosDoCatalogo ? minutosDoCatalogo * 60 : 0;
   }
@@ -124,11 +142,37 @@ export function pontoDeRetomada(
   paradoEm: number | null | undefined,
   terminou: boolean | null | undefined,
   duracao: number,
+  modo?: string | null,
 ): number {
-  if (!ehConvertida(fonte)) return 0;   // no direto o elemento salta sozinho
+  if (!ehConvertida(fonte, modo)) return 0;   // no direto o elemento salta sozinho
   const parou = paradoEm ?? 0;
   if (terminou || duracao <= 0) return 0;
   if (parou <= RETOMADA_MINIMA_S) return 0;
   if (parou >= duracao - RESTO_MINIMO_S) return 0;
   return parou;
+}
+
+/**
+ * O que dizer na tela sobre o que está acontecendo com esta fonte.
+ *
+ * O backend manda um rótulo — DIRECT PLAY, ÁUDIO CONVERTIDO, TRANSCODE — que
+ * descreve o que ELE faria. Quando quem assiste impõe outro modo, esse rótulo
+ * passa a descrever uma coisa que não está acontecendo, e a regra da casa é que
+ * a tela não afirma o que não é verdade.
+ *
+ * Pedir reprodução direta de uma cópia com DTS é uma escolha legítima — serve
+ * para mandar ao VLC, ou para quem só quer a imagem — mas o resultado é vídeo
+ * mudo, e isso precisa estar escrito antes de a pessoa concluir que quebrou.
+ */
+export function rotuloDaFonte(
+  fonte: Fonte | undefined | null,
+  modo?: string | null,
+): string | undefined {
+  if (!fonte) return undefined;
+
+  if (modo === DIRETO && fonte.precisa_converter === 'audio') return 'DIRETO — SEM ÁUDIO';
+  if (modo === DIRETO && fonte.precisa_converter === 'tudo') return 'DIRETO — PODE NÃO ABRIR';
+  if (modo === CONVERSAO && fonte.precisa_converter === 'nada') return 'CONVERSÃO A PEDIDO';
+
+  return fonte.label;
 }

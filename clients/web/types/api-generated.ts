@@ -166,6 +166,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/{id}/como-tocar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description O que o botão de projeção vai fazer com este filme, e o que oferecer quando não houver cópia que o navegador toque agora. */
+        get: operations["movies_como_tocar_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/{id}/playback/": {
         parameters: {
             query?: never;
@@ -1030,6 +1047,51 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
+        /** @description O que o botão de projeção vai fazer, e o que oferecer se não der. */
+        ComoTocar: {
+            /**
+             * @description `toca_agora`: há cópia imediata que o navegador toca — aperta e assiste. `escolher`: há cópia imediata, mas nenhuma que o navegador aceite sem conversão — a tela pergunta. `nada`: não há cópia imediata nenhuma.
+             *
+             *     * `toca_agora` - toca_agora
+             *     * `escolher` - escolher
+             *     * `nada` - nada
+             */
+            decisao: components["schemas"]["DecisaoEnum"];
+            /** @description A cópia que o botão toca. Em `escolher`, é a sugestão mostrada ao lado da pergunta; None só quando o filme não tem cópia nenhuma. */
+            escolhida: components["schemas"]["CopiaResumida"] | null;
+            /** @description A melhor cópia que o navegador toca e que ainda precisa baixar. */
+            melhor_para_navegador: components["schemas"]["CopiaResumida"] | null;
+            imediatas: components["schemas"]["CopiaResumida"][];
+        };
+        /**
+         * @description * `toca` - toca
+         *     * `nao_toca` - nao_toca
+         *     * `talvez` - talvez
+         * @enum {string}
+         */
+        CompatibilidadeEnum: "toca" | "nao_toca" | "talvez";
+        /** @description Uma cópia como a tela precisa vê-la para explicar uma escolha. */
+        CopiaResumida: {
+            release_id: string;
+            title: string;
+            quality_score: number;
+            /** Format: double */
+            size_gb: number;
+            resolution: string;
+            video_codec: string;
+            audio_codec: string;
+            compatibilidade: components["schemas"]["CompatibilidadeEnum"];
+            disponibilidade: components["schemas"]["DisponibilidadeEnum"];
+            precisa_converter: components["schemas"]["PrecisaConverterEnum"];
+            pode_importar: boolean;
+        };
+        /**
+         * @description * `toca_agora` - toca_agora
+         *     * `escolher` - escolher
+         *     * `nada` - nada
+         * @enum {string}
+         */
+        DecisaoEnum: "toca_agora" | "escolher" | "nada";
         /**
          * @description * `pronta` - pronta
          *     * `instantanea` - instantanea
@@ -2123,6 +2185,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MovieDetail"];
+                };
+            };
+        };
+    };
+    movies_como_tocar_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComoTocar"];
                 };
             };
         };

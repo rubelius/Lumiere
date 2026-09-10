@@ -15,6 +15,7 @@ export const movieKeys = {
   topRated: () => [...movieKeys.all, 'topRated'] as const,
   playback: (id: string) => [...movieKeys.all, 'playback', id] as const,
   subtitles: (id: string, idiomas: string) => [...movieKeys.all, 'subtitles', id, idiomas] as const,
+  comoTocar: (id: string) => [...movieKeys.all, 'comoTocar', id] as const,
 } as const;
 
 // 👇 1. CRIAMOS A INTERFACE BLINDADA
@@ -171,5 +172,23 @@ export function useEstatisticasDoAcervo() {
         '/api/movies/archive-stats/',
       ),
     staleTime: 5 * 60_000,
+  });
+}
+
+
+/**
+ * O que acontece quando alguém aperta "iniciar projeção".
+ *
+ * Vive fora do detalhe do filme porque a resposta é perecível: ela depende do
+ * que o Real-Debrid tem neste instante, e o detalhe fica guardado por uma hora.
+ * Um "toca agora" de sessenta minutos atrás é a promessa que o player não
+ * cumpre.
+ */
+export function useComoTocar(id: string) {
+  return useQuery({
+    queryKey: movieKeys.comoTocar(id),
+    queryFn: () => moviesApi.comoTocar(id),
+    enabled: !!id,
+    staleTime: 30_000,
   });
 }

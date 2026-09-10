@@ -62,3 +62,7 @@ export interface PaginatedResponse<T> {
   previous: string | null;
   results: T[];
 }
+
+/** O que o botão de projeção vai fazer, e o que oferecer se não der. */
+export type ComoTocar = components['schemas']['ComoTocar'];
+export type CopiaResumida = components['schemas']['CopiaResumida'];
