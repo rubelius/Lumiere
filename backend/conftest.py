@@ -37,11 +37,52 @@ BACKEND_DE_TESTE = 'cache+memory://'
 os.environ['CELERY_BROKER_URL'] = BROKER_DE_TESTE
 os.environ['CELERY_RESULT_BACKEND'] = BACKEND_DE_TESTE
 
+# ── Isolamento do cache ───────────────────────────────────────────────────
+#
+# Mesma história do broker, e custou o mesmo tipo de confusão: a suíte usava o
+# MESMO Redis da aplicação (db 1, prefixo `lumiere`), e três arquivos de teste
+# chamam `cache.clear()`. No django_redis isso apaga todas as chaves do
+# prefixo, não só as do teste.
+#
+# O estrago observado: rodar a suíte enquanto o rastreador de cópias
+# trabalhava apagou o cadeado da rodada em curso. Uma segunda rodada passaria
+# a varrer os mesmos filmes em paralelo — duas idas ao Prowlarr pelo mesmo
+# título —, e o diagnóstico é caro porque nada acusa: o cadeado simplesmente
+# não está mais lá.
+#
+# A mesma varredura apaga também os documentos de estado das buscas em curso
+# (a tela volta a dizer "ociosa" no meio de uma busca), a fila de pedidos do
+# rastreador e a varredura guardada da conta do Real-Debrid.
+#
+# Redis de verdade, e não locmem: o código depende de `cache.add` ser SETNX
+# atômico entre PROCESSOS — é o cadeado que impede duas buscas do mesmo filme.
+# Com LocMemCache cada processo tem o seu dicionário e o cadeado deixaria de
+# ser um cadeado, silenciosamente. Muda-se o banco e o prefixo, não o backend.
+os.environ.setdefault('REDIS_URL_TESTE', 'redis://localhost:6379/15')
+
 
 def pytest_configure(config):
     """Setup Django for pytest"""
     if not settings.configured:
         django.setup()
+
+    # Depois do django.setup(), porque só então CACHES existe para ser trocado.
+    #
+    # O BANCO separado é a única proteção que funciona, e isto foi medido:
+    # `cache.clear()` no django_redis executa FLUSHDB e apaga o banco INTEIRO,
+    # ignorando o KEY_PREFIX. Uma chave gravada com o prefixo da aplicação no
+    # mesmo banco do teste morre junto.
+    #
+    # O prefixo diferente fica assim mesmo, mas pelo que ele de fato faz:
+    # tornar óbvio, ao inspecionar o Redis, qual chave veio de onde. Não conte
+    # com ele para isolar nada.
+    settings.CACHES = {
+        'default': {
+            **settings.CACHES['default'],
+            'LOCATION': os.environ['REDIS_URL_TESTE'],
+            'KEY_PREFIX': 'lumiere-teste',
+        }
+    }
 
 
 import pytest
