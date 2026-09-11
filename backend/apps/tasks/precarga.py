@@ -39,10 +39,17 @@ from apps.movies.release_search import (executa_busca, grava_conclusao,
 
 logger = logging.getLogger(__name__)
 
-# Quantos filmes por rodada. Cada um custa ~120 segundos sem a sondagem do
-# Real-Debrid, então quatro enchem os dez minutos entre uma rodada e a
-# seguinte sem deixar trabalho acumulado na fila.
-POR_RODADA = 4
+# Quantos filmes por rodada.
+#
+# Medido em produção, com o Prowlarr real: 59 a 75 segundos por filme — menos
+# que os ~120 estimados, porque a maioria das buscas volta rápido e só o
+# indexador agregador demora. Uma rodada de quatro levava 237 dos 600 segundos
+# entre uma rodada e a seguinte, deixando 60% da janela ociosa.
+#
+# Oito enchem a janela no pior caso (8 × 75s = 600s). Passar disso não acelera:
+# o cadeado faz a rodada seguinte pular, e o efeito é o mesmo de uma rodada que
+# ocupa a janela inteira. O que muda é só o risco de irritar os indexadores.
+POR_RODADA = 8
 
 # Depois disto, o que se sabe sobre um filme está velho o bastante para
 # perguntar de novo. Sete dias é o intervalo em que aparecem cópias novas de um
