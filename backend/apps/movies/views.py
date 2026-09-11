@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from datetime import timedelta
 
 from django.http import HttpResponse, StreamingHttpResponse
 from drf_spectacular.types import OpenApiTypes
@@ -33,7 +34,7 @@ from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
 from .realdebrid_sync import atualiza_resumo
 from .realdebrid_estado import sincroniza_filme
-from apps.tasks.precarga import pede_prioridade
+from apps.tasks.precarga import DIAS_ATE_VENCER, pede_prioridade
 
 from .como_tocar import como_tocar
 from .transcode import (NADA, SO_AUDIO, abre_fluxo, o_que_transcodificar,
@@ -444,9 +445,14 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
         movie = self.get_object()
         ja_tem = movie.torrent_releases.exists()
 
-        # Já varrido e com cópias: não há o que pedir. Sem esta guarda, abrir a
-        # mesma ficha dez vezes poria o filme na fila dez vezes.
-        if ja_tem and movie.copias_buscadas_em:
+        # Três razões para entrar na fila, e a terceira é a que faltava:
+        # cópias velhas. Guardar só contra "já tem cópias" fazia uma ficha
+        # aberta hoje com dados de um mês atrás nunca ser atualizada — ela
+        # esperaria a vez dela na rotação normal, atrás de 25.908 outros.
+        vencido = (movie.copias_buscadas_em is None
+                   or movie.copias_buscadas_em < timezone.now() - timedelta(days=DIAS_ATE_VENCER))
+
+        if ja_tem and not vencido:
             return Response({'na_fila': False, 'ja_tem_copias': True,
                              'buscadas_em': movie.copias_buscadas_em})
 
