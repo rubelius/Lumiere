@@ -117,6 +117,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/motor/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description O estado do motor do ponto de vista da tela: dá para prometer que apertar o botão de buscar cópias vai adiantar alguma coisa? */
+        get: operations["motor_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/": {
         parameters: {
             query?: never;
@@ -194,6 +211,23 @@ export interface paths {
         get: operations["movies_playback_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/movies/{id}/precarrega/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Garante que este filme entre na fila de busca de cópias. Barato e sem limite de taxa: só registra o pedido e acorda o rastreador. */
+        post: operations["movies_precarrega_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -455,6 +489,142 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description ViewSet para notificações do usuário */
+        get: operations["notifications_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description ViewSet para notificações do usuário */
+        get: operations["notifications_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/dismiss/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Dispensa notificação */
+        post: operations["notifications_dismiss_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/mark_read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Marca notificação como lida */
+        post: operations["notifications_mark_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/mark_all_read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Marca todas como lidas */
+        post: operations["notifications_mark_all_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/preferences/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Retorna preferências do usuário */
+        get: operations["notifications_preferences_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/unread_count/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Conta notificações não lidas */
+        get: operations["notifications_unread_count_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/update_preferences/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Atualiza preferências */
+        patch: operations["notifications_update_preferences_partial_update"];
         trace?: never;
     };
     "/api/profile/telemetry/": {
@@ -1218,6 +1388,8 @@ export interface components {
             /** Format: date-time */
             last_checked?: string | null;
             /** Format: date-time */
+            copias_buscadas_em?: string | null;
+            /** Format: date-time */
             metadata_updated_at?: string | null;
             /** @description Evita gastar cota da API OMDb duas vezes no mesmo filme */
             omdb_checked?: boolean;
@@ -1326,6 +1498,8 @@ export interface components {
             /** Format: date-time */
             last_checked?: string | null;
             /** Format: date-time */
+            copias_buscadas_em?: string | null;
+            /** Format: date-time */
             metadata_updated_at?: string | null;
             /** @description Evita gastar cota da API OMDb duas vezes no mesmo filme */
             omdb_checked?: boolean;
@@ -1385,6 +1559,26 @@ export interface components {
             color?: string;
             collection_name?: string | null;
         };
+        /** @description Serializer para notificações */
+        Notification: {
+            /** Format: uuid */
+            readonly id: string;
+            type: components["schemas"]["TypeEnum"];
+            title: string;
+            message: string;
+            priority?: components["schemas"]["PriorityEnum"];
+            action_url?: string;
+            action_text?: string;
+            data?: unknown;
+            read?: boolean;
+            /** Format: date-time */
+            read_at?: string | null;
+            dismissed?: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
         OpenSubtitlesLogin: {
             username: string;
             password: string;
@@ -1418,6 +1612,21 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["MovieList"][];
+        };
+        PaginatedNotificationList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Notification"][];
         };
         PaginatedSessionInviteList: {
             /** @example 123 */
@@ -1575,6 +1784,26 @@ export interface components {
             readonly opensubtitles_connected?: boolean;
             readonly opensubtitles_pode_baixar?: boolean;
         };
+        /** @description Serializer para notificações */
+        PatchedNotification: {
+            /** Format: uuid */
+            readonly id?: string;
+            type?: components["schemas"]["TypeEnum"];
+            title?: string;
+            message?: string;
+            priority?: components["schemas"]["PriorityEnum"];
+            action_url?: string;
+            action_text?: string;
+            data?: unknown;
+            read?: boolean;
+            /** Format: date-time */
+            read_at?: string | null;
+            dismissed?: boolean;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
         PatchedTorrentRelease: {
             /** Format: uuid */
             id?: string;
@@ -1685,6 +1914,14 @@ export interface components {
          * @enum {string}
          */
         PrecisaConverterEnum: "nada" | "audio" | "tudo";
+        /**
+         * @description * `low` - Low
+         *     * `medium` - Medium
+         *     * `high` - High
+         *     * `urgent` - Urgent
+         * @enum {string}
+         */
+        PriorityEnum: "low" | "medium" | "high" | "urgent";
         /**
          * @description O que o player reporta enquanto o filme roda.
          *
@@ -1906,6 +2143,18 @@ export interface components {
             /** Format: date-time */
             readonly found_at: string;
         };
+        /**
+         * @description * `session_ready` - Session Ready
+         *     * `session_reminder` - Session Reminder
+         *     * `download_complete` - Download Complete
+         *     * `download_failed` - Download Failed
+         *     * `letterboxd_synced` - Letterboxd Synced
+         *     * `recommendation_new` - New Recommendations
+         *     * `movie_added_plex` - Movie Added to Plex
+         *     * `system` - System Notification
+         * @enum {string}
+         */
+        TypeEnum: "session_ready" | "session_reminder" | "download_complete" | "download_failed" | "letterboxd_synced" | "recommendation_new" | "movie_added_plex" | "system";
         /** @description Serializer básico de usuário */
         User: {
             /** Format: uuid */
@@ -2132,6 +2381,27 @@ export interface operations {
             };
         };
     };
+    motor_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     movies_list: {
         parameters: {
             query?: {
@@ -2229,6 +2499,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Movie"];
+                };
+            };
+        };
+    };
+    movies_precarrega_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Movie"];
+                "application/x-www-form-urlencoded": components["schemas"]["Movie"];
+                "multipart/form-data": components["schemas"]["Movie"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -2627,6 +2927,195 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Movie"];
+                };
+            };
+        };
+    };
+    notifications_list: {
+        parameters: {
+            query?: {
+                /** @description Qual campo usar ao ordenar os resultados. */
+                ordering?: string;
+                /** @description Um número de página dentro do conjunto de resultados paginado. */
+                page?: number;
+                /** @description Um termo de busca. */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedNotificationList"];
+                };
+            };
+        };
+    };
+    notifications_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_dismiss_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Notification"];
+                "application/x-www-form-urlencoded": components["schemas"]["Notification"];
+                "multipart/form-data": components["schemas"]["Notification"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_mark_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Notification"];
+                "application/x-www-form-urlencoded": components["schemas"]["Notification"];
+                "multipart/form-data": components["schemas"]["Notification"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_mark_all_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Notification"];
+                "application/x-www-form-urlencoded": components["schemas"]["Notification"];
+                "multipart/form-data": components["schemas"]["Notification"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_preferences_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_unread_count_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    notifications_update_preferences_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedNotification"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedNotification"];
+                "multipart/form-data": components["schemas"]["PatchedNotification"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
                 };
             };
         };

@@ -5,11 +5,14 @@ import redis
 from celery import current_app
 from django.core.cache import cache
 from django.db import connection
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+
+from apps.core.motor import estado_do_motor
 
 
 @extend_schema(
@@ -134,3 +137,22 @@ def issue_ws_ticket(request):
     cache.set(f'ws_ticket:{ticket}', str(request.user.id), timeout=30)
     
     return Response({'ticket': ticket})
+
+@extend_schema(
+    responses=OpenApiTypes.OBJECT,
+    description=(
+        'O estado do motor do ponto de vista da tela: dá para prometer que '
+        'apertar o botão de buscar cópias vai adiantar alguma coisa?'
+    ),
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def estado_do_motor_view(request):
+    """
+    Diferente de `/api/health/`, que responde a orquestrador.
+
+    Aqui a pergunta é de produto: a tela deve ou não oferecer uma busca. A
+    resposta fica guardada por meio minuto, porque perguntar aos workers custa
+    o timeout inteiro justamente quando não há nenhum.
+    """
+    return Response(estado_do_motor())

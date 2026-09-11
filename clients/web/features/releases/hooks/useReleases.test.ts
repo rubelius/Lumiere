@@ -1,7 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
+import type { EstadoDoMotor } from './useReleases';
 import { describe, expect, it, vi } from 'vitest';
 import { APIError, normalizaErro } from '@/services/http/errors';
-import { CORES_DA_COPIA, especificacaoDaCopia, explicaOScore, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, tamanhoLegivel, useRelogio } from './useReleases';
+import { CORES_DA_COPIA, especificacaoDaCopia, explicaOScore, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, tamanhoLegivel, useRelogio, avisoDoMotor } from './useReleases';
 import type { EstadoDaBusca } from './useReleases';
 
 function erroDaApi(corpo: unknown, status: number) {
@@ -284,5 +285,48 @@ describe('explicaOScore', () => {
 
   it('nota ausente não vira "undefined" na tela', () => {
     expect(explicaOScore({} as never)).toBe('Nota 0 de 100.');
+  });
+});
+
+describe('o aviso do motor', () => {
+  const motor = (campos: Partial<EstadoDoMotor> = {}): EstadoDoMotor => ({
+    workers: 1, beat: true, ultimo_pulso: '2026-09-11T23:09:00Z',
+    busca_funciona: true, rastreio_funciona: true, ...campos,
+  });
+
+  it('cala quando está tudo de pé', () => {
+    expect(avisoDoMotor(motor())).toBe('');
+  });
+
+  /**
+   * O defeito que isto existe para impedir: uma busca ficou dez minutos "na
+   * fila" sem worker para pegá-la, e o único lugar onde isso aparecia era o
+   * log do servidor.
+   */
+  it('diz que buscar não vai adiantar quando não há worker', () => {
+    const aviso = avisoDoMotor(motor({ workers: 0, busca_funciona: false, rastreio_funciona: false }));
+    expect(aviso).toContain('FORA DO AR');
+    expect(aviso).toContain('NÃO VAI ADIANTAR');
+  });
+
+  /**
+   * Sem beat a busca por clique continua funcionando — só a pré-carga
+   * automática para. Dizer "fora do ar" aqui seria alarme falso.
+   */
+  it('separa o agendador do worker', () => {
+    const aviso = avisoDoMotor(motor({ beat: false, rastreio_funciona: false }));
+    expect(aviso).toContain('AGENDADOR');
+    expect(aviso).toContain('AINDA FUNCIONA');
+    expect(aviso).not.toContain('NÃO VAI ADIANTAR');
+  });
+
+  it('o worker fora ganha do agendador fora', () => {
+    const aviso = avisoDoMotor(motor({
+      workers: 0, beat: false, busca_funciona: false, rastreio_funciona: false }));
+    expect(aviso).toContain('NENHUM WORKER');
+  });
+
+  it('sem resposta do servidor, não inventa notícia', () => {
+    expect(avisoDoMotor(undefined)).toBe('');
   });
 });

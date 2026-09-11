@@ -28,6 +28,7 @@ app.conf.imports = (
     'apps.tasks.integrations',
     'apps.tasks.ml',
     'apps.tasks.precarga',
+    'apps.tasks.pulso',
     'apps.tasks.recommendations',
     'apps.tasks.sessions',
     'apps.tasks.torrents',
@@ -51,6 +52,17 @@ app.conf.beat_schedule = {
         'schedule': crontab(minute=0, hour='*/6'),
     },
     
+    # O beat diz que está vivo, de minuto em minuto.
+    #
+    # A tarefa mais barata do projeto — uma escrita no Redis — e existe porque
+    # a AUSÊNCIA dela é a única forma de perceber que o agendador parou. Um
+    # worker fora do ar responde quando perguntado; um beat fora do ar não
+    # responde nada, e silêncio parece funcionamento.
+    'pulso-do-beat': {
+        'task': 'apps.tasks.pulso.pulso',
+        'schedule': crontab(minute='*'),
+    },
+
     # Enche o banco de cópias antes de alguém precisar delas.
     #
     # De dez em dez minutos, quatro filmes por rodada. O número sai da conta:

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react"; 
 import { useQueryClient } from '@tanstack/react-query';
 import { movieKeys, usePrecarregarCopias } from '@/features/movies/hooks/useMovies';
-import { CORES_DA_COPIA, explicaOScore, mensagemDaBusca, rotuloDeCompatibilidade, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useEstadoDaBusca, useEstadoNoRealDebrid, useImportarRelease, useRelogio, especificacaoDaCopia, tamanhoLegivel } from '@/features/releases/hooks/useReleases';
+import { CORES_DA_COPIA, explicaOScore, mensagemDaBusca, rotuloDeCompatibilidade, motivoDaFalha, rotuloDaCopia, useBuscarReleases, useEstadoDaBusca, useEstadoNoRealDebrid, useImportarRelease, useRelogio, especificacaoDaCopia, tamanhoLegivel, useEstadoDoMotor, avisoDoMotor } from '@/features/releases/hooks/useReleases';
 import { FINE_ART_EASE } from '@/lib/motion';
 import Image from 'next/image';
 import { motion, AnimatePresence } from "framer-motion"; 
@@ -122,6 +122,9 @@ export default function MovieClient() {
   const emVoo = busca.data?.estado === 'enfileirada' || busca.data?.estado === 'buscando';
   const agora = useRelogio(emVoo);
   const painel = mensagemDaBusca(busca.data, agora);
+  // O motor está de pé? Perguntado ANTES de clicar, e não 15 segundos depois.
+  const { data: motor } = useEstadoDoMotor();
+  const motorFora = avisoDoMotor(motor);
   const [erroDaBusca, setErroDaBusca] = useState('');
 
   const importar = useImportarRelease();
@@ -501,6 +504,15 @@ export default function MovieClient() {
                       {(painel.erro || erroDaBusca) && (
                         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.15em', marginBottom: 24, lineHeight: 1.8 }}>
                           {painel.erro || erroDaBusca}
+                        </div>
+                      )}
+
+                      {/* O motor vem ANTES do aviso da busca, e em cor de
+                          alerta: se ele está fora, tudo o que o painel abaixo
+                          disser sobre a busca é consequência disso. */}
+                      {motorFora && (
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.15em', marginBottom: 24, lineHeight: 1.8, border: '1px solid var(--terra)', padding: '12px 14px' }}>
+                          {motorFora}
                         </div>
                       )}
 

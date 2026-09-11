@@ -425,3 +425,58 @@ export function motivoDaFalha(
   const motivo = erro instanceof APIError ? erro.message : '';
   return (motivo || padrao).toUpperCase();
 }
+
+
+// ── o estado do motor ─────────────────────────────────────────────────────
+
+export interface EstadoDoMotor {
+  workers: number;
+  beat: boolean;
+  ultimo_pulso: string | null;
+  busca_funciona: boolean;
+  rastreio_funciona: boolean;
+}
+
+/**
+ * Se o motor está de pé para prometer uma busca.
+ *
+ * Pergunta de um em um minuto, e não mais: o servidor guarda a resposta por
+ * meio minuto de qualquer jeito, e o que muda aqui muda em escala de minutos —
+ * um worker que cai não volta em dez segundos.
+ */
+export function useEstadoDoMotor() {
+  return useQuery({
+    queryKey: ['motor'],
+    queryFn: () => http.get<EstadoDoMotor>('/api/motor/'),
+    refetchInterval: 60_000,
+    // Silencioso: um motor fora do ar já é a notícia ruim do dia, e um erro
+    // vermelho sobre a consulta ao estado dele não ajuda ninguém.
+    retry: false,
+  });
+}
+
+/**
+ * O que dizer quando o motor não está inteiro.
+ *
+ * String vazia quando está tudo de pé — a tela não anuncia normalidade.
+ *
+ * Existe porque o silêncio já custou caro: uma busca ficou dez minutos "na
+ * fila" sem worker para pegá-la, e o único lugar onde isso aparecia era o log
+ * do servidor. Pior, o aviso que existia só surgia 15 segundos DEPOIS de
+ * clicar, e sumia junto com o estado da busca cinco minutos mais tarde.
+ */
+export function avisoDoMotor(motor: EstadoDoMotor | undefined): string {
+  if (!motor) return '';
+
+  if (!motor.busca_funciona) {
+    return 'O MOTOR DE BUSCA ESTÁ FORA DO AR — NENHUM WORKER RESPONDE. '
+      + 'ATUALIZAR CÓPIAS NÃO VAI ADIANTAR ATÉ ELE VOLTAR.';
+  }
+
+  if (!motor.rastreio_funciona) {
+    return 'O AGENDADOR ESTÁ FORA DO AR. BUSCAR CÓPIAS AINDA FUNCIONA, '
+      + 'MAS A PRÉ-CARGA AUTOMÁTICA PAROU.';
+  }
+
+  return '';
+}

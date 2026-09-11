@@ -16,7 +16,7 @@ from apps.user_sessions.views import CinemaSessionViewSet, SessionThemeViewSet
 from apps.users.views import UserViewSet
 
 # 1. IMPORTAÇÃO NOVA PARA O WEBSOCKET TICKET
-from apps.core.views import issue_ws_ticket, health_check
+from apps.core.views import issue_ws_ticket, health_check, estado_do_motor_view
 from apps.users.views import ProfileTelemetryView # <-- Tem que vir do users/views!
 
 
@@ -52,6 +52,10 @@ urlpatterns = [
 
     # Core (Health Checks)
     path('api/health/', health_check, name='health-check'),
+    # O mesmo assunto do health check, outra pergunta: aquele responde a
+    # orquestrador ("devo receber tráfego?"), este responde à tela ("posso
+    # prometer que o botão vai adiantar alguma coisa?").
+    path('api/motor/', estado_do_motor_view, name='estado-do-motor'),
 
     # API
     path('api/', include(router.urls)),
