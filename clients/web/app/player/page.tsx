@@ -75,7 +75,6 @@ function PlayerExperience() {
     ? urlDaLegenda(legendas[0].file_id)
     : undefined;
   const [activeTab, setActiveTab] = useState<"video" | "audio" | "sub">("video"); 
-  const [playbackMode, setPlaybackMode] = useState<"local" | "jellyfin" | "direct">("local");
   // Resolução medida no próprio elemento, em vez do "145 MBPS" que era fixo.
   const [resolution, setResolution] = useState<string | null>(null);
 
@@ -446,7 +445,7 @@ function PlayerExperience() {
       style={{ fontFamily: "'DM Mono', monospace", zIndex: 9999999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
     >
       
-      {playbackMode === "local" ? (
+      {(
         <div className="absolute inset-0">
           <video 
             ref={videoRef}
@@ -535,20 +534,9 @@ function PlayerExperience() {
           <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at center, transparent 30%, rgba(4,4,2,0.8) 100%)', pointerEvents: 'none' }} />
           <div className="absolute inset-0 bg-noise opacity-[0.04] mix-blend-overlay pointer-events-none" />
         </div>
-      ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-           <Image src="/images/backgrounds/chefao.jpg" alt="Poster" fill sizes="100vw" className="object-cover blur-md" style={{ filter: 'grayscale(30%) contrast(1.1) brightness(0.4)' }} />
-           <motion.div animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} transition={{ repeat: Infinity, duration: 4 }} className="z-10 flex flex-col items-center gap-8">
-             {playbackMode === "jellyfin" ? <Tv style={{ width: 64, height: 64, color: 'var(--gold)' }} /> : <MonitorPlay style={{ width: 64, height: 64, color: 'var(--gold)' }} />}
-             <div style={{ textAlign: 'center' }}>
-               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0 }}>Projetando em Tela Externa</h2>
-               <p style={{ fontSize: '10px', letterSpacing: '0.2em', color: 'var(--m2)', marginTop: 8 }}>{playbackMode === "jellyfin" ? "JELLYFIN NATIVE CLIENT" : "DIRECT PLAY PASSTHROUGH"}</p>
-             </div>
-           </motion.div>
-        </div>
       )}
 
-      {!resolvendoFonte && !fonte && playbackMode === "local" && (
+      {!resolvendoFonte && !fonte && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-40" style={{ backgroundColor: 'var(--void)' }}>
           <div style={{ width: 48, height: 48, border: '1px solid rgba(86,84,80,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MonitorPlay style={{ width: 20, height: 20, color: 'var(--m3)' }} />
@@ -618,7 +606,7 @@ function PlayerExperience() {
         </div>
       )}
 
-      {isWaiting && !falhouOFluxo && fonte && playbackMode === "local" && (
+      {isWaiting && !falhouOFluxo && fonte && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-6 z-40">
           <motion.div 
             animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
@@ -630,7 +618,7 @@ function PlayerExperience() {
         </div>
       )}
 
-      {falhouOFluxo && playbackMode === "local" && (
+      {falhouOFluxo && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-40 text-center px-8">
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.75rem', color: 'var(--film)' }}>
             A projeção foi interrompida.
@@ -660,7 +648,6 @@ function PlayerExperience() {
             quality={movie?.best_quality_available || undefined}
             resolution={resolution}
             sourceLabel={rotuloDaFonte(fonte, modo)}
-            playbackMode={playbackMode}
           />
         )}
       </AnimatePresence>
@@ -706,7 +693,7 @@ function PlayerExperience() {
             faixaDeAudioAtiva={faixaNoAr}
             onSelecionarFaixa={escolheFaixa}
             activeMenu={activeMenu} activeTab={activeTab} setActiveTab={setActiveTab} 
-            playbackMode={playbackMode} setPlaybackMode={setPlaybackMode} onClose={() => setActiveMenu(null)}
+            onClose={() => setActiveMenu(null)}
             legendas={legendas || []}
             legendaAtiva={legendaAtiva}
             onSelecionarLegenda={setLegendaAtiva}

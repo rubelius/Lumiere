@@ -28,10 +28,9 @@ export interface PlayerTopBarProps {
   resolution?: string | null;
   /** Rótulo da fonte resolvida, ex.: "JELLYFIN DIRECT". */
   sourceLabel?: string;
-  playbackMode: 'local' | 'jellyfin' | 'direct';
 }
 
-export function PlayerTopBar({ onBack, title, year, quality, resolution, sourceLabel, playbackMode }: PlayerTopBarProps) {
+export function PlayerTopBar({ onBack, title, year, quality, resolution, sourceLabel }: PlayerTopBarProps) {
   return (
     <motion.div initial="hidden" animate="visible" exit="exit" variants={barVariants} className="absolute top-0 left-0 right-0 p-12 flex items-start justify-between z-50" style={{ background: 'linear-gradient(to bottom, rgba(4,4,2,0.9) 0%, transparent 100%)', display: 'flex', gap: 24 }}>
       <motion.div variants={itemVariants} className="flex items-center gap-8">
@@ -55,7 +54,7 @@ export function PlayerTopBar({ onBack, title, year, quality, resolution, sourceL
             <SignalHigh style={{ width: 12, height: 12 }} /> {resolution || 'AGUARDANDO SINAL'}
           </div>
           <div style={{ width: 1, height: 12, backgroundColor: 'rgba(237,232,220,0.2)' }} />
-          <span style={{ color: 'var(--m2)' }}>{sourceLabel || (playbackMode === "local" ? "SEM FONTE" : "DIRECT PLAY")}</span>
+          <span style={{ color: 'var(--m2)' }}>{sourceLabel || 'SEM FONTE'}</span>
         </div>
         <button style={{ background: 'transparent', border: 'none', color: 'var(--m3)', cursor: 'pointer' }}><Info style={{ width: 16, height: 16 }} /></button>
       </motion.div>
@@ -198,7 +197,7 @@ export interface FaixaDeLegenda {
 
 export function PlayerDiagnosticPanel(props: any) {
   const {
-    activeMenu, activeTab, setActiveTab, playbackMode, setPlaybackMode, onClose,
+    activeMenu, activeTab, setActiveTab, onClose,
     legendas = [] as FaixaDeLegenda[], legendaAtiva = null, onSelecionarLegenda,
     faixasDeAudio = [] as FaixaDeAudio[], faixaDeAudioAtiva = 0, onSelecionarFaixa,
     atrasoLegenda = 0, onAjustarAtraso, onZerarAtraso,
@@ -210,22 +209,38 @@ export function PlayerDiagnosticPanel(props: any) {
       {activeMenu === "cast" && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.2em', marginBottom: 8 }}>[ DESTINO DA PROJEÇÃO ]</div>
-          {[ { id: "local", name: "Este Dispositivo", desc: "WEB PLAYER (HTML5)", icon: MonitorPlay }, { id: "jellyfin", name: "Smart TV Sala", desc: "JELLYFIN NATIVE CLIENT", icon: Tv }, { id: "direct", name: "Cinema Shield", desc: "DIRECT PLAY (KODI/RD)", icon: Cast } ].map(mode => {
-            const isSelected = playbackMode === mode.id;
-            return (
-              <motion.button 
-                key={mode.id} onClick={() => { setPlaybackMode(mode.id); onClose(); }}
-                whileHover={{ x: 4, borderColor: isSelected ? 'var(--gold)' : 'rgba(237,232,220,0.3)' }}
-                style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px', border: isSelected ? '1px solid var(--gold)' : '1px solid rgba(237,232,220,0.05)', backgroundColor: isSelected ? 'rgba(191,143,60,0.05)' : 'transparent', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: "'DM Mono', monospace", transition: 'border-color 0.3s' }}
-              >
-                <mode.icon style={{ width: 20, height: 20, color: isSelected ? 'var(--gold)' : 'var(--m3)' }} />
-                <div>
-                  <div style={{ fontSize: '11px', color: isSelected ? 'var(--film)' : 'var(--m2)', textTransform: 'uppercase', marginBottom: 4 }}>{mode.name}</div>
-                  <div style={{ fontSize: '8px', color: isSelected ? 'var(--gold)' : 'var(--m3)', letterSpacing: '0.1em' }}>{mode.desc}</div>
-                </div>
-              </motion.button>
-            )
-          })}
+
+          {/* Havia aqui três destinos selecionáveis: "Este Dispositivo",
+              "Smart TV Sala" e "Cinema Shield". Os dois últimos eram nomes
+              inventados no código — nenhum dispositivo é descoberto — e
+              escolhê-los trocava o vídeo por uma tela que anunciava
+              "Projetando em Tela Externa" enquanto NADA era transmitido a
+              lugar nenhum. Alguém iria até a TV esperando o filme.
+
+              O Lumière não sabe transmitir para outro aparelho: o cliente
+              Jellyfin só busca na biblioteca e monta URL de stream, e não há
+              nada de controle remoto em lugar nenhum do backend. Então a lista
+              diz isso, em vez de fingir. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px', border: '1px solid var(--gold)', backgroundColor: 'rgba(191,143,60,0.05)', fontFamily: "'DM Mono', monospace" }}>
+            <MonitorPlay style={{ width: 20, height: 20, color: 'var(--gold)' }} />
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--film)', textTransform: 'uppercase', marginBottom: 4 }}>Este Dispositivo</div>
+              <div style={{ fontSize: '8px', color: 'var(--gold)', letterSpacing: '0.1em' }}>WEB PLAYER (HTML5)</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '16px', border: '1px solid rgba(237,232,220,0.05)', fontFamily: "'DM Mono', monospace", opacity: 0.6 }}>
+            <Tv style={{ width: 20, height: 20, color: 'var(--m3)', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--m3)', textTransform: 'uppercase', marginBottom: 4 }}>Outro aparelho</div>
+              <div style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em', lineHeight: 1.9 }}>
+                AINDA NÃO EXISTE. NENHUM DISPOSITIVO É DESCOBERTO NA REDE, E O
+                LUMIÈRE NÃO SABE COMANDAR REPRODUÇÃO FORA DAQUI.<br />
+                PARA ASSISTIR EM OUTRO LUGAR, USE [ ABRIR FORA ] E MANDE O LINK
+                AO VLC, IINA OU INFUSE.
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
