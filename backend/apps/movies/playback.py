@@ -16,7 +16,7 @@ apenas "esta fonte não serve".
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
 from asgiref.sync import sync_to_async
@@ -26,8 +26,8 @@ from apps.integrations.jellyfin import JellyfinClient
 from apps.integrations.plex import PlexClient
 from apps.integrations.realdebrid import (RealDebridClient,
                                              chave_do_usuario)
-from apps.movies.transcode import (NADA, SO_AUDIO, TUDO, duracao_do_arquivo,
-                                   o_que_transcodificar)
+from apps.movies.transcode import (NADA, SO_AUDIO, TUDO, o_que_transcodificar,
+                                   sonda_o_arquivo)
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,11 @@ class PlaybackSource:
     # tela precisa aguentar isso, porque acontece. Só é preenchido quando há
     # conversão: no caminho direto o navegador lê a duração sozinho.
     duracao_segundos: Optional[float] = None
+    # As faixas de áudio do arquivo. Só vem preenchida quando há conversão: o
+    # navegador não enxerga as faixas de um fluxo convertido — ele recebe uma
+    # só, já misturada —, então quem quiser trocar de idioma precisa desta
+    # lista e de um novo pedido com `?faixa=`.
+    faixas_de_audio: list = field(default_factory=list)
 
 
 def _por_utilidade(releases: list) -> list:
@@ -208,16 +213,21 @@ async def _from_realdebrid(movie, user, release_id=None) -> Optional[PlaybackSou
     # que esta cópia toca. No caminho direto o navegador lê a duração do
     # próprio arquivo e a sondagem seria 3 segundos jogados fora em cada play.
     duracao = release.duration_seconds
+    faixas = release.audio_tracks or []
     if converter != NADA and not duracao:
         # Numa thread: o ffprobe bloqueia por segundos e este código roda no
         # laço de eventos.
-        duracao = await asyncio.to_thread(duracao_do_arquivo, unrestricted['download'])
+        #
+        # Uma sondagem só responde as duas perguntas — duração e faixas de
+        # áudio. Cada ida ao Real-Debrid custa ~4,6 segundos medidos.
+        medido = await asyncio.to_thread(sonda_o_arquivo, unrestricted['download'])
+        duracao, faixas = medido['duracao'], medido['faixas']
         if duracao:
             # `update` e não `save`: outra aba pode estar mexendo na mesma
-            # linha, e aqui só esta coluna é conhecimento novo.
+            # linha, e aqui só estas colunas são conhecimento novo.
             await sync_to_async(
                 type(release).objects.filter(pk=release.pk).update
-            )(duration_seconds=duracao)
+            )(duration_seconds=duracao, audio_tracks=faixas)
 
     return PlaybackSource(
         source='realdebrid',
@@ -228,6 +238,7 @@ async def _from_realdebrid(movie, user, release_id=None) -> Optional[PlaybackSou
         release_id=str(release.id),
         precisa_converter=converter,
         duracao_segundos=duracao,
+        faixas_de_audio=faixas,
     )
 
 

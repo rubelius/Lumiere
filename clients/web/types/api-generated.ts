@@ -1899,6 +1899,10 @@ export interface components {
              * @description Duração real do arquivo. Só vem preenchida quando há conversão: o MP4 fragmentado declara a duração do que já chegou, então o <video> não sabe o tamanho do filme sozinho.
              */
             duracao_segundos: number | null;
+            /** @description As faixas de áudio do arquivo. Só vem preenchida quando há conversão: o navegador recebe uma faixa só, já misturada, e não enxerga as outras. Trocar de faixa é pedir o fluxo de novo com `?faixa=` — o índice é o campo `posicao`. */
+            faixas_de_audio: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * @description * `playing` - Tocando

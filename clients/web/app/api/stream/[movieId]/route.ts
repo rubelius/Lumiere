@@ -31,10 +31,21 @@ export async function GET(
   const alvo = new URL(
     `${DJANGO_API_URL}/api/movies/${encodeURIComponent(movieId)}/transcode/`,
   );
-  for (const chave of ['release', 'inicio']) {
-    const valor = pedido.searchParams.get(chave);
-    if (valor) alvo.searchParams.set(chave, valor);
-  }
+
+  // Repassa TODOS os parâmetros, e não uma lista escolhida aqui.
+  //
+  // A lista existia — `['release', 'inicio']` — e divergiu na primeira vez que
+  // o backend ganhou um parâmetro novo: `faixa` era dropado aqui, a troca de
+  // idioma ia para o servidor sem ele, e o ffmpeg seguia com `-map 0:a:0`. A
+  // URL dizia uma coisa, o áudio era outro, e nada acusava.
+  //
+  // Este proxy é um cano, não um porteiro: quem valida é o Django, que já
+  // trata cada parâmetro como texto de fora (ver `segundo_de_partida` e
+  // `faixa_de_audio`). Duas listas para manter em sincronia é a forma de
+  // defeito que este projeto mais paga.
+  pedido.searchParams.forEach((valor, chave) => {
+    alvo.searchParams.set(chave, valor);
+  });
 
   const resposta = await fetch(alvo, {
     headers: { Cookie: `access_token=${access}` },

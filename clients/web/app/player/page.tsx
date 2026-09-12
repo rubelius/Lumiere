@@ -10,8 +10,9 @@ import { Tv, MonitorPlay } from "lucide-react";
 import { PlayerTopBar, PlayerBottomControls, PlayerDiagnosticPanel } from "@/components/player/PlayerUI";
 import { useMovie, usePlayback, useSubtitles } from "@/features/movies/hooks/useMovies";
 import { PLAYERS, urlDaLegenda } from "@/features/movies/playerExterno";
+import type { FaixaDeAudio } from "@/features/movies/fonteDeVideo";
 import { RESTO_MINIMO_S, RETOMADA_MINIMA_S, duracaoDoFilme, ehConvertida,
-         pontoDeRetomada, rotuloDaFonte, tempoDaCue,
+         faixaPadrao, pontoDeRetomada, rotuloDaFonte, tempoDaCue,
          urlDoVideo } from "@/features/movies/fonteDeVideo";
 import { useProgressoDeExibicao } from '@/features/movies/hooks/useProgressoDeExibicao';
 
@@ -91,6 +92,13 @@ function PlayerExperience() {
   // depois, deixando um ffmpeg inteiro nascer e morrer a cada abertura.
   const [saltouPara, setSaltouPara] = useState<number | null>(null);
 
+  // Qual faixa de áudio está no ar. `null` = a que o próprio player escolheria.
+  //
+  // Trocar de faixa é RELIGAR o ffmpeg com outro `-map`, como o salto: o
+  // navegador recebe uma faixa só, já misturada, e não tem como trocar
+  // sozinho. Por isso isto vive aqui e não no elemento.
+  const [faixaEscolhida, setFaixaEscolhida] = useState<number | null>(null);
+
   // Congelado na primeira vez que dá para responder, e nunca mais.
   //
   // Recalculando, o ponto de partida seguia o `watch_state` — que o próprio
@@ -119,7 +127,11 @@ function PlayerExperience() {
   // elemento pedir antes, a primeira requisição saía do segundo zero e era
   // trocada meio segundo depois — um ffmpeg inteiro nascendo, puxando do
   // Real-Debrid e morrendo, a cada abertura do player.
-  const src = carregandoFilme ? undefined : urlDoVideo(fonte, movieId, deslocamento, modo);
+  const faixas = (fonte?.faixas_de_audio ?? []) as unknown as FaixaDeAudio[];
+  const faixaNoAr = faixaEscolhida ?? (faixas.length ? faixaPadrao(faixas) : 0);
+  const src = carregandoFilme
+    ? undefined
+    : urlDoVideo(fonte, movieId, deslocamento, modo, faixaNoAr);
 
   // O relógio começa onde o filme começa. Sem isto a tela mostra 00:00 até o
   // primeiro `timeupdate` — e num filme retomado aos 32 minutos, pausado, ela
@@ -138,10 +150,12 @@ function PlayerExperience() {
   }, [fonte, movie]);
   // O fluxo caiu. Estado próprio porque o <video> não conta a ninguém.
   const [falhouOFluxo, setFalhouOFluxo] = useState(false);
+
   // Religar o fluxo recarrega o elemento, e ele volta pausado. Sem lembrar o
   // que estava acontecendo, todo salto exigiria apertar play de novo.
   const tocavaAoSaltar = useRef(false);
   const deslocamentoNoAr = useRef(0);
+  const faixaNoArAnterior = useRef(0);
 
   // 1. 👇 CICLO DE VIDA BLINDADO
   useEffect(() => {
@@ -216,8 +230,10 @@ function PlayerExperience() {
     if (!video || !convertida) return;
     // Na primeira montagem não há salto nenhum a refazer: recarregar aqui
     // abortaria o fluxo que acabou de começar a chegar.
-    if (deslocamentoNoAr.current === deslocamento) return;
+    if (deslocamentoNoAr.current === deslocamento
+        && faixaNoAr === faixaNoArAnterior.current) return;
     deslocamentoNoAr.current = deslocamento;
+    faixaNoArAnterior.current = faixaNoAr;
 
     video.load();
     if (tocavaAoSaltar.current) {
@@ -226,7 +242,7 @@ function PlayerExperience() {
         // situações. O salto continua válido; só não retoma sozinho.
       });
     }
-  }, [deslocamento, convertida]);
+  }, [deslocamento, faixaNoAr, convertida]);
 
   // O <track> nasce com mode 'disabled'; quem manda de fato é a TextTrack API.
   // Fazer isso aqui (e não pelo atributo `default`) mantém uma única fonte de
@@ -334,6 +350,21 @@ function PlayerExperience() {
         + videoRef.current.buffered.end(videoRef.current.buffered.length - 1);
       setBufferedPercent((fim / totalTime) * 100);
     }
+  };
+
+  /**
+   * Troca a faixa de áudio.
+   *
+   * Reabre o fluxo a partir de ONDE A PESSOA ESTÁ, e não do começo: o `src`
+   * muda, o ffmpeg é religado com outro `-map`, e sem carregar a posição junto
+   * trocar de idioma jogaria o filme de volta ao início.
+   */
+  const escolheFaixa = (posicao: number) => {
+    if (posicao === faixaNoAr) return;
+    tocavaAoSaltar.current = isPlaying;
+    // O deslocamento passa a ser o ponto atual, porque o fluxo novo começa ali.
+    setDeslocamento(currentTime);
+    setFaixaEscolhida(posicao);
   };
 
   /** Até que segundo do filme o buffer atual alcança. */
@@ -648,9 +679,16 @@ function PlayerExperience() {
             onSkip={(amt: number) => vaiPara(currentTime + amt)}
             volume={volume}
             isMuted={isMuted}
-            onVolumeChange={(e: any) => {
+            onVolumeChange={(e: React.PointerEvent<HTMLDivElement>) => {
               const rect = e.currentTarget.getBoundingClientRect();
-              setVolume(((e.clientX - rect.left) / rect.width) * 100);
+              // Preso entre 0 e 100: com `setPointerCapture` o ponteiro segue
+              // recebendo eventos FORA da faixa, e sem o clamp o volume ia a
+              // -40 ou 180 — o <video> recusa e o valor mostrado mentia.
+              const bruto = ((e.clientX - rect.left) / rect.width) * 100;
+              setVolume(Math.min(100, Math.max(0, bruto)));
+              // Mexer no volume desfaz o mudo: subir o volume de algo mudo e
+              // não ouvir nada é o defeito, não o silêncio.
+              if (bruto > 0) setIsMuted(false);
             }}
             onToggleMute={() => setIsMuted(!isMuted)}
             activeMenu={activeMenu}
@@ -664,6 +702,9 @@ function PlayerExperience() {
       <AnimatePresence>
         {activeMenu && (
           <PlayerDiagnosticPanel 
+            faixasDeAudio={faixas}
+            faixaDeAudioAtiva={faixaNoAr}
+            onSelecionarFaixa={escolheFaixa}
             activeMenu={activeMenu} activeTab={activeTab} setActiveTab={setActiveTab} 
             playbackMode={playbackMode} setPlaybackMode={setPlaybackMode} onClose={() => setActiveMenu(null)}
             legendas={legendas || []}

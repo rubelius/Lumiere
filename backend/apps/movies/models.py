@@ -240,6 +240,16 @@ class TorrentRelease(models.Model):
     # meio minuto adiante do que o dedo apontou.
     duration_seconds = models.FloatField(null=True, blank=True)
 
+    # As faixas de áudio do arquivo, medidas com a MESMA sondagem da duração.
+    #
+    # Sem isto não há o que oferecer no menu de áudio: o navegador não enxerga
+    # as faixas de um fluxo convertido — ele recebe uma só, já misturada. Quem
+    # sabe quantas existem é o arquivo, e só o ffprobe pergunta a ele.
+    #
+    # Cada item traz `posicao` (o que o `-map 0:a:N` usa) e `index` (o global,
+    # só para diagnóstico); ver `_faixas_de_audio` em transcode.py.
+    audio_tracks = models.JSONField(default=list, blank=True)
+
     quality_score = models.IntegerField(default=0)
     video_score = models.IntegerField(default=0)
     audio_score = models.IntegerField(default=0)

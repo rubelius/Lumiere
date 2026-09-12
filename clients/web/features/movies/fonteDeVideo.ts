@@ -51,6 +51,7 @@ export function urlDoVideo(
   movieId: string,
   inicio = 0,
   modo?: string | null,
+  faixa = 0,
 ): string | undefined {
   if (!fonte) return undefined;
   if (!ehConvertida(fonte, modo)) return fonte.stream_url;
@@ -61,6 +62,10 @@ export function urlDoVideo(
   // conversão sem dizer qual faria a escolha de novo — podendo cair em outra.
   if (fonte.release_id) params.set('release', fonte.release_id);
   if (inicio > 0) params.set('inicio', inicio.toFixed(3));
+  // A faixa vai na URL porque trocar de idioma é RELIGAR o ffmpeg com outro
+  // `-map`: o navegador recebe uma faixa só, já misturada, e não tem como
+  // trocar por conta própria.
+  if (faixa > 0) params.set('faixa', String(faixa));
   return `/api/stream/${movieId}?${params}`;
 }
 
@@ -175,4 +180,68 @@ export function rotuloDaFonte(
   if (modo === CONVERSAO && fonte.precisa_converter === 'nada') return 'CONVERSÃO A PEDIDO';
 
   return fonte.label;
+}
+
+/** Uma faixa de áudio como o backend a mede. */
+export interface FaixaDeAudio {
+  posicao: number;
+  index: number;
+  codec: string;
+  canais: number;
+  layout: string;
+  idioma: string;
+  titulo: string;
+}
+
+// Os idiomas que aparecem no acervo. ISO 639-2, que é o que o ffprobe devolve.
+const IDIOMAS: Record<string, string> = {
+  por: 'PORTUGUÊS', pob: 'PORTUGUÊS (BR)', eng: 'INGLÊS', fre: 'FRANCÊS',
+  fra: 'FRANCÊS', spa: 'ESPANHOL', ita: 'ITALIANO', ger: 'ALEMÃO',
+  deu: 'ALEMÃO', jpn: 'JAPONÊS', rus: 'RUSSO', kor: 'COREANO',
+  chi: 'CHINÊS', zho: 'CHINÊS', swe: 'SUECO', dan: 'DINAMARQUÊS',
+  nor: 'NORUEGUÊS', fin: 'FINLANDÊS', pol: 'POLONÊS', nld: 'HOLANDÊS',
+  dut: 'HOLANDÊS', cze: 'TCHECO', hun: 'HÚNGARO', ara: 'ÁRABE',
+  hin: 'HINDI', tur: 'TURCO', heb: 'HEBRAICO', gre: 'GREGO',
+};
+
+const ARRANJOS: Record<number, string> = { 1: 'MONO', 2: 'ESTÉREO', 6: '5.1', 8: '7.1' };
+
+/**
+ * Se esta faixa é comentário, e não o filme.
+ *
+ * Importa porque escolher errado não é um detalhe: em "Mártires" duas das
+ * quatro faixas são comentários de especialistas, e cair numa delas troca o
+ * filme por uma aula sobre ele. O ffprobe não tem campo para isso — a
+ * informação vive no título, em inglês, porque é assim que os REMUX marcam.
+ */
+export function ehComentario(faixa: FaixaDeAudio): boolean {
+  return /comment|commentary|coment[áa]rio/i.test(faixa.titulo);
+}
+
+/**
+ * O nome curto da faixa, do jeito que ajuda a escolher.
+ *
+ * Idioma primeiro porque é o que se procura; arranjo depois, porque é o
+ * desempate entre duas faixas do mesmo idioma. Sem idioma etiquetado — comum —
+ * sobra o codec, que ao menos distingue uma faixa da outra.
+ */
+export function nomeDaFaixa(faixa: FaixaDeAudio): string {
+  const partes = [
+    IDIOMAS[faixa.idioma] || faixa.idioma.toUpperCase() || faixa.codec.toUpperCase(),
+    ARRANJOS[faixa.canais] || (faixa.canais ? `${faixa.canais}CH` : ''),
+    ehComentario(faixa) ? 'COMENTÁRIO' : '',
+  ].filter(Boolean);
+  return partes.join(' · ');
+}
+
+/**
+ * Qual faixa tocar quando ninguém escolheu.
+ *
+ * A primeira que não seja comentário. `-map 0:a:0` pega a primeira do arquivo
+ * e pronto, e em geral está certo — mas quando não está, o filme começa com
+ * alguém explicando o filme.
+ */
+export function faixaPadrao(faixas: FaixaDeAudio[]): number {
+  const primeira = faixas.findIndex((f) => !ehComentario(f));
+  return primeira >= 0 ? primeira : 0;
 }

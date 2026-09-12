@@ -266,15 +266,21 @@ def test_duracao_ilegivel_vira_none_e_nao_zero():
     assert transcode.duracao_do_arquivo('/tmp/nao-existe-mesmo.mkv') is None
 
 
-@pytest.mark.parametrize('saida,esperado', [
-    (b'9078.741\n', 9078.741),
-    (b'0.000000\n', None),      # arquivo sem duração: 'não sei', não 'zero'
-    (b'-1\n', None),
-    (b'N/A\n', None),
-    (b'\n', None),
-    (b'', None),
+def ffprobe_devolve(dados):
+    """Substitui o ffprobe pelo JSON que ele devolveria."""
+    import json as _json
+    saida = _json.dumps(dados).encode()
+    return lambda *a, **k: subprocess.CompletedProcess(a[0] if a else [], 0, saida, b'')
+
+
+@pytest.mark.parametrize('formato,esperado', [
+    ({'duration': '9078.741'}, 9078.741),
+    ({'duration': '0.000000'}, None),      # sem duração: 'não sei', não 'zero'
+    ({'duration': '-1'}, None),
+    ({'duration': 'N/A'}, None),
+    ({}, None),
 ])
-def test_a_duracao_so_vale_se_for_positiva(monkeypatch, saida, esperado):
+def test_a_duracao_so_vale_se_for_positiva(monkeypatch, formato, esperado):
     """
     Zero não é uma duração, é a ausência de uma.
 
@@ -282,7 +288,127 @@ def test_a_duracao_so_vale_se_for_positiva(monkeypatch, saida, esperado):
     filme acabou. Um 0 devolvido como se fosse medida faria `totalTime` cair
     no ramo do buffer e marcar como assistido um filme de duas horas.
     """
+    monkeypatch.setattr(transcode.subprocess, 'run',
+                        ffprobe_devolve({'format': formato, 'streams': []}))
+    assert transcode.duracao_do_arquivo('http://x/f.mkv') == esperado
+
+
+def test_uma_sondagem_responde_as_duas_perguntas(monkeypatch):
+    """
+    Duração e faixas vêm do MESMO ffprobe. Cada ida ao Real-Debrid custa ~4,6
+    segundos medidos; perguntar duas vezes pagaria isso em dobro por uma
+    resposta que um comando só já traz inteira.
+    """
+    chamadas = []
+
+    def espia(*a, **k):
+        chamadas.append(a)
+        return ffprobe_devolve({
+            'format': {'duration': '5973.968'},
+            'streams': [{'index': 0, 'codec_type': 'video'},
+                        {'index': 1, 'codec_type': 'audio', 'codec_name': 'dts'}],
+        })(*a, **k)
+
+    monkeypatch.setattr(transcode.subprocess, 'run', espia)
+    resultado = transcode.sonda_o_arquivo('http://x/f.mkv')
+
+    assert len(chamadas) == 1
+    assert resultado['duracao'] == 5973.968
+    assert len(resultado['faixas']) == 1
+
+
+def test_a_posicao_da_faixa_conta_so_entre_audios(monkeypatch):
+    """
+    A armadilha, com os números reais de Mártires: o ffprobe numera os fluxos
+    globalmente — o primeiro áudio é o índice 1, porque o 0 é o vídeo. Já
+    `-map 0:a:N` conta apenas entre os áudios, do zero.
+
+    Passar o índice global para o `-map` seleciona a faixa errada, ou nenhuma.
+    """
+    monkeypatch.setattr(transcode.subprocess, 'run', ffprobe_devolve({
+        'format': {'duration': '5973.968'},
+        'streams': [
+            {'index': 0, 'codec_type': 'video', 'codec_name': 'hevc'},
+            {'index': 1, 'codec_type': 'audio', 'codec_name': 'dts', 'channels': 6,
+             'channel_layout': '5.1(side)',
+             'tags': {'language': 'fre', 'title': '5.1 Surround Mix'}},
+            {'index': 2, 'codec_type': 'audio', 'codec_name': 'ac3', 'channels': 6,
+             'tags': {'language': 'eng', 'title': 'English Dub / 5.1 Surround Mix'}},
+            {'index': 5, 'codec_type': 'subtitle'},
+            {'index': 6, 'codec_type': 'audio', 'codec_name': 'ac3', 'channels': 1,
+             'tags': {'language': 'eng', 'title': 'Commentary by Nia Edwards-Behi'}},
+        ],
+    }))
+    faixas = transcode.sonda_o_arquivo('http://x/f.mkv')['faixas']
+
+    assert [f['posicao'] for f in faixas] == [0, 1, 2], 'posição não é contígua'
+    assert [f['index'] for f in faixas] == [1, 2, 6], 'perdeu o índice global'
+    assert faixas[0]['idioma'] == 'fre'
+    assert faixas[2]['titulo'].startswith('Commentary')
+
+
+def test_faixa_sem_etiquetas_nao_derruba_a_sondagem(monkeypatch):
+    """A maioria das cópias não etiqueta idioma nem título."""
+    monkeypatch.setattr(transcode.subprocess, 'run', ffprobe_devolve({
+        'format': {'duration': '100'},
+        'streams': [{'index': 1, 'codec_type': 'audio', 'codec_name': 'aac'}],
+    }))
+    faixa = transcode.sonda_o_arquivo('http://x/f.mkv')['faixas'][0]
+
+    assert faixa['idioma'] == ''
+    assert faixa['titulo'] == ''
+    assert faixa['canais'] == 0
+
+
+def test_ffprobe_ilegivel_nao_inventa_faixas(monkeypatch):
     monkeypatch.setattr(
         transcode.subprocess, 'run',
-        lambda *a, **k: subprocess.CompletedProcess(a[0] if a else [], 0, saida, b''))
-    assert transcode.duracao_do_arquivo('http://x/f.mkv') == esperado
+        lambda *a, **k: subprocess.CompletedProcess([], 1, b'isto nao e json', b'erro'))
+    assert transcode.sonda_o_arquivo('http://x/f.mkv') == {'duracao': None, 'faixas': []}
+
+
+# ── a faixa pedida pela URL ───────────────────────────────────────────────
+
+QUATRO_FAIXAS = [{'posicao': i} for i in range(4)]
+
+
+@pytest.mark.parametrize('bruto,esperado', [
+    (None, 0), ('', 0), ('0', 0), ('1', 1), ('3', 3),
+    # Fora do que o arquivo tem. `-map 0:a:99?` NÃO falha: a interrogação faz
+    # o ffmpeg simplesmente não selecionar faixa nenhuma, e sai um filme mudo
+    # com status 200. Silêncio servido como sucesso.
+    ('4', 0), ('99', 0),
+    ('-1', 0), ('abc', 0), ('1.5', 0), ('inf', 0),
+])
+def test_a_faixa_pedida_precisa_existir_no_arquivo(bruto, esperado):
+    assert transcode.faixa_de_audio(bruto, QUATRO_FAIXAS) == esperado
+
+
+def test_sem_lista_de_faixas_so_o_negativo_e_barrado():
+    """
+    É o caso de uma cópia que ainda não foi sondada: não há contra o que
+    validar, e recusar tudo impediria tocar. O que não pode passar é índice
+    negativo, que o ffmpeg interpreta de outro jeito.
+    """
+    assert transcode.faixa_de_audio('7', None) == 7
+    assert transcode.faixa_de_audio('-2', None) == 0
+
+
+def test_a_faixa_escolhida_chega_ao_ffmpeg():
+    """
+    A ponta que faltava: validar o índice não adianta se ele não for parar no
+    `-map`. Verificado por mutação — trocar `0:a:{faixa}?` por `0:a:0?` fixo
+    deixava todos os outros testes passando, com a troca de idioma morta.
+    """
+    for faixa in (0, 1, 3):
+        cmd = comando('http://x/f.mkv', 0, SO_AUDIO, faixa)
+        assert f'0:a:{faixa}?' in cmd, f'faixa {faixa} não chegou ao -map'
+
+
+def test_o_map_da_faixa_mantem_a_interrogacao():
+    """
+    Sem a `?`, uma cópia sem a faixa pedida faz o ffmpeg recusar o arquivo
+    INTEIRO — em vez de tocar vídeo sem som, não toca nada.
+    """
+    cmd = comando('http://x/f.mkv', 0, SO_AUDIO, 2)
+    assert cmd[cmd.index('-map', cmd.index('-map') + 1) + 1].endswith('?')

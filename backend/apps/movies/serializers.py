@@ -165,6 +165,15 @@ class PlaybackSourceSerializer(serializers.Serializer):
             '<video> não sabe o tamanho do filme sozinho.'
         ),
     )
+    faixas_de_audio = serializers.ListField(
+        child=serializers.DictField(),
+        help_text=(
+            'As faixas de áudio do arquivo. Só vem preenchida quando há '
+            'conversão: o navegador recebe uma faixa só, já misturada, e não '
+            'enxerga as outras. Trocar de faixa é pedir o fluxo de novo com '
+            '`?faixa=` — o índice é o campo `posicao`.'
+        ),
+    )
 
 
 class CopiaResumidaSerializer(serializers.Serializer):

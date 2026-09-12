@@ -21,6 +21,7 @@ de outro ponto, com `?inicio=`.
 """
 
 import asyncio
+import json
 import logging
 import shutil
 import subprocess
@@ -61,7 +62,8 @@ def o_que_transcodificar(release) -> str:
     return TUDO
 
 
-def comando(url: str, inicio: float = 0.0, escopo: str = SO_AUDIO) -> list:
+def comando(url: str, inicio: float = 0.0, escopo: str = SO_AUDIO,
+            faixa: int = 0) -> list:
     """
     A linha de comando do ffmpeg, montada.
 
@@ -74,7 +76,14 @@ def comando(url: str, inicio: float = 0.0, escopo: str = SO_AUDIO) -> list:
     if inicio > 0:
         cmd += ['-ss', f'{inicio:.3f}']
 
-    cmd += ['-i', url, '-map', '0:v:0', '-map', '0:a:0?']
+    # `0:a:{faixa}` conta entre os ÁUDIOS, do zero — não é o índice global do
+    # fluxo. Um REMUX típico tem o primeiro áudio no índice global 1, e passar
+    # esse 1 aqui selecionaria a SEGUNDA faixa. Ver `_faixas_de_audio`.
+    #
+    # A interrogação no fim mantém o comportamento de antes: uma cópia sem a
+    # faixa pedida continua tocando, com vídeo e sem som, em vez de o ffmpeg
+    # recusar o arquivo inteiro.
+    cmd += ['-i', url, '-map', '0:v:0', '-map', f'0:a:{faixa}?']
 
     if escopo == TUDO:
         # `hevc_videotoolbox` existe nesta máquina, mas H.264 é o que qualquer
@@ -97,7 +106,8 @@ def comando(url: str, inicio: float = 0.0, escopo: str = SO_AUDIO) -> list:
     return cmd
 
 
-def abre_fluxo(url: str, inicio: float = 0.0, escopo: str = SO_AUDIO):
+def abre_fluxo(url: str, inicio: float = 0.0, escopo: str = SO_AUDIO,
+               faixa: int = 0):
     """
     Liga o ffmpeg e devolve um iterador ASSÍNCRONO de bytes.
 
@@ -115,8 +125,9 @@ def abre_fluxo(url: str, inicio: float = 0.0, escopo: str = SO_AUDIO):
     a conexão no meio. Sem isso cada vídeo abandonado deixaria um ffmpeg
     baixando o filme inteiro do Real-Debrid, para ninguém.
     """
-    cmd = comando(url, inicio, escopo)
-    logger.info('Transcodificando (%s) a partir de %.1fs', escopo, inicio)
+    cmd = comando(url, inicio, escopo, faixa)
+    logger.info('Transcodificando (%s) a partir de %.1fs, faixa %d',
+                escopo, inicio, faixa)
 
     processo = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
@@ -162,37 +173,88 @@ FFPROBE = shutil.which('ffprobe') or 'ffprobe'
 SEGUNDOS_DE_SONDAGEM = 20
 
 
-def duracao_do_arquivo(url: str) -> float | None:
+def sonda_o_arquivo(url: str) -> dict:
     """
-    Quantos segundos o arquivo tem de verdade, ou None se não deu para saber.
+    Tudo o que precisamos saber do arquivo, numa ida só.
 
-    Isto existe por causa de uma limitação do MP4 fragmentado: ele não declara
-    duração total — só o que já foi escrito. Um navegador tocando o fluxo
-    convertido vê `duration` crescer junto com o buffer, e sem esta medida a
-    barra de progresso não teria escala nenhuma.
+    Duração e faixas de áudio vêm da MESMA sondagem de propósito: cada ffprobe
+    contra o Real-Debrid custa ~4,6 segundos medidos, e perguntar duas vezes
+    seria pagar isso duas vezes por uma resposta que o mesmo comando já traz
+    inteira.
 
-    Devolver None é resposta legítima e o chamador precisa tratá-la: fonte fora
-    do ar, formato que o ffprobe não abre, ou sondagem estourando o tempo.
+    Devolve sempre a mesma forma. `duracao` é None quando não deu para medir —
+    resposta legítima, e o chamador precisa tratá-la: fonte fora do ar, formato
+    que o ffprobe não abre, ou sondagem estourando o tempo.
     """
+    vazio = {'duracao': None, 'faixas': []}
     try:
         saida = subprocess.run(
-            [FFPROBE, '-v', 'error', '-show_entries', 'format=duration',
-             '-of', 'default=nw=1:nk=1', url],
+            [FFPROBE, '-v', 'error',
+             '-show_entries', 'format=duration',
+             '-show_entries', 'stream=index,codec_type,codec_name,channels,channel_layout',
+             '-show_entries', 'stream_tags=language,title',
+             '-of', 'json', url],
             capture_output=True, timeout=SEGUNDOS_DE_SONDAGEM)
     except (subprocess.TimeoutExpired, OSError) as erro:
         logger.warning('ffprobe não respondeu: %s', erro)
-        return None
+        return vazio
 
     try:
-        segundos = float(saida.stdout.decode().strip())
+        dados = json.loads(saida.stdout.decode())
     except (UnicodeDecodeError, ValueError):
-        logger.warning('ffprobe: duração ilegível (%s)',
+        logger.warning('ffprobe: resposta ilegível (%s)',
                        (saida.stderr or b'').decode(errors='replace')[:200])
-        return None
+        return vazio
 
-    # "N/A" já caiu no ValueError acima; 0 e negativo passariam, e uma barra de
-    # progresso dividida por zero é pior que uma sem escala.
+    return {'duracao': _duracao(dados), 'faixas': _faixas_de_audio(dados)}
+
+
+def _duracao(dados: dict) -> float | None:
+    """
+    A duração, se for um número que signifique alguma coisa.
+
+    Zero não é uma duração, é a ausência de uma — e a tela divide por este
+    número para desenhar a barra e para decidir se o filme acabou.
+    """
+    try:
+        segundos = float((dados.get('format') or {}).get('duration'))
+    except (TypeError, ValueError):
+        return None
     return segundos if segundos > 0 else None
+
+
+def _faixas_de_audio(dados: dict) -> list:
+    """
+    As faixas de áudio, na ordem, com o índice que o ffmpeg entende.
+
+    A ARMADILHA: o `index` que o ffprobe devolve é o índice GLOBAL do fluxo no
+    arquivo — num REMUX típico o primeiro áudio é o índice 1, porque o 0 é o
+    vídeo. Já `-map 0:a:N` conta apenas entre os ÁUDIOS, começando do zero.
+    Passar o índice global para o `-map` seleciona a faixa errada, ou nenhuma.
+
+    Por isso as duas coisas vão separadas: `posicao` é o que o `-map` usa,
+    `index` fica só para diagnóstico.
+    """
+    faixas = []
+    for fluxo in dados.get('streams') or []:
+        if fluxo.get('codec_type') != 'audio':
+            continue
+        etiquetas = fluxo.get('tags') or {}
+        faixas.append({
+            'posicao': len(faixas),
+            'index': fluxo.get('index'),
+            'codec': fluxo.get('codec_name') or '',
+            'canais': fluxo.get('channels') or 0,
+            'layout': fluxo.get('channel_layout') or '',
+            'idioma': (etiquetas.get('language') or '').lower(),
+            'titulo': etiquetas.get('title') or '',
+        })
+    return faixas
+
+
+def duracao_do_arquivo(url: str) -> float | None:
+    """A duração sozinha. Mantida porque é o que o resolvedor de fonte pede."""
+    return sonda_o_arquivo(url)['duracao']
 
 
 # Quanto antes do fim um salto pode chegar. Pedir exatamente o último segundo
@@ -227,3 +289,30 @@ def segundo_de_partida(bruto, duracao: float | None = None) -> float:
         return min(segundo, max(0.0, duracao - SOBRA_NO_FIM_S))
 
     return segundo
+
+
+def faixa_de_audio(bruto, faixas: list | None = None) -> int:
+    """
+    O `?faixa=` da requisição virado num índice que existe no arquivo.
+
+    Mesma família do `segundo_de_partida`, e pelo mesmo motivo: o que vem da
+    URL é texto de fora, e o ffmpeg aceita quase qualquer coisa aqui sem
+    reclamar — `-map 0:a:99?` com a interrogação simplesmente não seleciona
+    faixa nenhuma, e o resultado é um filme mudo com status 200. Silêncio
+    servido como sucesso é o modo de falhar mais caro de diagnosticar.
+
+    Sem a lista de faixas não há contra o que validar, e aí só o negativo é
+    barrado: é o caso de uma cópia que ainda não foi sondada.
+    """
+    try:
+        indice = int(bruto if bruto not in (None, '') else 0)
+    except (TypeError, ValueError):
+        return 0
+
+    if indice < 0:
+        return 0
+
+    if faixas and indice >= len(faixas):
+        return 0
+
+    return indice

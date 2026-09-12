@@ -129,7 +129,23 @@ export function PlayerBottomControls(props: any) {
             <motion.button onClick={onToggleMute} variants={{ rest: { color: 'var(--m3)', scale: 1 }, hover: { color: 'var(--film)', scale: 1.1 } }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               {isMuted || volume === 0 ? <VolumeX style={{ width: 14, height: 14 }} /> : <Volume2 style={{ width: 14, height: 14 }} />}
             </motion.button>
-            <div style={{ width: 60, height: 24, display: 'flex', alignItems: 'center', position: 'relative' }} onClick={onVolumeChange}>
+            {/* Arrastável, e não só clicável.
+                Eram 60 pixels para 100 valores: cada 1% cabia em 0,6 pixel, e
+                acertar um volume era pontaria. Agora segurar e arrastar
+                funciona, e a faixa ficou maior. `setPointerCapture` é o que
+                mantém o arrasto vivo quando o ponteiro sai dos 90 pixels —
+                sem ele, o volume parava de seguir o dedo na primeira saída. */}
+            <div
+              style={{ width: 90, height: 24, display: 'flex', alignItems: 'center', position: 'relative', cursor: 'pointer', touchAction: 'none' }}
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                onVolumeChange?.(e);
+              }}
+              onPointerMove={(e) => {
+                // `buttons` é o que distingue arrastar de só passar por cima.
+                if (e.buttons === 1) onVolumeChange?.(e);
+              }}
+            >
                <div style={{ width: '100%', height: 1, backgroundColor: 'rgba(237,232,220,0.1)' }} />
                <motion.div variants={{ rest: { height: 1 }, hover: { height: 2 } }} style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: `${isMuted ? 0 : volume}%`, backgroundColor: 'var(--gold)' }} />
                <motion.div variants={{ rest: { opacity: 0, scaleY: 0 }, hover: { opacity: 1, scaleY: 1 } }} transition={{ duration: 0.3 }} style={{ position: 'absolute', left: `${isMuted ? 0 : volume}%`, top: 6, width: 1, height: 12, backgroundColor: 'var(--film)', transform: 'translateX(-50%)', boxShadow: '0 0 5px rgba(237,232,220,0.8)' }} />
@@ -169,6 +185,9 @@ export function PlayerBottomControls(props: any) {
 }
 
 // ── 3. PAINEL DE DIAGNÓSTICO (Orquestrado) ──
+import { nomeDaFaixa } from '@/features/movies/fonteDeVideo';
+import type { FaixaDeAudio } from '@/features/movies/fonteDeVideo';
+
 export interface FaixaDeLegenda {
   file_id: number;
   idioma: string;
@@ -181,6 +200,7 @@ export function PlayerDiagnosticPanel(props: any) {
   const {
     activeMenu, activeTab, setActiveTab, playbackMode, setPlaybackMode, onClose,
     legendas = [] as FaixaDeLegenda[], legendaAtiva = null, onSelecionarLegenda,
+    faixasDeAudio = [] as FaixaDeAudio[], faixaDeAudioAtiva = 0, onSelecionarFaixa,
     atrasoLegenda = 0, onAjustarAtraso, onZerarAtraso,
   } = props;
 
@@ -216,14 +236,57 @@ export function PlayerDiagnosticPanel(props: any) {
               <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab ? 'var(--gold)' : 'var(--m3)', padding: 0 }}>[{tab}]</button>
             ))}
           </motion.div>
-          <motion.div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <motion.div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Havia aqui um "HDR TONE MAPPING / AUTO-DIAGNOSTIC" com um
+                interruptor animado ligado a coisa nenhuma. Decoração que se
+                apresenta como controle é pior que um painel vazio: o usuário
+                aperta, nada acontece, e ele conclui que o player está quebrado.
+                Mesma razão pela qual saíram os marcadores de capítulo fixos. */}
             {activeTab === 'video' && (
-              <motion.div variants={settingsItemVariants} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div><div style={{ fontSize: '10px', color: 'var(--film)', marginBottom: 4 }}>HDR TONE MAPPING</div><div style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>AUTO-DIAGNOSTIC</div></div>
-                <motion.div whileHover={{ scale: 1.1 }} style={{ width: 32, height: 16, border: '1px solid var(--gold)', position: 'relative', cursor: 'pointer', backgroundColor: 'rgba(191,143,60,0.1)' }}>
-                  <motion.div animate={{ x: [-2, 0, -2] }} transition={{ repeat: Infinity, duration: 1.5 }} style={{ position: 'absolute', top: 2, right: 2, width: 10, height: 10, backgroundColor: 'var(--gold)' }} />
-                </motion.div>
+              <motion.div variants={settingsItemVariants} style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em', lineHeight: 2 }}>
+                NADA A AJUSTAR AQUI AINDA.<br />
+                O VÍDEO É SERVIDO COMO ESTÁ NO ARQUIVO.
               </motion.div>
+            )}
+
+            {activeTab === 'audio' && (
+              faixasDeAudio.length === 0 ? (
+                <motion.div variants={settingsItemVariants} style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em', lineHeight: 2 }}>
+                  UMA FAIXA SÓ NESTA CÓPIA.<br />
+                  AS FAIXAS SÓ APARECEM QUANDO O ÁUDIO É CONVERTIDO — É A
+                  CONVERSÃO QUE PERGUNTA AO ARQUIVO O QUE ELE TEM.
+                </motion.div>
+              ) : (
+                faixasDeAudio.map((faixa: FaixaDeAudio) => {
+                  const ativa = faixa.posicao === faixaDeAudioAtiva;
+                  return (
+                    <motion.button
+                      key={faixa.posicao}
+                      variants={settingsItemVariants}
+                      onClick={() => onSelecionarFaixa?.(faixa.posicao)}
+                      whileHover={{ x: 4 }}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        padding: '10px 0', textAlign: 'left',
+                        borderBottom: '1px solid rgba(237,232,220,0.05)',
+                        color: ativa ? 'var(--gold)' : 'var(--m2)',
+                        fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em',
+                      }}
+                    >
+                      <span>
+                        {nomeDaFaixa(faixa)}
+                        {faixa.titulo && (
+                          <span style={{ display: 'block', color: 'var(--m3)', fontSize: '8px', marginTop: 4, letterSpacing: '0.1em' }}>
+                            {faixa.titulo.slice(0, 52).toUpperCase()}
+                          </span>
+                        )}
+                      </span>
+                      {ativa && <span style={{ color: 'var(--gold)' }}>●</span>}
+                    </motion.button>
+                  );
+                })
+              )
             )}
           </motion.div>
         </>

@@ -37,8 +37,8 @@ from .realdebrid_estado import sincroniza_filme
 from apps.tasks.precarga import DIAS_ATE_VENCER, pede_prioridade
 
 from .como_tocar import como_tocar
-from .transcode import (NADA, SO_AUDIO, abre_fluxo, o_que_transcodificar,
-                        segundo_de_partida)
+from .transcode import (NADA, SO_AUDIO, abre_fluxo, faixa_de_audio,
+                        o_que_transcodificar, segundo_de_partida)
 from .release_search import (estado_da_busca, libera, marca_enfileirada,
                              normaliza_filtros)
 from apps.tasks.torrents import search_torrents_for_movie
@@ -628,12 +628,16 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
         if escopo == NADA:
             escopo = SO_AUDIO
 
-        _, pedacos = abre_fluxo(fonte.stream_url, inicio, escopo)
+        faixa = faixa_de_audio(request.query_params.get('faixa'),
+                               fonte.faixas_de_audio)
+
+        _, pedacos = abre_fluxo(fonte.stream_url, inicio, escopo, faixa)
 
         resposta = StreamingHttpResponse(pedacos, content_type='video/mp4')
         resposta['Accept-Ranges'] = 'none'
         resposta['Cache-Control'] = 'no-store'
         resposta['X-Lumiere-Transcode'] = escopo
+        resposta['X-Lumiere-Faixa'] = str(faixa)
         return resposta
 
     @extend_schema(

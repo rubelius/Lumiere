@@ -71,11 +71,12 @@ usa a infra de notificação que já existia inteira e desligada (`ws/notificati
 grupo por usuário): faltava alguém do lado do cliente ouvindo, e o monitor de
 download só acompanhava cópias dentro de uma sessão de cinema.
 
-**O que continua aberto:** os controles de faixa de áudio e de volume. A
-conversão entrega uma faixa AAC estéreo só, então "escolher faixa de áudio"
-hoje não tem o que escolher — para o usuário trocar de idioma seria preciso
-mapear as faixas do arquivo (`-map 0:a:N`) e reabrir o fluxo, como o salto já
-faz.
+**Fechado em 2026-09-11:** faixa de áudio e volume. O ffprobe que já media a
+duração passou a listar também as faixas — mesma sondagem, porque cada ida ao
+Real-Debrid custa ~4,6s — e trocar de faixa religa o ffmpeg com outro
+`-map 0:a:N` a partir da posição atual, como o salto. As faixas de comentário
+são marcadas: em "Mártires", duas das quatro são especialistas falando sobre o
+filme, e cair numa delas troca o filme por uma aula.
 
 **Limite conhecido:** Jellyfin e Plex nunca passam por essa pergunta —
 `precisa_converter` só é calculado no caminho do Real-Debrid, onde existe uma

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { FaixaDeAudio } from './fonteDeVideo';
+
 import {
   CONVERSAO,
   DIRETO,
@@ -10,6 +12,9 @@ import {
   rotuloDaFonte,
   tempoDaCue,
   urlDoVideo,
+  ehComentario,
+  faixaPadrao,
+  nomeDaFaixa,
 } from './fonteDeVideo';
 
 /** Uma fonte mínima, com só o que estas contas leem. */
@@ -222,5 +227,53 @@ describe('o modo imposto pela tela', () => {
     const medida = fonte({ precisa_converter: 'audio', duracao_segundos: 9078.741 });
     expect(duracaoDoFilme(medida, 3.545, 151)).toBe(9078.741);
     expect(duracaoDoFilme(medida, 9080.2, 151, DIRETO)).toBe(9080.2);
+  });
+});
+
+describe('as faixas de áudio', () => {
+  const faixa = (campos: Partial<FaixaDeAudio> = {}): FaixaDeAudio => ({
+    posicao: 0, index: 1, codec: 'dts', canais: 6, layout: '5.1(side)',
+    idioma: 'fre', titulo: '5.1 Surround Mix', ...campos,
+  });
+
+  it('nomeia pelo idioma e pelo arranjo', () => {
+    expect(nomeDaFaixa(faixa())).toBe('FRANCÊS · 5.1');
+    expect(nomeDaFaixa(faixa({ idioma: 'eng', canais: 2 }))).toBe('INGLÊS · ESTÉREO');
+  });
+
+  it('sem idioma etiquetado, o codec ao menos distingue uma da outra', () => {
+    expect(nomeDaFaixa(faixa({ idioma: '', codec: 'ac3', canais: 1 }))).toBe('AC3 · MONO');
+  });
+
+  /**
+   * Em "Mártires", duas das quatro faixas são comentários de especialistas.
+   * Cair numa delas troca o filme por uma aula sobre o filme.
+   */
+  it('marca a faixa de comentário', () => {
+    const c = faixa({ idioma: 'eng', canais: 1, titulo: 'Commentary by Nia Edwards-Behi' });
+    expect(ehComentario(c)).toBe(true);
+    expect(nomeDaFaixa(c)).toContain('COMENTÁRIO');
+  });
+
+  it('não confunde o filme com um comentário', () => {
+    expect(ehComentario(faixa({ titulo: 'English Dub / 5.1 Surround Mix' }))).toBe(false);
+  });
+
+  it('a faixa padrão pula os comentários', () => {
+    expect(faixaPadrao([
+      faixa({ posicao: 0, titulo: 'Commentary by film historian' }),
+      faixa({ posicao: 1, titulo: '5.1 Surround Mix' }),
+    ])).toBe(1);
+  });
+
+  it('só de comentários, escolhe a primeira em vez de nada', () => {
+    expect(faixaPadrao([faixa({ titulo: 'Commentary A' })])).toBe(0);
+  });
+
+  it('a faixa escolhida vai na URL do conversor', () => {
+    const f = fonte({ precisa_converter: 'audio' });
+    expect(urlDoVideo(f, 'filme-1', 0, null, 2)).toBe('/api/stream/filme-1?release=rel-1&faixa=2');
+    // A zero é a padrão do ffmpeg: mandá-la só polui a URL.
+    expect(urlDoVideo(f, 'filme-1', 0, null, 0)).toBe('/api/stream/filme-1?release=rel-1');
   });
 });
