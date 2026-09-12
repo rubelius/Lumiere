@@ -1,0 +1,14 @@
+{
+  "name": "lumiere-torrent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Serve um torrent por HTTP enquanto ele baixa, para o <video> tocar sem esperar o fim.",
+  "main": "servidor.js",
+  "scripts": {
+    "start": "node servidor.js"
+  },
+  "dependencies": {
+    "webtorrent": "^3.0.21"
+  }
+}
