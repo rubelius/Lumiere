@@ -27,6 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 import WebTorrent from 'webtorrent';
 
+import { CacheDeslizante, COTA_PADRAO } from './cacheDeslizante.js';
 import { arquivoPrincipal, faixaPedida } from './escolhas.js';
 
 const PORTA = Number(process.env.PORTA_TORRENT || 8001);
@@ -44,6 +45,14 @@ const PASTA = process.env.PASTA_TORRENT || path.join(os.tmpdir(), 'lumiere-torre
 // O número é conservador de propósito: sobra espaço para o resto da máquina
 // respirar enquanto um filme baixa.
 const LIMITE_DE_BYTES = Number(process.env.LIMITE_TORRENT_BYTES || 6 * 1024 ** 3);
+
+// Quanto o cache pode ocupar. `0` quer dizer ilimitado — baixa o filme inteiro
+// e não apaga nada. O Lumière manda este valor a cada torrent, vindo das
+// configurações do usuário; isto aqui é só o padrão de quem sobe o serviço
+// sozinho.
+const COTA_DO_CACHE = process.env.COTA_TORRENT_BYTES === undefined
+  ? COTA_PADRAO
+  : (Number(process.env.COTA_TORRENT_BYTES) || Infinity);
 
 // Quanto esperar por um par antes de dizer que não há ninguém semeando.
 //
@@ -84,6 +93,22 @@ const emCurso = new Map();
 fs.mkdirSync(PASTA, { recursive: true });
 
 
+/**
+ * O cache deslizante de dentro dos embrulhos do webtorrent.
+ *
+ * Ele envolve o store em `ImmediateChunkStore(CacheChunkStore(o nosso))`, e
+ * cada camada guarda a de baixo em `.store`. Procurar pelo método em vez de
+ * contar as camadas sobrevive a uma mudança nesse empilhamento.
+ */
+function _cacheDe(torrent) {
+  let alvo = torrent?.store;
+  for (let i = 0; i < 5 && alvo; i++) {
+    if (typeof alvo.defineLeitura === 'function') return alvo;
+    alvo = alvo.store;
+  }
+  return null;
+}
+
 function estadoDe(entrada) {
   const { torrent, arquivo, erro } = entrada;
   return {
@@ -97,6 +122,7 @@ function estadoDe(entrada) {
     baixado: torrent.downloaded,
     velocidade: torrent.downloadSpeed,
     pronto: Boolean(arquivo),
+    cache: _cacheDe(torrent)?.estado() || null,
     erro: erro || null,
   };
 }
@@ -117,7 +143,7 @@ function jsonDe(resposta, codigo, corpo) {
  * diferença entre este recurso existir e não existir: os metadados vêm em
  * segundos, e a partir deles já dá para começar a servir bytes.
  */
-function adiciona(magnet) {
+function adiciona(magnet, cota = COTA_DO_CACHE) {
   return new Promise((resolve, reject) => {
     const existente = [...emCurso.values()].find(
       (e) => e.magnet === magnet || magnet.includes(e.torrent.infoHash));
@@ -126,7 +152,15 @@ function adiciona(magnet) {
       return resolve(existente);
     }
 
-    const torrent = cliente.add(magnet, { path: PASTA });
+    // O cache precisa do próprio torrent para poder dizer "não tenho mais
+    // esta peça", e o torrent só existe depois do `add`. Por isso o store é
+    // uma classe que se auto-referencia via `opts.torrent`, que o webtorrent
+    // injeta ao construir.
+    const torrent = cliente.add(magnet, {
+      path: PASTA,
+      store: CacheDeslizante,
+      storeOpts: { cota },
+    });
     const entrada = { torrent, magnet, arquivo: null, criadoEm: Date.now(),
                       ultimoAcesso: Date.now(), erro: null };
 
@@ -169,6 +203,10 @@ function adiciona(magnet) {
       torrent.files.forEach((f) => (f === arquivo ? f.select() : f.deselect()));
 
       entrada.arquivo = arquivo;
+      // O cache precisa saber qual arquivo é o filme para saber o que
+      // reselecionar ao retomar.
+      const cacheDoTorrent = _cacheDe(torrent);
+      if (cacheDoTorrent) cacheDoTorrent.arquivoEmUso = arquivo;
       emCurso.set(torrent.infoHash, entrada);
       resolve(entrada);
     });
@@ -197,6 +235,14 @@ function transmite(entrada, requisicao, resposta) {
   }
 
   const { inicio, fim, parcial } = pedido;
+
+  // O cache precisa saber onde a leitura está para não apagar o que vem a
+  // seguir. `inicio` é byte no ARQUIVO; a peça é no TORRENT, então entra o
+  // deslocamento do arquivo dentro dele.
+  const cache = _cacheDe(entrada.torrent);
+  if (cache) {
+    cache.defineLeitura(Math.floor((arquivo.offset + inicio) / entrada.torrent.pieceLength));
+  }
 
   resposta.writeHead(parcial ? 206 : 200, {
     'Content-Type': 'video/mp4',
@@ -261,10 +307,12 @@ const servidor = http.createServer(async (requisicao, resposta) => {
         requisicao.on('data', (p) => (dados += p));
         requisicao.on('end', () => r(dados));
       });
-      const { magnet } = JSON.parse(corpo || '{}');
+      const { magnet, cota } = JSON.parse(corpo || '{}');
       if (!magnet) return jsonDe(resposta, 400, { erro: 'magnet ausente' });
 
-      const entrada = await adiciona(magnet);
+      // `cota: 0` do cliente quer dizer ilimitado.
+      const entrada = await adiciona(
+        magnet, cota === undefined ? COTA_DO_CACHE : (Number(cota) || Infinity));
       return jsonDe(resposta, 200, estadoDe(entrada));
     }
 
