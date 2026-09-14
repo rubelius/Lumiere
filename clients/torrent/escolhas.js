@@ -73,3 +73,47 @@ export function faixaPedida(cabecalho, total) {
   // faixa maior do que existe. A regra é aparar, não recusar.
   return { inicio, fim: Math.min(fim, total - 1), parcial: true };
 }
+
+/**
+ * Trackers públicos, acrescentados a todo magnet que chega.
+ *
+ * MEDIDO: o mesmo magnet de Pulp Fiction (1348 semeadores segundo o indexador)
+ * ficou 30 segundos sem UM ÚNICO par usando só a DHT, e trouxe os metadados em
+ * 2,3 segundos quando anunciado a estes endereços.
+ *
+ * A razão é simples e fácil de não enxergar: os 1629 magnets do acervo vêm dos
+ * indexadores como `magnet:?xt=urn:btih:HASH&dn=NOME` — NENHUM traz `&tr=`. Sem
+ * tracker sobra a DHT, e a DHT atrás de NAT doméstico é lenta quando funciona.
+ * Os semeadores estão lá; nós é que não perguntávamos a quem sabe deles.
+ *
+ * Isto NÃO é um segundo cadastro de trackers a manter em dia: é o piso para
+ * quando o magnet não traz nenhum. Os do próprio magnet continuam valendo — o
+ * webtorrent soma as duas listas.
+ */
+export const TRACKERS_PUBLICOS = [
+  'udp://tracker.opentrackr.org:1337/announce',
+  'udp://open.demonii.com:1337/announce',
+  'udp://tracker.torrent.eu.org:451/announce',
+  'udp://exodus.desync.com:6969/announce',
+  'udp://open.stealth.si:80/announce',
+  'udp://tracker.dler.org:6969/announce',
+];
+
+/**
+ * A quem anunciar este magnet.
+ *
+ * Devolve SEMPRE uma lista não-vazia, mesmo — principalmente — quando o magnet
+ * não declara tracker nenhum. Confiar só no que o magnet traz é o defeito que
+ * deixou o acervo inteiro dependendo da DHT.
+ */
+export function anunciosPara(magnet) {
+  const proprios = [...String(magnet ?? '').matchAll(/[?&]tr=([^&]+)/g)]
+    .map((achado) => {
+      try { return decodeURIComponent(achado[1]); } catch { return achado[1]; }
+    })
+    .filter(Boolean);
+
+  // Um Set porque um magnet pode repetir um endereço que já está no piso, e
+  // anunciar duas vezes ao mesmo tracker só rende tráfego.
+  return [...new Set([...proprios, ...TRACKERS_PUBLICOS])];
+}

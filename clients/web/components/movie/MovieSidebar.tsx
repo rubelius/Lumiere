@@ -7,8 +7,9 @@ import { Play, CheckCircle2, Bookmark, Plus, Heart, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FestivalLaurels } from "@/components/movie/FestivalLaurels";
 import { EscolhaDeProjecao } from "@/components/movie/EscolhaDeProjecao";
-import { useComoTocar } from "@/features/movies/hooks/useMovies";
-import { useImportarRelease } from "@/features/releases/hooks/useReleases";
+import { useComoTocar, useTocarDoTorrent } from "@/features/movies/hooks/useMovies";
+import { useIntegrations } from "@/features/settings/hooks/useIntegrations";
+import { motivoDaFalha, useImportarRelease } from "@/features/releases/hooks/useReleases";
 
 
 export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie: any, posterUrl: string, ytId: string | null, onPlayTrailer: () => void }) => {
@@ -24,6 +25,11 @@ export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie:
   // projeção sobre um REMUX com DTS, e a projeção vinha muda.
   const { data: plano } = useComoTocar(movie.id);
   const importar = useImportarRelease();
+
+  // Tocar direto do torrent. A permissão vem das configurações do usuário, e
+  // nasce desligada: o aviso sobre o IP precisa ter sido lido antes.
+  const { data: integracoes } = useIntegrations();
+  const doTorrent = useTocarDoTorrent(movie.id as string);
 
   const tocaAgora = plano?.decisao === 'toca_agora';
 
@@ -92,6 +98,17 @@ export const MovieSidebar = ({ movie, posterUrl, ytId, onPlayTrailer }: { movie:
             onTocar={(releaseId, modo) => { setEscolhaAberta(false); tocar(releaseId, modo); }}
             onBaixar={(releaseId) => importar.mutate(releaseId)}
             baixando={importar.isPending}
+            podeTocarDoTorrent={Boolean(integracoes?.torrent_direto_permitido)}
+            ligandoOTorrent={doTorrent.isPending}
+            erroDoTorrent={doTorrent.isError ? motivoDaFalha(doTorrent.error) : ''}
+            onTocarDoTorrent={(releaseId) => doTorrent.mutate(releaseId, {
+              onSuccess: (dados) => {
+                setEscolhaAberta(false);
+                // O player recebe o hash, e não a cópia: quem está servindo o
+                // vídeo é o motor de torrent, não o Real-Debrid.
+                router.push(`/player?id=${movie.id}&torrent=${dados.info_hash}`);
+              },
+            })}
           />
         )}
           

@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest';
 import type { FaixaDeAudio } from './fonteDeVideo';
 
 import {
-  CONVERSAO,
+  avisoDoTorrent,  CONVERSAO,
   DIRETO,
   FORA_DA_JANELA,
   duracaoDoFilme,
   ehConvertida,
   pontoDeRetomada,
   rotuloDaFonte,
+  temOQueTocar,
   tempoDaCue,
   urlDoVideo,
   ehComentario,
@@ -275,5 +276,93 @@ describe('as faixas de áudio', () => {
     expect(urlDoVideo(f, 'filme-1', 0, null, 2)).toBe('/api/stream/filme-1?release=rel-1&faixa=2');
     // A zero é a padrão do ffmpeg: mandá-la só polui a URL.
     expect(urlDoVideo(f, 'filme-1', 0, null, 0)).toBe('/api/stream/filme-1?release=rel-1');
+  });
+});
+
+describe('o aviso sobre o download do torrent', () => {
+  const estado = (campos = {}) => ({
+    pares: 12, velocidade: 2 * 1024 * 1024,
+    cache: { pausado_por_cota: false }, ...campos,
+  });
+
+  it('cala quando o download está saudável', () => {
+    expect(avisoDoTorrent(estado())).toBe('');
+  });
+
+  /**
+   * O backlog dizia isso com todas as letras: "o torrent não tem semeadores"
+   * precisa chegar à tela como frase, não como vídeo travado.
+   */
+  it('diz quando não há semeador nenhum', () => {
+    const aviso = avisoDoTorrent(estado({ pares: 0 }));
+    expect(aviso).toContain('NENHUM SEMEADOR');
+    expect(aviso).toContain('REAL-DEBRID');
+  });
+
+  /**
+   * Medido: 1 par a 2,4 KB/s deixou um pedido de 64 KB estourar 120 segundos
+   * sem entregar nada. Com 2 pares, o mesmo pedido voltou em 0,04s.
+   */
+  it('avisa quando a velocidade não sustenta a reprodução', () => {
+    const aviso = avisoDoTorrent(estado({ pares: 1, velocidade: 2400 }));
+    expect(aviso).toContain('POUCOS SEMEADORES');
+    expect(aviso).toContain('1 PAR');
+    expect(aviso).toContain('2 KB/S');
+  });
+
+  it('o cache cheio é outra notícia, e aponta a saída', () => {
+    const aviso = avisoDoTorrent(estado({ cache: { pausado_por_cota: true } }));
+    expect(aviso).toContain('CACHE ENCHEU');
+    expect(aviso).toContain('COTA');
+    expect(aviso).not.toContain('SEMEADOR');
+  });
+
+  it('sem semeador ganha do cache cheio', () => {
+    // Sem par nenhum, aumentar a cota não resolve nada.
+    const aviso = avisoDoTorrent(estado({ pares: 0, cache: { pausado_por_cota: true } }));
+    expect(aviso).toContain('NENHUM SEMEADOR');
+  });
+
+  it('sem resposta do servidor, não inventa notícia', () => {
+    expect(avisoDoTorrent(undefined)).toBe('');
+  });
+});
+
+// ── a tela não afirma o que não é verdade ────────────────────────────────
+// MEDIDO: com Pulp Fiction TOCANDO do torrent — readyState 4, duração de 2h34
+// lida do próprio arquivo — a tela escrevia por cima "Sem fonte disponível.
+// Nenhuma cópia em Real-Debrid, Jellyfin ou Plex". A frase estava certa sobre
+// o Real-Debrid e errada sobre o filme, porque `fonte` responde "o que o
+// resolvedor achou" e estava sendo usada para responder "há o que tocar".
+
+describe('temOQueTocar', () => {
+  it('um torrent no ar é fonte, mesmo sem o resolvedor achar nada', () => {
+    expect(temOQueTocar(null, 'a'.repeat(40))).toBe(true);
+    expect(temOQueTocar(undefined, 'b'.repeat(40))).toBe(true);
+  });
+
+  it('sem torrent, vale o que o resolvedor achou', () => {
+    expect(temOQueTocar({ stream_url: '/x' } as never, null)).toBe(true);
+    expect(temOQueTocar(null, null)).toBe(false);
+    expect(temOQueTocar(null, '')).toBe(false);
+  });
+});
+
+describe('rotuloDaFonte com torrent', () => {
+  it('diz TORRENT DIRETO em vez de deixar o selo vazio', () => {
+    expect(rotuloDaFonte(null, null, 'c'.repeat(40))).toBe('TORRENT DIRETO');
+  });
+
+  it('o torrent manda mesmo quando o resolvedor achou outra coisa', () => {
+    // O <video> está puxando do torrent; anunciar a cópia do Real-Debrid seria
+    // nomear uma origem que não está sendo usada.
+    const doRd = { label: 'DIRECT PLAY', precisa_converter: 'nada' } as never;
+    expect(rotuloDaFonte(doRd, null, 'd'.repeat(40))).toBe('TORRENT DIRETO');
+  });
+
+  it('sem torrent, nada muda', () => {
+    const doRd = { label: 'DIRECT PLAY', precisa_converter: 'nada' } as never;
+    expect(rotuloDaFonte(doRd, null, null)).toBe('DIRECT PLAY');
+    expect(rotuloDaFonte(null, null, null)).toBeUndefined();
   });
 });

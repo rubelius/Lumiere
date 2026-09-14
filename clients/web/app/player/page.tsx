@@ -8,11 +8,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Tv, MonitorPlay } from "lucide-react";
 
 import { PlayerTopBar, PlayerBottomControls, PlayerDiagnosticPanel } from "@/components/player/PlayerUI";
-import { useMovie, usePlayback, useSubtitles } from "@/features/movies/hooks/useMovies";
+import { useEstadoDoTorrent, useMovie, usePlayback, useSubtitles } from "@/features/movies/hooks/useMovies";
 import { PLAYERS, urlDaLegenda } from "@/features/movies/playerExterno";
 import type { FaixaDeAudio } from "@/features/movies/fonteDeVideo";
+import { avisoDoTorrent } from "@/features/movies/fonteDeVideo";
 import { RESTO_MINIMO_S, RETOMADA_MINIMA_S, duracaoDoFilme, ehConvertida,
-         faixaPadrao, pontoDeRetomada, rotuloDaFonte, tempoDaCue,
+         faixaPadrao, pontoDeRetomada, rotuloDaFonte, temOQueTocar, tempoDaCue,
          urlDoVideo } from "@/features/movies/fonteDeVideo";
 import { useProgressoDeExibicao } from '@/features/movies/hooks/useProgressoDeExibicao';
 
@@ -27,6 +28,10 @@ function PlayerExperience() {
   // 'direto' | 'conversao'. Sem isto, a recomendação do backend era uma
   // sentença: não havia como pedir a cópia crua sem sair do navegador.
   const modo = searchParams.get('modo');
+  // Quando presente, quem serve o vídeo é o motor de torrent — não o
+  // Real-Debrid. É outro caminho inteiro: outro `src`, outra conta de duração,
+  // e um estado de download que a tela precisa mostrar.
+  const torrentHash = searchParams.get('torrent');
   const { data: movie, isLoading: carregandoFilme } = useMovie(movieId);
   const { reporta: reportaProgresso, reportaAgora } = useProgressoDeExibicao(movieId);
   const jaRetomou = useRef(false);
@@ -128,9 +133,16 @@ function PlayerExperience() {
   // Real-Debrid e morrendo, a cada abertura do player.
   const faixas = (fonte?.faixas_de_audio ?? []) as unknown as FaixaDeAudio[];
   const faixaNoAr = faixaEscolhida ?? (faixas.length ? faixaPadrao(faixas) : 0);
-  const src = carregandoFilme
-    ? undefined
-    : urlDoVideo(fonte, movieId, deslocamento, modo, faixaNoAr);
+  // O torrent tem precedência: se a pessoa escolheu tocar dele, é dele que o
+  // vídeo vem, e o resolvedor de fonte do Real-Debrid nem entra na conversa.
+  const { data: estadoDoTorrent } = useEstadoDoTorrent(movieId, torrentHash);
+  const avisoDeSemeadores = avisoDoTorrent(estadoDoTorrent);
+
+  const src = torrentHash
+    ? `/api/torrent/${torrentHash}/stream`
+    : (carregandoFilme
+        ? undefined
+        : urlDoVideo(fonte, movieId, deslocamento, modo, faixaNoAr));
 
   // O relógio começa onde o filme começa. Sem isto a tela mostra 00:00 até o
   // primeiro `timeupdate` — e num filme retomado aos 32 minutos, pausado, ela
@@ -536,7 +548,7 @@ function PlayerExperience() {
         </div>
       )}
 
-      {!resolvendoFonte && !fonte && (
+      {!resolvendoFonte && !temOQueTocar(fonte, torrentHash) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-40" style={{ backgroundColor: 'var(--void)' }}>
           <div style={{ width: 48, height: 48, border: '1px solid rgba(86,84,80,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MonitorPlay style={{ width: 20, height: 20, color: 'var(--m3)' }} />
@@ -618,6 +630,12 @@ function PlayerExperience() {
         </div>
       )}
 
+      {avisoDeSemeadores && (
+        <div style={{ position: 'absolute', top: 96, left: '50%', transform: 'translateX(-50%)', zIndex: 45, maxWidth: 520, textAlign: 'center', border: '1px solid var(--terra)', background: 'rgba(4,4,2,0.92)', padding: '12px 18px', fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--terra)', letterSpacing: '0.12em', lineHeight: 1.9 }}>
+          {avisoDeSemeadores}
+        </div>
+      )}
+
       {falhouOFluxo && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-40 text-center px-8">
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.75rem', color: 'var(--film)' }}>
@@ -647,7 +665,7 @@ function PlayerExperience() {
             year={movie?.year}
             quality={movie?.best_quality_available || undefined}
             resolution={resolution}
-            sourceLabel={rotuloDaFonte(fonte, modo)}
+            sourceLabel={rotuloDaFonte(fonte, modo, torrentHash)}
           />
         )}
       </AnimatePresence>

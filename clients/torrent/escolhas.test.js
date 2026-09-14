@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { arquivoPrincipal, faixaPedida } from './escolhas.js';
+import { anunciosPara, arquivoPrincipal, faixaPedida, TRACKERS_PUBLICOS } from './escolhas.js';
 
 const arq = (name, length) => ({ name, length });
 
@@ -107,4 +107,53 @@ test('faixa invertida é impossível', () => {
 test('cabeçalho sem sentido cai no arquivo inteiro', () => {
   assert.deepEqual(faixaPedida('bytes=abc', TOTAL),
                    { inicio: 0, fim: TOTAL - 1, parcial: false });
+});
+
+// ── a quem anunciar ───────────────────────────────────────────────────────
+// O defeito que estes testes guardam: o acervo inteiro chegou aqui com magnets
+// sem um único `&tr=`, e ficamos 30 segundos por torrent esperando a DHT
+// achar alguém. "Use os trackers do magnet" é uma regra que parece certa e
+// deixa 1629 cópias sem par nenhum.
+
+test('um magnet sem tracker nenhum ainda tem a quem anunciar', () => {
+  const nus = anunciosPara('magnet:?xt=urn:btih:' + 'a'.repeat(40) + '&dn=Filme');
+  assert.ok(nus.length > 0, 'ficaria só com a DHT');
+  assert.deepEqual(nus, TRACKERS_PUBLICOS);
+});
+
+test('magnet vazio ou ausente não derruba nem devolve lista vazia', () => {
+  for (const nada of ['', null, undefined]) {
+    assert.ok(anunciosPara(nada).length > 0);
+  }
+});
+
+test('os trackers do próprio magnet são preservados', () => {
+  const com = 'magnet:?xt=urn:btih:' + 'b'.repeat(40)
+    + '&tr=' + encodeURIComponent('udp://tracker.exemplo.org:6969/announce');
+  const lista = anunciosPara(com);
+  assert.ok(lista.includes('udp://tracker.exemplo.org:6969/announce'),
+    'descartou o tracker que o magnet trazia');
+  // E o piso continua junto: o do magnet pode estar fora do ar.
+  assert.ok(lista.includes(TRACKERS_PUBLICOS[0]));
+});
+
+test('vários trackers no magnet vêm todos, decodificados', () => {
+  const com = 'magnet:?xt=urn:btih:' + 'c'.repeat(40)
+    + '&tr=' + encodeURIComponent('udp://um.exemplo:80/announce')
+    + '&tr=' + encodeURIComponent('http://dois.exemplo/announce?x=1');
+  const lista = anunciosPara(com);
+  assert.ok(lista.includes('udp://um.exemplo:80/announce'));
+  assert.ok(lista.includes('http://dois.exemplo/announce?x=1'));
+});
+
+test('um endereço repetido não é anunciado duas vezes', () => {
+  const com = 'magnet:?xt=urn:btih:' + 'd'.repeat(40)
+    + '&tr=' + encodeURIComponent(TRACKERS_PUBLICOS[0]);
+  const lista = anunciosPara(com);
+  const vezes = lista.filter((u) => u === TRACKERS_PUBLICOS[0]).length;
+  assert.equal(vezes, 1, `anunciou ${vezes} vezes ao mesmo tracker`);
+});
+
+test('o piso tem mais de um tracker, porque um sozinho cai', () => {
+  assert.ok(TRACKERS_PUBLICOS.length >= 3);
 });

@@ -200,6 +200,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/movies/{id}/estado-do-torrent/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Como vai o download direto do torrent desta cópia. */
+        get: operations["movies_estado_do_torrent_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/movies/{id}/playback/": {
         parameters: {
             query?: never;
@@ -333,6 +350,23 @@ export interface paths {
         get: operations["movies_subtitles_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/movies/{id}/tocar-do-torrent/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Põe uma cópia para tocar direto do torrent e devolve por onde o <video> deve puxá-la. Exige `torrent_direto_permitido` ligado. */
+        post: operations["movies_tocar_do_torrent_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1307,6 +1341,12 @@ export interface components {
             opensubtitles_username?: string;
             readonly opensubtitles_connected: boolean;
             readonly opensubtitles_pode_baixar: boolean;
+            torrent_direto_permitido?: boolean;
+            /**
+             * Format: int64
+             * @description Bytes que o cache de torrent pode ocupar. 0 = ilimitado: baixa o filme inteiro e não apaga nada.
+             */
+            torrent_cache_bytes?: number;
         };
         Movie: {
             /** Format: uuid */
@@ -1783,6 +1823,12 @@ export interface components {
             opensubtitles_username?: string;
             readonly opensubtitles_connected?: boolean;
             readonly opensubtitles_pode_baixar?: boolean;
+            torrent_direto_permitido?: boolean;
+            /**
+             * Format: int64
+             * @description Bytes que o cache de torrent pode ocupar. 0 = ilimitado: baixa o filme inteiro e não apaga nada.
+             */
+            torrent_cache_bytes?: number;
         };
         /** @description Serializer para notificações */
         PatchedNotification: {
@@ -2485,6 +2531,30 @@ export interface operations {
             };
         };
     };
+    movies_estado_do_torrent_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     movies_playback_retrieve: {
         parameters: {
             query?: never;
@@ -2714,6 +2784,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedSubtitleList"];
+                };
+            };
+        };
+    };
+    movies_tocar_do_torrent_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Um string UUID que identifica este movie. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Movie"];
+                "application/x-www-form-urlencoded": components["schemas"]["Movie"];
+                "multipart/form-data": components["schemas"]["Movie"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

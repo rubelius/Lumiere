@@ -217,4 +217,5 @@ def test_a_resposta_tem_sempre_as_mesmas_chaves(filme):
     copia(filme, nota=50, audio='AAC', imediata=True)
     cheio = como_tocar(filme)
     assert set(vazio) == set(cheio) == {
-        'decisao', 'escolhida', 'melhor_para_navegador', 'imediatas'}
+        'decisao', 'escolhida', 'melhor_para_navegador', 'para_torrent',
+        'imediatas'}

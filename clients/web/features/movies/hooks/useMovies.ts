@@ -210,3 +210,38 @@ export function usePrecarregarCopias() {
     retry: false,
   });
 }
+
+/**
+ * Põe uma cópia para tocar direto do torrent.
+ *
+ * Sem `retry`: os erros daqui são decisões, não falhas passageiras. 403 é
+ * "ligue em Configurações", 409 é "escolha outra cópia" e 503 é "o motor não
+ * está de pé" — repetir não muda nenhum dos três.
+ */
+export function useTocarDoTorrent(id: string) {
+  return useMutation({
+    mutationFn: (releaseId: string) => moviesApi.tocarDoTorrent(id, releaseId),
+    retry: false,
+  });
+}
+
+/**
+ * Como vai o download direto do torrent, enquanto o filme toca.
+ *
+ * Existe por causa de uma medida: um torrent com 1 par a 2,4 KB/s deixou o
+ * mesmo pedido de 64 KB estourar 120 segundos sem um byte; minutos depois, com
+ * 2 pares, ele voltou em 0,04s. Sem esta consulta a tela só teria um vídeo
+ * parado, e o backlog dizia exatamente isso: "o torrent não tem semeadores"
+ * precisa chegar como frase, não como vídeo travado.
+ */
+export function useEstadoDoTorrent(movieId: string, hash: string | null) {
+  return useQuery({
+    queryKey: [...movieKeys.all, 'torrent', hash],
+    queryFn: () => moviesApi.estadoDoTorrent(movieId, hash as string),
+    enabled: Boolean(movieId && hash),
+    // De três em três segundos: é o ritmo em que par e velocidade mudam de
+    // verdade, e barato o bastante para rodar o filme inteiro.
+    refetchInterval: 3000,
+    retry: false,
+  });
+}

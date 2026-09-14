@@ -170,3 +170,122 @@ def test_precisa_estar_autenticado(filme, copia):
     resposta = APIClient().post(
         reverse('movie-tocar-do-torrent', args=[filme.pk]), {'release': str(copia.id)})
     assert resposta.status_code in (401, 403)
+
+
+# ── tentar mais de uma cópia ──────────────────────────────────────────────
+# O número de semeadores do indexador é uma AFIRMAÇÃO, não uma medida. Medido
+# em Pulp Fiction: a cópia que ele dizia ter 104 ficou 30 segundos sem um par,
+# e outra do mesmo filme respondeu em 8,5 segundos. Desistir na primeira é
+# desistir do filme por causa de um número que já mentiu.
+
+def copia_de(filme, *, nota, semeadores, letra, tamanho=2_000_000_000):
+    return TorrentRelease.objects.create(
+        movie=filme, title=f'Filme.{nota}p.AAC', info_hash=letra * 40,
+        size_bytes=tamanho, magnet_link='magnet:?xt=urn:btih:' + letra * 40,
+        quality_score=nota, seeders=semeadores, audio_codec='AAC',
+        resolution='1080p')
+
+
+@pytest.mark.django_db
+def test_cópia_sem_semeadores_nao_faz_o_filme_inteiro_desistir(filme, django_user_model):
+    """A primeira falhou; a segunda toca. O filme não acabou."""
+    morta = copia_de(filme, nota=30, semeadores=104, letra='c')
+    viva = copia_de(filme, nota=20, semeadores=1348, letra='d')
+    api = cliente_de(django_user_model, torrent_direto_permitido=True)
+
+    tentadas = []
+
+    def motor(magnet, cota):
+        tentadas.append(magnet)
+        if magnet == morta.magnet_link:
+            raise TorrentRecusado('Nenhum semeador respondeu.')
+        return {**NO_AR, 'info_hash': viva.info_hash}
+
+    with patch('apps.movies.views.poe_no_ar', side_effect=motor):
+        resposta = toca(api, filme, morta.id)
+
+    assert resposta.status_code == 200, 'desistiu na primeira recusa'
+    assert len(tentadas) == 2, f'tentou {len(tentadas)} cópia(s)'
+    assert resposta.data['release_id'] == str(viva.id)
+
+
+@pytest.mark.django_db
+def test_a_cópia_pedida_e_sempre_a_primeira_tentativa(filme, django_user_model):
+    """
+    Quem clicou viu uma cópia descrita na tela. Tentar outra antes dela seria
+    tocar algo diferente do que foi oferecido, sem dizer.
+    """
+    fraca = copia_de(filme, nota=5, semeadores=2, letra='e')
+    copia_de(filme, nota=99, semeadores=9999, letra='f')
+    api = cliente_de(django_user_model, torrent_direto_permitido=True)
+
+    with patch('apps.movies.views.poe_no_ar', return_value=NO_AR) as motor:
+        toca(api, filme, fraca.id)
+
+    assert motor.call_args_list[0].args[0] == fraca.magnet_link
+
+
+@pytest.mark.django_db
+def test_cópias_sem_semeador_nenhum_nao_entram_na_fila(filme, django_user_model):
+    """Zero é a única afirmação do indexador que não vale os 30 segundos."""
+    pedida = copia_de(filme, nota=30, semeadores=5, letra='g')
+    copia_de(filme, nota=40, semeadores=0, letra='h')
+    api = cliente_de(django_user_model, torrent_direto_permitido=True)
+
+    with patch('apps.movies.views.poe_no_ar',
+               side_effect=TorrentRecusado('sem ninguém')) as motor:
+        resposta = toca(api, filme, pedida.id)
+
+    assert resposta.status_code == 409
+    assert motor.call_count == 1, 'gastou 30s numa cópia que ninguém semeia'
+
+
+@pytest.mark.django_db
+def test_a_espera_tem_fim(filme, django_user_model):
+    """
+    Dez cópias vivas seriam cinco minutos de "procurando semeadores". Uma tela
+    que nunca responde é pior que uma que diz não.
+    """
+    pedida = copia_de(filme, nota=50, semeadores=10, letra='i')
+    for n, letra in enumerate('jklmnopq'):
+        copia_de(filme, nota=40 - n, semeadores=10, letra=letra)
+    api = cliente_de(django_user_model, torrent_direto_permitido=True)
+
+    with patch('apps.movies.views.poe_no_ar',
+               side_effect=TorrentRecusado('nada')) as motor:
+        toca(api, filme, pedida.id)
+
+    assert motor.call_count <= 3, f'tentou {motor.call_count} vezes'
+
+
+@pytest.mark.django_db
+def test_motor_fora_do_ar_nao_vira_uma_fila_de_esperas(filme, django_user_model):
+    """
+    503 não é "esta cópia não serve": é "o Lumière está incompleto". Tentar a
+    seguinte é esperar o mesmo silêncio de novo.
+    """
+    pedida = copia_de(filme, nota=30, semeadores=10, letra='r')
+    copia_de(filme, nota=20, semeadores=10, letra='s')
+    api = cliente_de(django_user_model, torrent_direto_permitido=True)
+
+    with patch('apps.movies.views.poe_no_ar',
+               side_effect=MotorDeTorrentIndisponivel('sem resposta')) as motor:
+        resposta = toca(api, filme, pedida.id)
+
+    assert resposta.status_code == 503
+    assert motor.call_count == 1
+
+
+@pytest.mark.django_db
+def test_a_tela_fica_sabendo_que_foi_mais_de_uma(filme, django_user_model):
+    """Sem isso a pessoa escolhe a mesma cópia de novo, achando que teve azar."""
+    pedida = copia_de(filme, nota=30, semeadores=10, letra='t')
+    copia_de(filme, nota=20, semeadores=10, letra='u')
+    api = cliente_de(django_user_model, torrent_direto_permitido=True)
+
+    with patch('apps.movies.views.poe_no_ar',
+               side_effect=TorrentRecusado('Nenhum semeador respondeu.')):
+        resposta = toca(api, filme, pedida.id)
+
+    assert 'Tentei 2 cópias' in resposta.data['detail']
+    assert 'Nenhum semeador respondeu.' in resposta.data['detail']

@@ -28,7 +28,7 @@ import path from 'node:path';
 import WebTorrent from 'webtorrent';
 
 import { CacheDeslizante, COTA_PADRAO } from './cacheDeslizante.js';
-import { arquivoPrincipal, faixaPedida } from './escolhas.js';
+import { anunciosPara, arquivoPrincipal, faixaPedida } from './escolhas.js';
 
 const PORTA = Number(process.env.PORTA_TORRENT || 8001);
 
@@ -36,15 +36,28 @@ const PORTA = Number(process.env.PORTA_TORRENT || 8001);
 // `git status` num diretório desses é doloroso.
 const PASTA = process.env.PASTA_TORRENT || path.join(os.tmpdir(), 'lumiere-torrent');
 
-// Teto por arquivo.
+// Teto de DISCO — não de filme.
 //
-// Medido nesta máquina: 11 GB livres. Um REMUX de 65 GB simplesmente não cabe,
-// e descobrir isso com o disco cheio é pior que recusar na hora — o sistema
-// operacional inteiro começa a falhar antes do vídeo.
+// A distinção é o conserto de um erro que este arquivo carregou desde antes do
+// cache deslizante existir: comparar o teto com `arquivo.length` recusava um
+// REMUX de 65 GB mesmo quando o cache estava configurado para nunca guardar
+// mais que 10 GB dele. O tamanho do filme deixou de ser o que ocupa o disco no
+// dia em que o cache passou a apagar o que já foi assistido.
 //
-// O número é conservador de propósito: sobra espaço para o resto da máquina
-// respirar enquanto um filme baixa.
-const LIMITE_DE_BYTES = Number(process.env.LIMITE_TORRENT_BYTES || 6 * 1024 ** 3);
+// O que ocupa o disco é `bytesEmDisco()` logo abaixo. O teto guarda o sistema
+// operacional de ficar sem espaço; ele não tem opinião sobre filmes grandes.
+const LIMITE_DE_BYTES = Number(process.env.LIMITE_TORRENT_BYTES || 20 * 1024 ** 3);
+
+/**
+ * Quanto disco este torrent vai realmente pedir.
+ *
+ * Com cota, o cache nunca guarda mais que ela — o filme pode ter 65 GB e o
+ * disco ver 10. Sem cota (`0` = ilimitado, escolha do usuário na tela), nada é
+ * apagado e o disco vê o arquivo inteiro.
+ */
+function bytesEmDisco(tamanhoDoArquivo, cota) {
+  return cota > 0 ? Math.min(cota, tamanhoDoArquivo) : tamanhoDoArquivo;
+}
 
 // Quanto o cache pode ocupar. `0` quer dizer ilimitado — baixa o filme inteiro
 // e não apaga nada. O Lumière manda este valor a cada torrent, vindo das
@@ -160,6 +173,10 @@ function adiciona(magnet, cota = COTA_DO_CACHE) {
       path: PASTA,
       store: CacheDeslizante,
       storeOpts: { cota },
+      // Sem isto o acervo inteiro depende da DHT: nenhum magnet vindo dos
+      // indexadores traz `&tr=`. Medido no mesmo torrent — 30s sem um par,
+      // 2,3s com anúncio.
+      announce: anunciosPara(magnet),
     });
     const entrada = { torrent, magnet, arquivo: null, criadoEm: Date.now(),
                       ultimoAcesso: Date.now(), erro: null };
@@ -188,14 +205,20 @@ function adiciona(magnet, cota = COTA_DO_CACHE) {
         return reject(new Error('O torrent não tem nenhum arquivo.'));
       }
 
-      if (arquivo.length > LIMITE_DE_BYTES) {
+      const pedido = bytesEmDisco(arquivo.length, cota);
+      if (pedido > LIMITE_DE_BYTES) {
         torrent.destroy();
-        const gb = (arquivo.length / 1024 ** 3).toFixed(1);
+        const gb = (pedido / 1024 ** 3).toFixed(1);
         const teto = (LIMITE_DE_BYTES / 1024 ** 3).toFixed(0);
+        // A frase precisa apontar para o que a pessoa pode mudar. Com cota, o
+        // que estoura é a cota (e ela está na tela de configurações); sem cota,
+        // é o filme.
+        const culpado = cota > 0
+          ? 'Reduza o cache em Configurações › Reprodução'
+          : 'Defina um cache com tamanho em Configurações › Reprodução, ou escolha uma cópia menor';
         return reject(new Error(
-          `Esta cópia tem ${gb} GB e o limite de disco para tocar direto do ` +
-          `torrent é ${teto} GB. Escolha uma cópia menor, ou mande baixar no ` +
-          `Real-Debrid.`));
+          `Tocar esta cópia pediria ${gb} GB de disco e o limite é ${teto} GB. ` +
+          `${culpado}.`));
       }
 
       // Só o arquivo que vai tocar. Sem isto o motor baixa extras e amostras,

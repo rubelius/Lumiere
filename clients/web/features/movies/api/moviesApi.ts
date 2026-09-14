@@ -28,6 +28,20 @@ export const moviesApi = {
     http.post<{ na_fila: boolean; ja_tem_copias: boolean; buscadas_em: string | null }>(
       `/api/movies/${id}/precarrega/`, {}),
 
+  // Põe uma cópia para tocar direto do torrent. Exige a permissão ligada em
+  // Configurações — o backend recusa com 403 antes de falar com o motor.
+  tocarDoTorrent: (id: string, releaseId: string) =>
+    http.post<{
+      info_hash: string; arquivo: string | null; tamanho: number | null;
+      pares: number; progresso: number; stream_url: string; release_id: string;
+    }>(`/api/movies/${id}/tocar-do-torrent/`, { release: releaseId }),
+
+  // Como vai o download direto. É daqui que sai o "poucos semeadores" da tela.
+  estadoDoTorrent: (id: string, hash: string) =>
+    http.get<{ pares: number; progresso: number; velocidade: number; baixado: number;
+               cache: { bytes: number; cota: number | null; pausado_por_cota: boolean } | null }>(
+      `/api/movies/${id}/estado-do-torrent/`, { params: { hash } }),
+
   // O que o botão de projeção vai fazer com este filme.
   //
   // Endpoint próprio, e não campo do detalhe, porque a resposta depende do que

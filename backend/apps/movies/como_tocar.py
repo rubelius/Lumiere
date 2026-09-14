@@ -44,6 +44,17 @@ NADA_IMEDIATO = 'nada'         # não há cópia imediata nenhuma
 # "2001" transformaria uma pergunta em um formulário.
 QUANTAS_OFERECER = 5
 
+# O piso de semeadores para SEQUER tentar tocar direto.
+#
+# Um só já basta para o torrent existir; zero é a única afirmação que o
+# indexador faz e que não vale tentar, porque nem ele acha que há alguém.
+SEMEADORES_MINIMOS = 1
+
+# Quantas cópias tentar antes de desistir. Cada tentativa frustrada custa os 30
+# segundos que o motor espera por metadados, e três minutos de "procurando
+# semeadores" não é paciência, é uma tela travada.
+QUANTAS_TENTAR = 3
+
 
 def _toca_agora(release) -> bool:
     """
@@ -66,6 +77,7 @@ def _resumo(release) -> dict:
         'resolution': release.resolution,
         'video_codec': release.video_codec,
         'audio_codec': release.audio_codec,
+        'seeders': release.seeders or 0,
         'compatibilidade': release.compatibilidade,
         'disponibilidade': release.disponibilidade,
         'precisa_converter': o_que_transcodificar(release),
@@ -87,6 +99,7 @@ def como_tocar(movie) -> dict:
             'decisao': NADA_IMEDIATO,
             'escolhida': None,
             'melhor_para_navegador': None,
+            'para_torrent': [],
             'imediatas': [],
         }
 
@@ -121,6 +134,26 @@ def como_tocar(movie) -> dict:
                   if r.compatibilidade == TOCA
                   and r.pode_importar]
 
+    # As cópias que valem TENTAR tocar direto — e não são as mesmas de cima.
+    #
+    # "Baixar no Real-Debrid" e "tocar direto" parecem a mesma pergunta e não
+    # são: no primeiro caso quem procura o enxame é o Real-Debrid, com a rede e
+    # o cache dele; no segundo é ESTA máquina, agora. Uma cópia sem ninguém
+    # semeando é uma escolha perfeitamente boa para o primeiro e inútil para o
+    # segundo, e o diálogo oferecia a mesma para os dois.
+    #
+    # MEDIDO em Pulp Fiction: a de melhor nota (6,2 GB, 104 semeadores segundo
+    # o indexador) ficou 30 segundos sem UM par; outra do mesmo filme, de nota
+    # menor, trouxe metadados em 8,5 segundos. O número do indexador é uma
+    # AFIRMAÇÃO, não uma medida — só entrar no enxame mede, e isso custa os 30
+    # segundos que estamos tentando não gastar.
+    #
+    # Por isso aqui vai uma LISTA, e não uma escolha: o piso descarta o
+    # obviamente morto, a ordem por nota decide entre os vivos, e quem chama
+    # tenta a seguinte quando o motor responde que não achou ninguém. Confiar
+    # numa cópia só é confiar num número que já mentiu.
+    para_torrent = [r for r in candidatas if (r.seeders or 0) >= SEMEADORES_MINIMOS]
+
     if imediatas_para_navegador:
         # Imediata, otimizada, e a melhor nota entre essas.
         decisao, escolhida = TOCA_AGORA, imediatas_para_navegador[0]
@@ -136,5 +169,6 @@ def como_tocar(movie) -> dict:
         'decisao': decisao,
         'escolhida': _resumo(escolhida),
         'melhor_para_navegador': (_resumo(candidatas[0]) if candidatas else None),
+        'para_torrent': [_resumo(r) for r in para_torrent[:QUANTAS_TENTAR]],
         'imediatas': [_resumo(r) for r in imediatas[:QUANTAS_OFERECER]],
     }

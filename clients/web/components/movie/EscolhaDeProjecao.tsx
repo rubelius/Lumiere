@@ -53,6 +53,7 @@ function descreve(copia: CopiaResumida): string {
 
 export function EscolhaDeProjecao({
   plano, aberta, onFechar, onTocar, onBaixar, baixando,
+  podeTocarDoTorrent, onTocarDoTorrent, ligandoOTorrent, erroDoTorrent,
 }: {
   plano: ComoTocar;
   aberta: boolean;
@@ -61,6 +62,11 @@ export function EscolhaDeProjecao({
   onTocar: (releaseId: string, modo?: 'direto' | 'conversao') => void;
   onBaixar: (releaseId: string) => void;
   baixando: boolean;
+  /** Só oferece se o usuário ligou, depois de ler o aviso sobre o IP. */
+  podeTocarDoTorrent: boolean;
+  onTocarDoTorrent: (releaseId: string) => void;
+  ligandoOTorrent: boolean;
+  erroDoTorrent: string;
 }) {
   // Qual cópia imediata o usuário escolheu tocar. Enquanto for null, a
   // sub-pergunta (direto ou convertido) nem aparece: perguntar as duas coisas
@@ -68,6 +74,17 @@ export function EscolhaDeProjecao({
   const [paraTocar, setParaTocar] = useState<CopiaResumida | null>(null);
 
   const alvoDoDownload = plano.melhor_para_navegador;
+
+  // Para o torrent vale QUALQUER cópia com magnet — inclusive as que o
+  // navegador não toca sozinho, porque o conversor cuida disso depois. O que
+  // não serve é cópia sem magnet: as vindas da sincronização com o Real-Debrid
+  // nascem sem, e não há o que entregar ao motor.
+  //
+  // A de melhor nota primeiro: aqui a nota volta a mandar, porque a
+  // disponibilidade deixou de ser o critério — nenhuma está pronta.
+  const alvoDoTorrent = [...plano.imediatas, ...(plano.melhor_para_navegador ? [plano.melhor_para_navegador] : [])]
+    .filter((c) => c.pode_importar || c.disponibilidade === 'ausente')
+    .sort((a, b) => b.quality_score - a.quality_score)[0] || plano.melhor_para_navegador;
   const temImediatas = plano.imediatas.length > 0;
 
   return (
@@ -177,17 +194,40 @@ export function EscolhaDeProjecao({
                 </div>
               )}
 
-              {/* ── 3. tocar direto do torrent — no backlog ── */}
-              <div
-                title="Ainda não construído"
-                style={{ ...CAIXA, border: '1px solid rgba(86,84,80,0.3)', color: 'var(--m3)', opacity: 0.6, cursor: 'default' }}
-              >
-                [ TOCAR DIRETO DO TORRENT ]
-                <div style={DETALHE}>
-                  AINDA NÃO EXISTE. EXIGE UM MOTOR DE TORRENT QUE SIRVA O
-                  ARQUIVO ENQUANTO BAIXA — E COM POUCOS SEMEADORES A REPRODUÇÃO TRAVA.
+              {/* ── 3. tocar direto do torrent ── */}
+              {podeTocarDoTorrent ? (
+                <motion.button
+                  onClick={() => alvoDoTorrent && onTocarDoTorrent(alvoDoTorrent.release_id)}
+                  disabled={!alvoDoTorrent || ligandoOTorrent}
+                  whileHover={alvoDoTorrent && !ligandoOTorrent ? { x: 4 } : undefined}
+                  style={{
+                    ...CAIXA, border: '1px solid rgba(86,84,80,0.5)', color: 'var(--m2)',
+                    opacity: alvoDoTorrent ? 1 : 0.5,
+                    cursor: alvoDoTorrent ? (ligandoOTorrent ? 'wait' : 'pointer') : 'default',
+                  }}
+                >
+                  {ligandoOTorrent ? '[ PROCURANDO SEMEADORES... ]' : '[ TOCAR DIRETO DO TORRENT ]'}
+                  <div style={DETALHE}>
+                    {alvoDoTorrent
+                      ? `${descreve(alvoDoTorrent)} — COMEÇA DO PRIMEIRO PEDAÇO, SEM ESPERAR O DOWNLOAD. COM POUCOS SEMEADORES, PODE TRAVAR.`
+                      : 'NENHUMA CÓPIA COM MAGNET PARA ENVIAR AO MOTOR.'}
+                  </div>
+                </motion.button>
+              ) : (
+                <div style={{ ...CAIXA, border: '1px solid rgba(86,84,80,0.3)', color: 'var(--m3)', opacity: 0.6, cursor: 'default' }}>
+                  [ TOCAR DIRETO DO TORRENT ]
+                  <div style={DETALHE}>
+                    DESLIGADO. LIGUE EM CONFIGURAÇÕES › REPRODUÇÃO — O AVISO
+                    SOBRE O IP DESTA MÁQUINA ESTÁ LÁ.
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {erroDoTorrent && (
+                <div style={{ ...CAIXA, border: '1px solid var(--terra)', color: 'var(--terra)', cursor: 'default', marginTop: 2 }}>
+                  {erroDoTorrent}
+                </div>
+              )}
 
               <button
                 onClick={onFechar}

@@ -39,7 +39,8 @@ from apps.integrations.torrent import (MotorDeTorrentIndisponivel,
 from apps.integrations.torrent import estado as estado_do_motor_de_torrent
 from apps.tasks.precarga import DIAS_ATE_VENCER, pede_prioridade
 
-from .como_tocar import como_tocar
+from .como_tocar import (QUANTAS_TENTAR, SEMEADORES_MINIMOS, como_tocar)
+from .compatibilidade import TOCA
 from .transcode import (NADA, SO_AUDIO, abre_fluxo, faixa_de_audio,
                         o_que_transcodificar, segundo_de_partida)
 from .release_search import (estado_da_busca, libera, marca_enfileirada,
@@ -462,24 +463,58 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            dados = async_to_sync(poe_no_ar)(
-                release.magnet_link, request.user.torrent_cache_bytes)
-        except TorrentRecusado as erro:
-            # A razão veio pronta do motor — cópia grande demais, ou sem
-            # semeadores. As duas são acionáveis por quem está olhando.
-            return Response({'detail': str(erro)}, status=status.HTTP_409_CONFLICT)
-        except MotorDeTorrentIndisponivel as erro:
-            return Response({'detail': str(erro)},
-                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        # A cópia pedida primeiro, as outras candidatas depois.
+        #
+        # Uma tentativa só era confiar num número que já mentiu: o indexador
+        # dizia 104 semeadores para uma cópia que ficou 30 segundos sem UM par,
+        # enquanto outra do mesmo filme respondeu em 8,5. Só entrando no enxame
+        # se descobre qual é qual, e é exatamente isso que esta lista faz —
+        # tenta, e passa para a seguinte quando o motor diz que não achou
+        # ninguém.
+        tentativas = [release]
+        for outra in movie.torrent_releases.all():
+            if len(tentativas) >= QUANTAS_TENTAR:
+                break
+            if outra.pk != release.pk and outra.magnet_link \
+                    and outra.compatibilidade == TOCA \
+                    and (outra.seeders or 0) >= SEMEADORES_MINIMOS:
+                tentativas.append(outra)
+        tentativas[1:] = sorted(tentativas[1:],
+                                key=lambda r: -(r.quality_score or 0))
 
-        return Response({
-            **dados,
-            'release_id': str(release.id),
-            # O caminho que o <video> usa. Passa pelo cliente, e não pelo
-            # motor direto, para não expor a porta dele ao navegador.
-            'stream_url': f'/api/torrent/{dados["info_hash"]}/stream',
-        })
+        ultima_razao = None
+        for candidata in tentativas:
+            try:
+                dados = async_to_sync(poe_no_ar)(
+                    candidata.magnet_link, request.user.torrent_cache_bytes)
+            except TorrentRecusado as erro:
+                # A razão veio pronta do motor — cópia grande demais, ou sem
+                # semeadores. Guardamos a última para poder dizer POR QUE
+                # nenhuma serviu, e seguimos para a próxima: recusar uma cópia
+                # não é recusar o filme.
+                ultima_razao = str(erro)
+                logger.info('cópia %s recusada pelo motor: %s', candidata.pk, erro)
+                continue
+            except MotorDeTorrentIndisponivel as erro:
+                # Aqui NÃO se insiste: o motor está fora, e a próxima cópia vai
+                # esbarrar no mesmo silêncio.
+                return Response({'detail': str(erro)},
+                                status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+            return Response({
+                **dados,
+                'release_id': str(candidata.id),
+                # O caminho que o <video> usa. Passa pelo cliente, e não pelo
+                # motor direto, para não expor a porta dele ao navegador.
+                'stream_url': f'/api/torrent/{dados["info_hash"]}/stream',
+            })
+
+        # A frase precisa dizer que TENTAMOS mais de uma, senão a pessoa
+        # escolhe a mesma cópia de novo achando que teve azar.
+        detalhe = ultima_razao or 'Nenhuma cópia desta lista pôde ser tocada.'
+        if len(tentativas) > 1:
+            detalhe = f'Tentei {len(tentativas)} cópias. {detalhe}'
+        return Response({'detail': detalhe}, status=status.HTTP_409_CONFLICT)
 
     @extend_schema(
         responses=OpenApiTypes.OBJECT,

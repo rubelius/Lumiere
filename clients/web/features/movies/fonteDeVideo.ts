@@ -172,7 +172,20 @@ export function pontoDeRetomada(
 export function rotuloDaFonte(
   fonte: Fonte | undefined | null,
   modo?: string | null,
+  torrentHash?: string | null,
 ): string | undefined {
+  // O torrent é uma fonte, e o resolvedor não sabe disso.
+  //
+  // MEDIDO na tela: com o filme TOCANDO do torrent — `readyState` 4, duração
+  // de 2h34 lida do arquivo —, o selo dizia SEM FONTE e o Lumière escrevia por
+  // cima "Sem fonte disponível. Nenhuma cópia em Real-Debrid, Jellyfin ou
+  // Plex". Estava certo sobre o Real-Debrid e mentindo sobre o filme.
+  //
+  // A causa é a de sempre aqui: `fonte` responde "o que o resolvedor achou" e
+  // a tela a usava para responder "há o que tocar". São perguntas diferentes
+  // desde o dia em que o torrent virou uma origem possível.
+  if (torrentHash) return 'TORRENT DIRETO';
+
   if (!fonte) return undefined;
 
   if (modo === DIRETO && fonte.precisa_converter === 'audio') return 'DIRETO — SEM ÁUDIO';
@@ -244,4 +257,57 @@ export function nomeDaFaixa(faixa: FaixaDeAudio): string {
 export function faixaPadrao(faixas: FaixaDeAudio[]): number {
   const primeira = faixas.findIndex((f) => !ehComentario(f));
   return primeira >= 0 ? primeira : 0;
+}
+
+/**
+ * O que dizer sobre um download que está alimentando a reprodução.
+ *
+ * String vazia quando está saudável — a tela não anuncia normalidade.
+ *
+ * Os números não são enfeite: medido, um torrent com 1 par a 2,4 KB/s deixou
+ * um pedido de 64 KB estourar 120 segundos sem entregar nada. Com 2 pares, o
+ * mesmo pedido voltou em 0,04s. A diferença entre "vai travar" e "está indo"
+ * está nesses dois números, e quem está olhando merece vê-los.
+ */
+export function avisoDoTorrent(estado: {
+  pares: number; velocidade: number;
+  cache?: { pausado_por_cota: boolean } | null;
+} | undefined): string {
+  if (!estado) return '';
+
+  if (estado.pares === 0) {
+    return 'NENHUM SEMEADOR. ESTA CÓPIA NÃO TEM QUEM A COMPARTILHE AGORA — '
+      + 'ESCOLHA OUTRA, OU MANDE BAIXAR NO REAL-DEBRID.';
+  }
+
+  if (estado.cache?.pausado_por_cota) {
+    return 'O CACHE ENCHEU E O DOWNLOAD PAUSOU. ELE RETOMA CONFORME VOCÊ '
+      + 'AVANÇA NO FILME; PARA NÃO PARAR, AUMENTE A COTA EM CONFIGURAÇÕES.';
+  }
+
+  // Abaixo disto não dá para sustentar nem um 1080p leve, que pede ~1 MB/s.
+  if (estado.velocidade < 200 * 1024) {
+    const kb = Math.round(estado.velocidade / 1024);
+    return `POUCOS SEMEADORES — ${estado.pares} PAR(ES) A ${kb} KB/S. `
+      + 'A REPRODUÇÃO PODE TRAVAR.';
+  }
+
+  return '';
+}
+
+
+/**
+ * Se há ALGO tocando ou prestes a tocar — venha de onde vier.
+ *
+ * Existe para que a tela pare de responder essa pergunta com `!fonte`, que só
+ * conhece Real-Debrid, Jellyfin e Plex. Um vídeo do torrent rodando debaixo de
+ * um aviso de "sem fonte" não é um detalhe de estilo: é a tela afirmando o
+ * contrário do que está acontecendo, e é o defeito que este projeto mais
+ * repete.
+ */
+export function temOQueTocar(
+  fonte: Fonte | undefined | null,
+  torrentHash?: string | null,
+): boolean {
+  return Boolean(torrentHash) || Boolean(fonte);
 }

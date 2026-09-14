@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { Server, DownloadCloud, Tv, Key, Shield, Bell, Type, Palette, ArrowRight, Check, Copy, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useConectarOpenSubtitles, useIntegrations, useSaveIntegrations } from "@/features/settings/hooks/useIntegrations";
+import type { IntegrationSettings } from '@/features/settings/hooks/useIntegrations';
+import { TocarDoTorrent } from '@/components/settings/TocarDoTorrent';
 
 
 export default function Settings() {
@@ -296,6 +298,12 @@ export default function Settings() {
                       </div>
 
                     </div>
+
+                    <TocarDoTorrent
+                      integracoes={integracoes}
+                      onSalvar={(dados: Partial<IntegrationSettings>) => salvar.mutate(dados)}
+                      salvando={salvar.isPending}
+                    />
                   </div>
                 )}
 
