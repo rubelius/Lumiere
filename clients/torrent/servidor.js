@@ -32,6 +32,37 @@ import { anunciosPara, arquivoPrincipal, faixaPedida } from './escolhas.js';
 
 const PORTA = Number(process.env.PORTA_TORRENT || 8001);
 
+// Em que interface atender.
+//
+// O padrão é `127.0.0.1` e continua sendo: este serviço não autentica nada —
+// quem alcança a porta manda o motor baixar o que quiser — e abri-lo para a
+// rede local seria entregar isso ao primeiro aparelho do Wi-Fi.
+//
+// Mas dentro de um container esse padrão não atende NINGUÉM: o `localhost` do
+// container não é o da máquina, e o Django, de fora, bate numa porta muda. Daí
+// a variável — que existe para o compose dizer `0.0.0.0`, onde quem faz o
+// papel de tranca é a rede do Docker e o firewall do gluetun, e não o bind.
+const INTERFACE = process.env.INTERFACE_TORRENT || '127.0.0.1';
+
+// A porta por onde os PARES entram. Coisa diferente da de cima: aquela é o
+// HTTP que o Lumière consome, esta é o BitTorrent.
+//
+// Sem fixá-la o webtorrent sorteia uma a cada subida, e uma porta sorteada não
+// tem como ser encaminhada — nem no roteador, nem pelo gluetun. Sem
+// encaminhamento o motor ainda acha pares (as conexões de saída funcionam),
+// mas só alcança quem aceita conexão, e num torrent magro isso é a diferença
+// entre tocar e esperar.
+const PORTA_DE_PARES = Number(process.env.PORTA_DE_PARES || 51413);
+
+// E a da DHT, que precisa ser OUTRA.
+//
+// Medido ao pôr as duas no mesmo número: `bind EADDRINUSE 0.0.0.0:51413`. O
+// `torrentPort` do webtorrent não é só TCP — o uTP fala UDP na mesma porta, e
+// a DHT também é UDP. O erro ia para o `cliente.on('error')`, o serviço subia
+// alegando "pares entram pela 51413", e nada escutava lá. Mais um caso do
+// defeito da casa: a tela (aqui, o log) afirmando o que não é verdade.
+const PORTA_DA_DHT = Number(process.env.PORTA_DA_DHT || PORTA_DE_PARES + 1);
+
 // Onde as peças caem. Fora do repositório de propósito: são gigabytes, e um
 // `git status` num diretório desses é doloroso.
 const PASTA = process.env.PASTA_TORRENT || path.join(os.tmpdir(), 'lumiere-torrent');
@@ -77,7 +108,11 @@ const SEGUNDOS_ATE_DESISTIR = 30;
 // Um torrent parado sem ninguém lendo é disco ocupado à toa.
 const MINUTOS_OCIOSO = 20;
 
-const cliente = new WebTorrent();
+const cliente = new WebTorrent({
+  // Fixas para poderem ser encaminhadas. Ver PORTA_DE_PARES acima.
+  torrentPort: PORTA_DE_PARES,
+  dhtPort: PORTA_DA_DHT,
+});
 
 /**
  * Nada derruba o processo.
@@ -366,10 +401,39 @@ const servidor = http.createServer(async (requisicao, resposta) => {
   }
 });
 
-servidor.listen(PORTA, '127.0.0.1', () => {
-  console.log(`[lumiere-torrent] ouvindo em 127.0.0.1:${PORTA}`);
+/**
+ * Não conseguir atender é fatal, e a guarda de exceção não pode encobrir isso.
+ *
+ * MEDIDO: com a porta 8001 ocupada, o `EADDRINUSE` caía no
+ * `uncaughtException` lá de cima — que existe para um par malformado não
+ * derrubar o processo — e o serviço seguia VIVO sem atender ninguém. A guarda
+ * estava certa para o que foi feita e errada para isto: um erro de escuta não
+ * é um par malformado, é o serviço inteiro não existindo.
+ *
+ * Em container a diferença fica maior: um processo vivo e mudo é "saudável"
+ * para o Docker, que não reinicia nada. Sair com código de erro é o que faz a
+ * `restart: unless-stopped` funcionar.
+ */
+servidor.on('error', (erro) => {
+  console.error(`[lumiere-torrent] não consegui atender em ${INTERFACE}:${PORTA} — `
+    + (erro?.code === 'EADDRINUSE'
+      ? 'a porta já está ocupada. Outro motor rodando?'
+      : String(erro?.message || erro)));
+  process.exit(1);
+});
+
+servidor.listen(PORTA, INTERFACE, () => {
+  console.log(`[lumiere-torrent] ouvindo em ${INTERFACE}:${PORTA}`);
+  console.log(`[lumiere-torrent] pares pela ${PORTA_DE_PARES}, DHT pela ${PORTA_DA_DHT}`);
   console.log(`[lumiere-torrent] peças em ${PASTA}, teto de ` +
               `${(LIMITE_DE_BYTES / 1024 ** 3).toFixed(0)} GB por arquivo`);
+  if (INTERFACE !== '127.0.0.1') {
+    // Vale ser barulhento: este serviço não pede senha a ninguém, e quem
+    // alcança a porta manda baixar o que quiser.
+    console.warn(`[lumiere-torrent] ATENÇÃO: atendendo em ${INTERFACE}, e este `
+      + 'serviço não autentica pedido nenhum. Só faça isso numa rede fechada '
+      + '— a do Docker, por exemplo.');
+  }
 });
 
 for (const sinal of ['SIGINT', 'SIGTERM']) {

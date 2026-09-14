@@ -242,6 +242,19 @@ SIMPLE_JWT = {
 }
 
 # ==============================================================================
+# MOTOR DE TORRENT
+# ==============================================================================
+
+# Onde o serviço de torrent atende.
+#
+# Precisa existir AQUI, e não só no `getattr` de quem lê: `getattr(settings,
+# 'TORRENT_SERVICE_URL', padrão)` sobre um nome que o settings não define cai
+# sempre no padrão, e a variável de ambiente nunca chega a ter efeito. Era uma
+# chave que só parecia configurável — e ela é justamente o que muda quando o
+# motor sai do `localhost` e passa a rodar atrás do gluetun.
+TORRENT_SERVICE_URL = os.getenv('TORRENT_SERVICE_URL', 'http://127.0.0.1:8001')
+
+# ==============================================================================
 # CELERY
 # ==============================================================================
 
