@@ -35,6 +35,23 @@ class User(AbstractUser):
     # Prowlarr
     prowlarr_url = models.URLField(blank=True)
     prowlarr_api_key = models.CharField(max_length=255, blank=True)
+
+    # ── tocar direto do torrent ──────────────────────────────────────────
+    #
+    # Desligado por padrão, e é escolha de produto: tocar direto do torrent põe
+    # o IP desta máquina no enxame, visível a qualquer outro par. O Real-Debrid
+    # não faz isso — ele baixa em nome do usuário e entrega por HTTP, e o
+    # enxame nunca vê a máquina de casa. Ligar por padrão seria tomar essa
+    # decisão por quem não leu o aviso.
+    torrent_direto_permitido = models.BooleanField(default=False)
+
+    # Quanto disco o cache de torrent pode ocupar, em bytes. `0` é ilimitado:
+    # baixa o filme inteiro e não apaga nada.
+    #
+    # Dez gigabytes é o padrão, e não é um número redondo por acaso — foi
+    # medido que esta máquina tem 11 GB livres. Quem tiver mais disco muda na
+    # tela; quem quiser guardar os filmes põe zero.
+    torrent_cache_bytes = models.BigIntegerField(default=10 * 1024 ** 3)
     # ML
     taste_profile_embedding = VectorField(dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
     preferences = models.JSONField(default=dict, blank=True)

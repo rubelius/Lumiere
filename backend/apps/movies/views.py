@@ -34,6 +34,9 @@ from .filters import MovieFilter
 from .models import Movie, TorrentRelease, WatchHistory
 from .realdebrid_sync import atualiza_resumo
 from .realdebrid_estado import sincroniza_filme
+from apps.integrations.torrent import (MotorDeTorrentIndisponivel,
+                                       TorrentRecusado, poe_no_ar)
+from apps.integrations.torrent import estado as estado_do_motor_de_torrent
 from apps.tasks.precarga import DIAS_ATE_VENCER, pede_prioridade
 
 from .como_tocar import como_tocar
@@ -420,6 +423,81 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(asdict(fonte))
+
+    @extend_schema(
+        responses=OpenApiTypes.OBJECT,
+        description=(
+            'Põe uma cópia para tocar direto do torrent e devolve por onde o '
+            '<video> deve puxá-la. Exige `torrent_direto_permitido` ligado.'
+        ),
+    )
+    @action(detail=True, methods=['post'], url_path='tocar-do-torrent')
+    def tocar_do_torrent(self, request, pk=None):
+        """
+        A terceira saída do diálogo de projeção, agora construída.
+
+        EXIGE CONSENTIMENTO EXPLÍCITO. Tocar direto do torrent põe o IP desta
+        máquina no enxame, visível a qualquer par — o Real-Debrid não faz isso,
+        porque baixa em nome do usuário e entrega por HTTP. Recusar aqui quando
+        a configuração está desligada é o que impede um clique distraído de
+        expor a casa de alguém.
+        """
+        if not request.user.torrent_direto_permitido:
+            return Response(
+                {'detail': 'Tocar direto do torrent está desligado. Ligue em '
+                           'Configurações, depois de ler o aviso sobre o IP.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        movie = self.get_object()
+        release = movie.torrent_releases.filter(
+            pk=request.query_params.get('release') or request.data.get('release')).first()
+        if not release:
+            return Response({'detail': 'Cópia não encontrada.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        if not release.magnet_link:
+            return Response(
+                {'detail': 'Esta cópia não tem magnet: veio da sincronização '
+                           'com o Real-Debrid, e não de um indexador.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            dados = async_to_sync(poe_no_ar)(
+                release.magnet_link, request.user.torrent_cache_bytes)
+        except TorrentRecusado as erro:
+            # A razão veio pronta do motor — cópia grande demais, ou sem
+            # semeadores. As duas são acionáveis por quem está olhando.
+            return Response({'detail': str(erro)}, status=status.HTTP_409_CONFLICT)
+        except MotorDeTorrentIndisponivel as erro:
+            return Response({'detail': str(erro)},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        return Response({
+            **dados,
+            'release_id': str(release.id),
+            # O caminho que o <video> usa. Passa pelo cliente, e não pelo
+            # motor direto, para não expor a porta dele ao navegador.
+            'stream_url': f'/api/torrent/{dados["info_hash"]}/stream',
+        })
+
+    @extend_schema(
+        responses=OpenApiTypes.OBJECT,
+        description='Como vai o download direto do torrent desta cópia.',
+    )
+    @action(detail=True, methods=['get'], url_path='estado-do-torrent')
+    def estado_do_torrent(self, request, pk=None):
+        info_hash = request.query_params.get('hash') or ''
+        if not info_hash:
+            return Response({'detail': 'Informe o hash.'}, status=400)
+        try:
+            dados = async_to_sync(estado_do_motor_de_torrent)(info_hash)
+        except MotorDeTorrentIndisponivel as erro:
+            return Response({'detail': str(erro)},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        if not dados:
+            return Response({'detail': 'Este torrent não está no ar.'}, status=404)
+        return Response(dados)
 
     @extend_schema(
         responses=OpenApiTypes.OBJECT,

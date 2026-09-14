@@ -95,6 +95,14 @@ class IntegrationSettingsSerializer(serializers.ModelSerializer):
         required=False, allow_blank=True, validators=[valida_url_de_servidor]
     )
 
+    # Zero é ilimitado, e é a única forma de dizer "não apague nada". Um teto
+    # generoso evita que um dedo escorregado no formulário peça 900 TB.
+    torrent_cache_bytes = serializers.IntegerField(
+        required=False, min_value=0, max_value=2 * 1024 ** 4,
+        help_text=('Bytes que o cache de torrent pode ocupar. 0 = ilimitado: '
+                   'baixa o filme inteiro e não apaga nada.'),
+    )
+
     jellyfin_connected = serializers.SerializerMethodField()
     plex_connected = serializers.SerializerMethodField()
     realdebrid_connected = serializers.SerializerMethodField()
@@ -109,6 +117,8 @@ class IntegrationSettingsSerializer(serializers.ModelSerializer):
             'realdebrid_api_key', 'realdebrid_connected',
             'opensubtitles_api_key', 'opensubtitles_username',
             'opensubtitles_connected', 'opensubtitles_pode_baixar',
+            # Não são credenciais, mas moram na mesma tela e no mesmo usuário.
+            'torrent_direto_permitido', 'torrent_cache_bytes',
         ]
         extra_kwargs = {
             'jellyfin_token': {'write_only': True, 'required': False, 'allow_blank': True},
