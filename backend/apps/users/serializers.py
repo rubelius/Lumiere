@@ -4,6 +4,7 @@ from apps.ml.models import UserTasteProfile
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+from apps.users.verifica_biblioteca import estado
 
 User = get_user_model()
 
@@ -105,6 +106,8 @@ class IntegrationSettingsSerializer(serializers.ModelSerializer):
 
     jellyfin_connected = serializers.SerializerMethodField()
     plex_connected = serializers.SerializerMethodField()
+    jellyfin_estado = serializers.SerializerMethodField()
+    plex_estado = serializers.SerializerMethodField()
     realdebrid_connected = serializers.SerializerMethodField()
     opensubtitles_connected = serializers.SerializerMethodField()
     opensubtitles_pode_baixar = serializers.SerializerMethodField()
@@ -118,6 +121,8 @@ class IntegrationSettingsSerializer(serializers.ModelSerializer):
             'opensubtitles_api_key', 'opensubtitles_username',
             'opensubtitles_connected', 'opensubtitles_pode_baixar',
             # Não são credenciais, mas moram na mesma tela e no mesmo usuário.
+            'jellyfin_estado', 'plex_estado',
+            'jellyfin_verificado_em', 'plex_verificado_em',
             'torrent_direto_permitido', 'torrent_cache_bytes',
         ]
         extra_kwargs = {
@@ -129,11 +134,26 @@ class IntegrationSettingsSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.BooleanField())
     def get_jellyfin_connected(self, obj):
+        """
+        Há credencial gravada. NÃO quer dizer que o servidor responde — para
+        isso existe `jellyfin_estado`.
+
+        O nome ficou, porque é contrato de API; o significado é o que sempre
+        foi de fato. Quem desenha a tela deve usar o estado.
+        """
         return bool(obj.jellyfin_server_url and obj.jellyfin_token)
 
     @extend_schema_field(serializers.BooleanField())
     def get_plex_connected(self, obj):
         return bool(obj.plex_server_url and obj.plex_token)
+
+    @extend_schema_field(serializers.CharField())
+    def get_jellyfin_estado(self, obj):
+        return estado(self.get_jellyfin_connected(obj), obj.jellyfin_verificado_em)
+
+    @extend_schema_field(serializers.CharField())
+    def get_plex_estado(self, obj):
+        return estado(self.get_plex_connected(obj), obj.plex_verificado_em)
 
     @extend_schema_field(serializers.BooleanField())
     def get_realdebrid_connected(self, obj):

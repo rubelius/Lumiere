@@ -57,6 +57,12 @@ def test_leitura_expoe_apenas_estado_de_conexao():
         opensubtitles_api_key = 'terceiro-segredo'
         opensubtitles_username = 'alguem'
         opensubtitles_token = 'quarto-segredo'
+        # Credencial gravada e ninguém perguntou ao servidor — o estado em que
+        # a tela dizia ✓ CONECTADO.
+        jellyfin_verificado_em = None
+        plex_verificado_em = None
+        torrent_direto_permitido = False
+        torrent_cache_bytes = 0
 
     dados = IntegrationSettingsSerializer(Falso()).data
     for segredo in ('segredo', 'outro-segredo', 'terceiro-segredo', 'quarto-segredo'):
@@ -68,3 +74,11 @@ def test_leitura_expoe_apenas_estado_de_conexao():
     assert dados['opensubtitles_connected'] is True
     assert dados['opensubtitles_pode_baixar'] is True
     assert dados['opensubtitles_username'] == 'alguem'
+
+    # E o que o `connected` NÃO diz.
+    #
+    # `jellyfin_connected` é True porque os dois campos têm texto, e é só isso
+    # que ele sempre quis dizer. Quem desenha a tela precisa do estado: ninguém
+    # perguntou a este servidor, então ele é "gravado" e não "respondeu".
+    assert dados['jellyfin_estado'] == 'gravado'
+    assert dados['plex_estado'] == 'nao_configurado'

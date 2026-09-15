@@ -25,6 +25,16 @@ class User(AbstractUser):
     jellyfin_server_url = models.URLField(blank=True)
     jellyfin_token = models.CharField(max_length=255, blank=True)
     jellyfin_user_id = models.CharField(max_length=64, blank=True)
+
+    # QUANDO o servidor respondeu — não "se está conectado".
+    #
+    # O indicador da tela era `bool(url and token)`: um predicado que responde
+    # "os campos têm texto" e estava respondendo "o servidor respondeu". URL
+    # com um dígito errado, token vencido, servidor desligado — tudo mostrava
+    # ✓ CONECTADO. E um "sim" eterno seria quase tão falso quanto: o servidor
+    # de casa desliga à noite. O que se guarda é o instante, e ele envelhece.
+    jellyfin_verificado_em = models.DateTimeField(null=True, blank=True)
+    plex_verificado_em = models.DateTimeField(null=True, blank=True)
     # OpenSubtitles — guardamos o token, nunca a senha: ela é trocada por
     # token uma vez, no momento de conectar a conta.
     opensubtitles_api_key = models.CharField(max_length=255, blank=True)

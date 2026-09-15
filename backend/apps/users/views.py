@@ -14,6 +14,8 @@ from django.db.models import Sum, Avg, Count  # <-- Ferramentas matemáticas do 
 from apps.tasks.integrations import sync_letterboxd_diary  # type: ignore
 from apps.movies.models import Movie, WatchHistory  # <-- Necessário para calcular as estatísticas
 
+from apps.users.verifica_biblioteca import verifica
+
 from .serializers import (IntegrationSettingsSerializer,
                           UserRegistrationSerializer, UserSerializer,
                           UserTasteProfileSerializer)
@@ -64,7 +66,19 @@ class UserViewSet(viewsets.ModelViewSet):
             )
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response(serializer.data)
+
+            # PERGUNTA AO SERVIDOR, agora que a credencial está gravada.
+            #
+            # Gravar e verificar são duas coisas, e só a segunda pode falhar.
+            # Por isso a verificação vem DEPOIS do save e nunca o desfaz: um
+            # servidor de casa desligado não pode impedir alguém de guardar o
+            # endereço dele.
+            mudou = verifica(request.user)
+            if mudou:
+                type(request.user).objects.filter(pk=request.user.pk).update(**mudou)
+                request.user.refresh_from_db(fields=list(mudou))
+
+            return Response(IntegrationSettingsSerializer(request.user).data)
 
         return Response(IntegrationSettingsSerializer(request.user).data)
 

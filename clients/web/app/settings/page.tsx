@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { useConectarOpenSubtitles, useIntegrations, useSaveIntegrations } from "@/features/settings/hooks/useIntegrations";
 import type { IntegrationSettings } from '@/features/settings/hooks/useIntegrations';
 import { TocarDoTorrent } from '@/components/settings/TocarDoTorrent';
+import { seloDaIntegracao, seloPorBooleano } from '@/features/settings/estadoDaIntegracao';
 
 
 export default function Settings() {
@@ -567,14 +568,14 @@ export default function Settings() {
                       {(activeTab === "Conexões" ? [
                         {
                           id: 'jellyfin', label: "JELLYFIN",
-                          conectado: !!integracoes?.jellyfin_connected,
+                          selo: seloDaIntegracao(integracoes?.jellyfin_estado, integracoes?.jellyfin_verificado_em),
                           detalhe: integracoes?.jellyfin_server_url || "--",
                           campoUrl: 'jellyfin_server_url', campoToken: 'jellyfin_token',
                           ordem: '2ª FONTE',
                         },
                         {
                           id: 'plex', label: "PLEX MEDIA SERVER",
-                          conectado: !!integracoes?.plex_connected,
+                          selo: seloDaIntegracao(integracoes?.plex_estado, integracoes?.plex_verificado_em),
                           detalhe: integracoes?.plex_server_url || "--",
                           campoUrl: 'plex_server_url', campoToken: 'plex_token',
                           ordem: '3ª FONTE',
@@ -582,7 +583,7 @@ export default function Settings() {
                       ] : [
                         {
                           id: 'opensubtitles', label: "OPENSUBTITLES",
-                          conectado: !!integracoes?.opensubtitles_connected,
+                          selo: seloPorBooleano(!!integracoes?.opensubtitles_connected),
                           detalhe: integracoes?.opensubtitles_pode_baixar
                             ? `CONTA ${integracoes?.opensubtitles_username || ''} — DOWNLOAD LIBERADO`
                             : integracoes?.opensubtitles_connected
@@ -593,7 +594,7 @@ export default function Settings() {
                         },
                         {
                           id: 'realdebrid', label: "REAL-DEBRID",
-                          conectado: !!integracoes?.realdebrid_connected,
+                          selo: seloPorBooleano(!!integracoes?.realdebrid_connected),
                           detalhe: integracoes?.realdebrid_connected ? "CHAVE GRAVADA" : "--",
                           campoUrl: null, campoToken: 'realdebrid_api_key',
                           ordem: '1ª FONTE',
@@ -616,9 +617,12 @@ export default function Settings() {
                               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em' }}>{item.detalhe}</div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                              {item.conectado && <Check style={{ width: 12, height: 12, color: 'var(--gold)' }} />}
-                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: item.conectado ? 'var(--gold)' : 'var(--m3)' }}>
-                                [{item.conectado ? 'CONECTADO' : 'NÃO CONFIGURADO'}]
+                              {/* Só o ✓ dourado afirma que funciona. "Chave
+                                  gravada" é cinza de propósito: é o que se
+                                  sabe, e não uma promessa. */}
+                              {item.selo.confirmado && <Check style={{ width: 12, height: 12, color: 'var(--gold)' }} />}
+                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', color: item.selo.confirmado ? 'var(--gold)' : 'var(--m3)' }}>
+                                [{item.selo.texto}]
                               </span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', color: 'var(--m3)' }}>
@@ -645,11 +649,11 @@ export default function Settings() {
                                   )}
                                   <input
                                     type="password"
-                                    placeholder={item.conectado ? 'CHAVE GRAVADA — deixe vazio para manter' : 'chave de API'}
+                                    placeholder={item.selo.texto !== 'NÃO CONFIGURADO' ? 'CHAVE GRAVADA — deixe vazio para manter' : 'chave de API'}
                                     onChange={(e) => setRascunho(r => ({ ...r, [item.campoToken]: e.target.value }))}
                                     style={{ background: 'var(--s1)', border: '1px solid rgba(237,232,220,0.1)', color: 'var(--film)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '10px', letterSpacing: '0.1em' }}
                                   />
-                                  {item.id === 'opensubtitles' && item.conectado && !integracoes?.opensubtitles_pode_baixar && (
+                                  {item.id === 'opensubtitles' && item.selo.confirmado && !integracoes?.opensubtitles_pode_baixar && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8, borderTop: '1px solid rgba(237,232,220,0.05)' }}>
                                       <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.15em' }}>
                                         BAIXAR CONSOME A COTA DA CONTA — CONECTE-A. A SENHA NÃO É GRAVADA.

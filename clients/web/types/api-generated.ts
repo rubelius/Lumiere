@@ -1344,6 +1344,12 @@ export interface components {
             opensubtitles_username?: string;
             readonly opensubtitles_connected: boolean;
             readonly opensubtitles_pode_baixar: boolean;
+            readonly jellyfin_estado: string;
+            readonly plex_estado: string;
+            /** Format: date-time */
+            jellyfin_verificado_em?: string | null;
+            /** Format: date-time */
+            plex_verificado_em?: string | null;
             torrent_direto_permitido?: boolean;
             /**
              * Format: int64
@@ -1826,6 +1832,12 @@ export interface components {
             opensubtitles_username?: string;
             readonly opensubtitles_connected?: boolean;
             readonly opensubtitles_pode_baixar?: boolean;
+            readonly jellyfin_estado?: string;
+            readonly plex_estado?: string;
+            /** Format: date-time */
+            jellyfin_verificado_em?: string | null;
+            /** Format: date-time */
+            plex_verificado_em?: string | null;
             torrent_direto_permitido?: boolean;
             /**
              * Format: int64
