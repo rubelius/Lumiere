@@ -75,16 +75,20 @@ export function EscolhaDeProjecao({
 
   const alvoDoDownload = plano.melhor_para_navegador;
 
-  // Para o torrent vale QUALQUER cópia com magnet — inclusive as que o
-  // navegador não toca sozinho, porque o conversor cuida disso depois. O que
-  // não serve é cópia sem magnet: as vindas da sincronização com o Real-Debrid
-  // nascem sem, e não há o que entregar ao motor.
+  // Para o torrent quem escolhe é o BACKEND, em `para_torrent`, e não esta
+  // tela.
   //
-  // A de melhor nota primeiro: aqui a nota volta a mandar, porque a
-  // disponibilidade deixou de ser o critério — nenhuma está pronta.
-  const alvoDoTorrent = [...plano.imediatas, ...(plano.melhor_para_navegador ? [plano.melhor_para_navegador] : [])]
-    .filter((c) => c.pode_importar || c.disponibilidade === 'ausente')
-    .sort((a, b) => b.quality_score - a.quality_score)[0] || plano.melhor_para_navegador;
+  // Montar a lista aqui foi o que criou o problema: a regra do backend exige
+  // semeadores, e esta não sabia disso — o diálogo oferecia a cópia de melhor
+  // nota, que em Pulp Fiction era a que o indexador dizia ter 104 semeadores e
+  // ficou 30 segundos sem UM par. Duas listas que precisam andar juntas
+  // divergem, e esta divergia descrevendo na tela uma cópia que a requisição
+  // nem tentaria primeiro.
+  //
+  // A lista vem ordenada e já filtrada; a primeira é a que o backend tentará
+  // antes das outras. O `melhor_para_navegador` fica de reserva para acervos
+  // cujas cópias ainda não têm contagem de semeadores.
+  const alvoDoTorrent = plano.para_torrent?.[0] || plano.melhor_para_navegador;
   const temImediatas = plano.imediatas.length > 0;
 
   return (

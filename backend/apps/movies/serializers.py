@@ -186,6 +186,10 @@ class CopiaResumidaSerializer(serializers.Serializer):
     resolution = serializers.CharField(allow_blank=True)
     video_codec = serializers.CharField(allow_blank=True)
     audio_codec = serializers.CharField(allow_blank=True)
+    # Quantos o indexador AFIRMA. Não é medida — só entrar no enxame mede, e
+    # isso custa os 30 segundos que estamos tentando não gastar. A tela mostra
+    # porque é o único sinal que existe antes de tentar.
+    seeders = serializers.IntegerField()
     compatibilidade = serializers.ChoiceField(choices=['toca', 'nao_toca', 'talvez'])
     disponibilidade = serializers.ChoiceField(
         choices=['pronta', 'instantanea', 'baixando', 'ausente'])
@@ -214,6 +218,18 @@ class ComoTocarSerializer(serializers.Serializer):
     melhor_para_navegador = CopiaResumidaSerializer(
         allow_null=True,
         help_text='A melhor cópia que o navegador toca e que ainda precisa baixar.',
+    )
+    para_torrent = CopiaResumidaSerializer(
+        many=True,
+        help_text=(
+            'As cópias que valem TENTAR tocar direto, em ordem. É uma lista e '
+            'não uma escolha porque o número de semeadores do indexador é uma '
+            'afirmação, não uma medida: quem clica tenta a primeira, e o '
+            'backend passa para a seguinte quando o motor diz que não achou '
+            'ninguém. Diferente de `melhor_para_navegador`, que é para o '
+            'download no Real-Debrid — lá quem procura o enxame é o '
+            'Real-Debrid, e semeador deixa de ser requisito.'
+        ),
     )
     imediatas = CopiaResumidaSerializer(many=True)
 

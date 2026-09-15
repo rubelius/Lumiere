@@ -374,12 +374,20 @@ describe('rotuloDaFonte com torrent', () => {
 // funcionar sem o parâmetro `release`.
 
 describe('conversão de uma fonte sem release', () => {
+  // A fonte completa, e não um pedaço com `as never`: o contrato é o mesmo do
+  // Real-Debrid, com `release_id` nulo — e é justamente isso que o teste
+  // precisa provar que a URL aguenta.
   const doJellyfin = {
+    source: 'jellyfin',
     stream_url: 'http://casa:8096/Items/abc/stream',
-    precisa_converter: 'audio',
     label: 'JELLYFIN — ÁUDIO CONVERTIDO',
+    container: 'mkv',
+    quality: '',
     release_id: null,
-  } as never;
+    precisa_converter: 'audio',
+    duracao_segundos: 9270,
+    faixas_de_audio: [],
+  } as NonNullable<Parameters<typeof urlDoVideo>[0]>;
 
   it('vai para o conversor, e não para a URL crua', () => {
     const url = urlDoVideo(doJellyfin, 'filme-1');
@@ -398,7 +406,7 @@ describe('conversão de uma fonte sem release', () => {
   });
 
   it('sem conversão, toca direto do servidor de casa', () => {
-    const direto = { ...doJellyfin, precisa_converter: 'nada', label: 'JELLYFIN' };
+    const direto = { ...doJellyfin, precisa_converter: 'nada' as const, label: 'JELLYFIN' };
     expect(urlDoVideo(direto, 'filme-1')).toBe('http://casa:8096/Items/abc/stream');
   });
 });
