@@ -31,7 +31,28 @@ export const CONVERSAO = 'conversao';
  * converter uma cópia que provavelmente tocaria sozinha. Sem esse escape, a
  * única fuga da conversão era sair do navegador.
  */
-export function ehConvertida(fonte?: Fonte | null, modo?: string | null): boolean {
+export function ehConvertida(
+  fonte?: Fonte | null,
+  modo?: string | null,
+  torrentHash?: string | null,
+): boolean {
+  // TOCANDO DO TORRENT NADA É CONVERTIDO, e esta linha conserta dois defeitos
+  // medidos, os dois causados por esta função responder sobre a cópia do
+  // Real-Debrid enquanto o <video> puxava do motor de torrent:
+  //
+  //  - o relógio marcava 31:40 com o PRIMEIRO fotograma na tela, porque
+  //    `pontoDeRetomada` só devolve o ponto salvo quando há conversão, e o
+  //    fluxo do torrent começa no byte zero de qualquer jeito;
+  //  - saltar na barra para 1:20:00 levava o marcador para lá e o vídeo para o
+  //    começo, porque o ramo do fluxo convertido religa o `src` com outro
+  //    `inicio` — e a URL do torrent não tem `inicio`: o mesmo recurso reabre
+  //    do zero.
+  //
+  // O motor de torrent serve o arquivo inteiro com `Range`. Isso É o caminho
+  // direto, e o `src` já dava precedência ao torrent — faltava contar para
+  // quem decide o resto.
+  if (torrentHash) return false;
+
   if (!fonte) return false;
   if (modo === DIRETO) return false;
   if (modo === CONVERSAO) return true;
@@ -148,8 +169,10 @@ export function pontoDeRetomada(
   terminou: boolean | null | undefined,
   duracao: number,
   modo?: string | null,
+  torrentHash?: string | null,
 ): number {
-  if (!ehConvertida(fonte, modo)) return 0;   // no direto o elemento salta sozinho
+  // no direto — e o torrent é direto — o elemento salta sozinho
+  if (!ehConvertida(fonte, modo, torrentHash)) return 0;
   const parou = paradoEm ?? 0;
   if (terminou || duracao <= 0) return 0;
   if (parou <= RETOMADA_MINIMA_S) return 0;

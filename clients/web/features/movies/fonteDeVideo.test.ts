@@ -547,3 +547,44 @@ describe('faixasDe', () => {
     expect(faixasDe(undefined)).toEqual([]);
   });
 });
+
+// ── tocando do torrent, nada é convertido ────────────────────────────────
+// O <video> puxa do motor de torrent, mas `ehConvertida` respondia sobre a
+// cópia que o resolvedor achou no Real-Debrid. Dois defeitos medidos saíram
+// daí: o relógio marcando 31:40 com o primeiro fotograma na tela, e saltar
+// para 1:20:00 levar o marcador para lá e o vídeo para o começo.
+
+describe('ehConvertida com o torrent no ar', () => {
+  const precisaConverter = {
+    precisa_converter: 'audio', stream_url: 'https://rd/x.mkv',
+  } as never;
+
+  it('o torrent tem precedência sobre o que o resolvedor achou', () => {
+    expect(ehConvertida(precisaConverter, null, 'a'.repeat(40))).toBe(false);
+  });
+
+  it('e vence até um modo imposto pela URL', () => {
+    // `?modo=conversao` fala da cópia do Real-Debrid, que não está tocando.
+    expect(ehConvertida(precisaConverter, CONVERSAO, 'b'.repeat(40))).toBe(false);
+  });
+
+  it('sem torrent, nada muda', () => {
+    expect(ehConvertida(precisaConverter, null, null)).toBe(true);
+    expect(ehConvertida(precisaConverter, null, '')).toBe(true);
+  });
+});
+
+describe('pontoDeRetomada com o torrent no ar', () => {
+  const precisaConverter = { precisa_converter: 'audio' } as never;
+
+  it('não desloca o relógio: o fluxo do torrent começa no byte zero', () => {
+    // Era isto que punha 31:40 no relógio sobre o primeiro fotograma.
+    expect(pontoDeRetomada(precisaConverter, 1900, false, 9000, null, 'c'.repeat(40)))
+      .toBe(0);
+  });
+
+  it('sem torrent, a retomada do fluxo convertido continua valendo', () => {
+    expect(pontoDeRetomada(precisaConverter, 1900, false, 9000, null, null))
+      .toBe(1900);
+  });
+});

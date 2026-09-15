@@ -155,6 +155,9 @@ const cliente = new WebTorrent({
  */
 let noAr = false;
 
+// Passou por SIGTERM: não adianta mais aceitar trabalho novo.
+let encerrando = false;
+
 function seguirOuMorrer(rotulo, erro) {
   if (noAr) {
     console.error(`[lumiere-torrent] ${rotulo}, seguindo:`, erro?.message || erro);
@@ -493,8 +496,18 @@ const servidor = http.createServer(async (requisicao, resposta) => {
 
   try {
     if (url.pathname === '/saude') {
-      return jsonDe(resposta, 200, {
-        ok: true, torrents: emCurso.size,
+      // `ok` responde "dá para servir", e não "o processo está de pé".
+      //
+      // Eram a mesma coisa até um motor ficar vivo com o cliente destruído: o
+      // `/saude` dizia ok, o Lumière o dava como disponível, e todo magnet
+      // voltava "client is destroyed". O Docker também acharia o container
+      // saudável e não reiniciaria nada. Um processo de pé que não pode servir
+      // precisa DIZER isso.
+      const vivo = !encerrando && !cliente.destroyed;
+      return jsonDe(resposta, vivo ? 200 : 503, {
+        ok: vivo, torrents: emCurso.size,
+        motivo: vivo ? null
+          : (encerrando ? 'encerrando' : 'o cliente de torrent foi destruído'),
         limite_bytes: LIMITE_DE_BYTES, pasta: PASTA,
       });
     }
@@ -580,10 +593,32 @@ servidor.listen(PORTA, INTERFACE, () => {
   }
 });
 
+// Quanto esperar o cliente se despedir antes de sair na marra.
+//
+// MEDIDO como defeito: um motor que recebeu SIGTERM destruiu o cliente e o
+// `process.exit(0)` NUNCA veio — o `destroy` não chamou de volta. O processo
+// ficou vivo, segurando a 8001, atendendo HTTP com o cliente morto: `/saude`
+// respondia `ok: true` e todo magnet voltava "client is destroyed". Um serviço
+// que não pode mais servir e não sai do caminho é pior que um que caiu.
+const SEGUNDOS_PARA_SE_DESPEDIR = 5;
+
 for (const sinal of ['SIGINT', 'SIGTERM']) {
   process.on(sinal, () => {
     console.log('[lumiere-torrent] encerrando e apagando as peças');
+    encerrando = true;
     for (const hash of [...emCurso.keys()]) remove(hash);
-    cliente.destroy(() => process.exit(0));
+
+    // A despedida tem prazo. Sem ele, um `destroy` que não volta deixa o
+    // processo pendurado para sempre.
+    const namarra = setTimeout(() => {
+      console.error('[lumiere-torrent] o cliente não se despediu a tempo; saindo assim mesmo');
+      process.exit(1);
+    }, SEGUNDOS_PARA_SE_DESPEDIR * 1000);
+    namarra.unref();
+
+    cliente.destroy(() => {
+      clearTimeout(namarra);
+      process.exit(0);
+    });
   });
 }

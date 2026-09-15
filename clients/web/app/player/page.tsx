@@ -123,12 +123,13 @@ function PlayerExperience() {
       movie?.watch_state?.completed,
       duracaoDoFilme(fonte, NaN, movie?.length_minutes, modo),
       modo,
+      torrentHash,
     );
   }
   const partida = partidaCongelada.current ?? 0;
   const deslocamento = saltouPara ?? partida;
   const setDeslocamento = setSaltouPara;
-  const convertida = ehConvertida(fonte, modo);
+  const convertida = ehConvertida(fonte, modo, torrentHash);
 
   // O `src` só sai quando o ponto de partida está decidido.
   //
@@ -136,7 +137,18 @@ function PlayerExperience() {
   // elemento pedir antes, a primeira requisição saía do segundo zero e era
   // trocada meio segundo depois — um ffmpeg inteiro nascendo, puxando do
   // Real-Debrid e morrendo, a cada abertura do player.
-  const faixas = (fonte?.faixas_de_audio ?? []) as unknown as FaixaDeAudio[];
+  // As faixas SÓ VALEM NO CAMINHO CONVERTIDO.
+  //
+  // O backend preenche `faixas_de_audio` com base no que a CÓPIA precisaria —
+  // ele não conhece o `modo` que a tela impôs nem sabe que o torrent está no
+  // ar. No caminho direto o elemento recebe o arquivo como está e trocar de
+  // faixa não religa nada: era um botão que aceitava clique e não fazia nada,
+  // e antes da guarda em `escolheFaixa` fazia pior — dobrava o relógio.
+  //
+  // Oferecer a lista aqui seria a tela prometer um controle que ela não tem.
+  const faixas = (convertida
+    ? (fonte?.faixas_de_audio ?? [])
+    : []) as unknown as FaixaDeAudio[];
   const faixaNoAr = faixaEscolhida ?? (faixas.length ? faixaPadrao(faixas) : 0);
   // O torrent tem precedência: se a pessoa escolheu tocar dele, é dele que o
   // vídeo vem, e o resolvedor de fonte do Real-Debrid nem entra na conversa.
@@ -388,9 +400,24 @@ function PlayerExperience() {
    */
   const escolheFaixa = (posicao: number) => {
     if (posicao === faixaNoAr) return;
-    tocavaAoSaltar.current = isPlaying;
-    // O deslocamento passa a ser o ponto atual, porque o fluxo novo começa ali.
-    setDeslocamento(currentTime);
+
+    // SÓ NO CAMINHO CONVERTIDO, e este `if` é o conserto de um defeito que
+    // corrompia o histórico.
+    //
+    // Mexer no deslocamento só faz sentido quando existe um fluxo NOVO
+    // começando no ponto atual. No caminho direto (e o torrent é direto) o
+    // `src` não muda com a faixa — `urlDoVideo` devolve a mesma string —, o
+    // elemento não recarrega, e o `currentTime` dele segue contando do começo
+    // do arquivo. A soma `deslocamento + currentTime` passava a contar a
+    // posição DUAS VEZES, para sempre: com o filme em 20:06 a tela escrevia
+    // 40:12, a barra corria ao dobro, estourava o fim em ~25 minutos, e o
+    // progresso dobrado chegava ao backend, que marca como assistido a partir
+    // de 90%. O filme aparecia como visto no meio da sessão.
+    if (convertida) {
+      tocavaAoSaltar.current = isPlaying;
+      // O fluxo novo começa aqui.
+      setDeslocamento(currentTime);
+    }
     setFaixaEscolhida(posicao);
   };
 

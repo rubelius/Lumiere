@@ -271,9 +271,14 @@ export function PlayerDiagnosticPanel(props: any) {
             {activeTab === 'audio' && (
               faixasDeAudio.length === 0 ? (
                 <motion.div variants={settingsItemVariants} style={{ fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em', lineHeight: 2 }}>
-                  UMA FAIXA SÓ NESTA CÓPIA.<br />
-                  AS FAIXAS SÓ APARECEM QUANDO O ÁUDIO É CONVERTIDO — É A
-                  CONVERSÃO QUE PERGUNTA AO ARQUIVO O QUE ELE TEM.
+                  {/* "UMA FAIXA SÓ NESTA CÓPIA" era um palpite: a lista está
+                      vazia porque ninguém perguntou ao arquivo, e não porque
+                      se sabe que há uma faixa só. */}
+                  TROCAR DE FAIXA EXIGE CONVERSÃO.<br />
+                  O ARQUIVO ESTÁ SENDO SERVIDO COMO ESTÁ, E O NAVEGADOR TOCA A
+                  FAIXA QUE O ARQUIVO MARCA COMO PADRÃO. QUANTAS FAIXAS EXISTEM
+                  SÓ SE SABE CONVERTENDO — É A CONVERSÃO QUE PERGUNTA AO
+                  ARQUIVO.
                 </motion.div>
               ) : (
                 faixasDeAudio.map((faixa: FaixaDeAudio) => {
