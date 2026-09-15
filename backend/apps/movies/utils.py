@@ -109,10 +109,32 @@ def parse_quality_from_title(title: str) -> Dict[str, Any]:
         result['audio_codec'] = 'DTS-HD MA'
     elif 'DTS' in title_upper:
         result['audio_codec'] = 'DTS'
-    elif 'DD+' in title_upper or 'EAC3' in title_upper:
+    # E-AC-3 ANTES de AC-3: 'DDP5.1' contém 'DD', e testar o mais curto
+    # primeiro classificaria todo Dolby Digital Plus como Dolby Digital.
+    # Sem `\b` no fim de DDP: 'DDP5.1' não tem fronteira entre o P e o 5, e
+    # exigi-la deixava passar justamente a grafia mais comum.
+    elif re.search(r'\b(DD\+|DDP\d?|E-?AC-?3\b|DOLBY\s?DIGITAL\s?PLUS\b)', title_upper):
         result['audio_codec'] = 'DD+'
+    # AC-3 / Dolby Digital. Faltava, e a falta era cara: MEDIDO, 200 das 1629
+    # cópias do acervo declaram AC3, DD ou DDP no nome e saíam daqui com
+    # `audio_codec` VAZIO. Vazio vira "TALVEZ", e o diálogo oferece "talvez"
+    # em dourado, em primeiro lugar, como "[ TOCAR SEM CONVERTER ]" — sobre
+    # uma faixa que o navegador comprovadamente não decodifica. Duzentas
+    # promessas de filme mudo.
+    #
+    # `\bDD\b` não casa 'DDP' (o P é caractere de palavra), e o ramo acima já
+    # teria pegado. O espaço em 'DD 5 1' é como os grupos escrevem.
+    elif re.search(r'\b(AC-?3|DD\d?|DOLBY\s?DIGITAL)\b', title_upper):
+        result['audio_codec'] = 'AC-3'
     elif 'AAC' in title_upper:
         result['audio_codec'] = 'AAC'
+    elif re.search(r'\b(FLAC|OPUS|MP3)\b', title_upper):
+        # Explícito e não `.title()`: aquilo devolvia 'Flac', que não é o nome
+        # canônico e cairia em "talvez" — o mesmo defeito, com outra roupa.
+        result['audio_codec'] = {'FLAC': 'FLAC', 'OPUS': 'Opus', 'MP3': 'MP3'}[
+            re.search(r'\b(FLAC|OPUS|MP3)\b', title_upper).group(1)]
+    elif re.search(r'\b(LPCM|PCM)\b', title_upper):
+        result['audio_codec'] = 'PCM'
     else:
         result['audio_codec'] = ''
     

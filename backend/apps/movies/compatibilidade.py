@@ -23,13 +23,31 @@ Três respostas, e não duas. "Não sei" é frequente aqui (44 das 63 cópias n�
 merece uma tentativa, a segunda não.
 """
 
-# Faixas que o navegador simplesmente não decodifica. Nenhuma delas emite som.
-AUDIO_QUE_NAO_TOCA = frozenset({
-    'DTS', 'DTS-HD MA', 'DTS:X', 'Dolby TrueHD', 'Dolby Atmos', 'DD+',
+# ── uma tabela só, dois dialetos ─────────────────────────────────────────
+#
+# O veredito "o navegador toca isto?" mora AQUI e em lugar nenhum mais. Quem
+# pergunta são dois vocabulários diferentes — o nome do release ('DTS-HD MA',
+# 'AC3', 'DDP5.1') e o do ffmpeg, que Jellyfin e Plex falam ('dts', 'ac3',
+# 'eac3') — e os dois precisam existir, porque cada um sabe algo que o outro
+# não sabe.
+#
+# O que NÃO pode é cada um carregar sua própria lista de quem toca: foi assim
+# que AC-3 ficou de fora do lado do nome de release enquanto já estava listado
+# do lado do ffmpeg. MEDIDO: 200 das 1629 cópias do acervo declaram AC3, DD ou
+# DDP no nome e saíam com `audio_codec` VAZIO — viravam "TALVEZ" e o diálogo as
+# oferecia em dourado, em primeiro lugar, como "[ TOCAR SEM CONVERTER ]". Todas
+# tocariam mudas.
+CANONICOS_QUE_NAO_TOCAM = frozenset({
+    'DTS', 'DTS-HD MA', 'DTS:X', 'Dolby TrueHD', 'Dolby Atmos', 'DD+', 'AC-3',
+    'PCM',
 })
 
-# Faixas confirmadas no navegador.
-AUDIO_QUE_TOCA = frozenset({'AAC', 'FLAC', 'MP3', 'Opus'})
+CANONICOS_QUE_TOCAM = frozenset({'AAC', 'FLAC', 'MP3', 'Opus', 'Vorbis'})
+
+# O parser de nome de release já grava nomes canônicos, então estes dois nomes
+# continuam valendo para quem os importa.
+AUDIO_QUE_NAO_TOCA = CANONICOS_QUE_NAO_TOCAM
+AUDIO_QUE_TOCA = CANONICOS_QUE_TOCAM
 
 # Vídeo que responde "probably" em qualquer container testado.
 VIDEO_QUE_TOCA = frozenset({'AVC', 'HEVC', 'AV1', 'VP9'})
@@ -98,16 +116,26 @@ def toca_no_navegador(release) -> bool:
 # `precisa_converter` só era calculado no caminho do Real-Debrid, e um DTS
 # vindo da biblioteca local tocava mudo sob o rótulo "JELLYFIN DIRECT".
 
-# Nomes de ffmpeg para o que o navegador não decodifica. Medido com
-# canPlayType; ver a tabela no topo deste arquivo.
-AUDIO_FFMPEG_QUE_NAO_TOCA = frozenset({
-    'dts', 'dca', 'truehd', 'mlp', 'ac3', 'eac3', 'ac-3', 'e-ac-3',
-    'dtshd', 'dts-hd', 'pcm_bluray', 'pcm_dvd',
-})
+# O dialeto do ffmpeg, traduzido para os mesmos canônicos de cima. É a tradução
+# que impede as duas listas de divergirem — acrescentar um codec exige dizer a
+# que canônico ele corresponde, e o veredito vem de graça.
+FFMPEG_PARA_CANONICO = {
+    'dts': 'DTS', 'dca': 'DTS', 'dtshd': 'DTS-HD MA', 'dts-hd': 'DTS-HD MA',
+    'truehd': 'Dolby TrueHD', 'mlp': 'Dolby TrueHD',
+    'ac3': 'AC-3', 'ac-3': 'AC-3',
+    'eac3': 'DD+', 'e-ac-3': 'DD+',
+    'pcm_bluray': 'PCM', 'pcm_dvd': 'PCM', 'pcm_s16le': 'PCM', 'pcm_s24le': 'PCM',
+    'aac': 'AAC', 'flac': 'FLAC', 'mp3': 'MP3', 'mp2': 'MP3',
+    'opus': 'Opus', 'vorbis': 'Vorbis',
+}
 
-AUDIO_FFMPEG_QUE_TOCA = frozenset({
-    'aac', 'flac', 'mp3', 'opus', 'vorbis', 'mp2',
-})
+AUDIO_FFMPEG_QUE_NAO_TOCA = frozenset(
+    nome for nome, canonico in FFMPEG_PARA_CANONICO.items()
+    if canonico in CANONICOS_QUE_NAO_TOCAM)
+
+AUDIO_FFMPEG_QUE_TOCA = frozenset(
+    nome for nome, canonico in FFMPEG_PARA_CANONICO.items()
+    if canonico in CANONICOS_QUE_TOCAM)
 
 VIDEO_FFMPEG_QUE_TOCA = frozenset({
     'h264', 'avc', 'avc1', 'hevc', 'h265', 'hvc1', 'av1', 'vp9', 'vp09',
