@@ -22,13 +22,14 @@
  */
 
 import http from 'node:http';
+import dns from 'node:dns/promises';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import WebTorrent from 'webtorrent';
 
 import { CacheDeslizante, COTA_PADRAO } from './cacheDeslizante.js';
-import { anunciosPara, arquivoPrincipal, faixaPedida } from './escolhas.js';
+import { anunciosPara, arquivoPrincipal, cabeNoDisco, faixaPedida } from './escolhas.js';
 
 const PORTA = Number(process.env.PORTA_TORRENT || 8001);
 
@@ -62,6 +63,11 @@ const PORTA_DE_PARES = Number(process.env.PORTA_DE_PARES || 51413);
 // alegando "pares entram pela 51413", e nada escutava lá. Mais um caso do
 // defeito da casa: a tela (aqui, o log) afirmando o que não é verdade.
 const PORTA_DA_DHT = Number(process.env.PORTA_DA_DHT || PORTA_DE_PARES + 1);
+
+// Desliga UPnP/NAT-PMP. Ligado é o padrão do webtorrent e faz sentido numa
+// máquina atrás do roteador de casa; atrás de uma VPN não há roteador de casa
+// para pedir nada.
+const SEM_NAT = process.env.SEM_NAT_TORRENT === '1';
 
 // Onde as peças caem. Fora do repositório de propósito: são gigabytes, e um
 // `git status` num diretório desses é doloroso.
@@ -112,6 +118,12 @@ const cliente = new WebTorrent({
   // Fixas para poderem ser encaminhadas. Ver PORTA_DE_PARES acima.
   torrentPort: PORTA_DE_PARES,
   dhtPort: PORTA_DA_DHT,
+  // O webtorrent liga UPnP e NAT-PMP por padrão, para pedir ao roteador de
+  // casa que abra a porta. Dentro do gluetun não há roteador de casa: o
+  // gateway é a ponta do túnel, e o pedido vai bater na VPN. Quem cuida de
+  // porta ali é o gluetun, quando o provedor oferece.
+  natUpnp: !SEM_NAT,
+  natPmp: !SEM_NAT,
 });
 
 /**
@@ -125,12 +137,36 @@ const cliente = new WebTorrent({
  * O laço de eventos do BitTorrent recebe dados de estranhos o tempo todo; um
  * par malformado não pode ter o poder de encerrar o processo.
  */
-process.on('uncaughtException', (erro) => {
-  console.error('[lumiere-torrent] exceção não tratada, seguindo:', erro?.message || erro);
-});
-process.on('unhandledRejection', (erro) => {
-  console.error('[lumiere-torrent] promessa rejeitada, seguindo:', erro?.message || erro);
-});
+/**
+ * ...MAS SÓ DEPOIS DE ESTAR NO AR.
+ *
+ * A guarda acima foi escrita para o laço de eventos do BitTorrent, e lá ela
+ * está certa. Na SUBIDA ela é o contrário de uma proteção.
+ *
+ * MEDIDO: com `PASTA_TORRENT` apontando para um caminho sem permissão, o
+ * `mkdirSync` lança, a guarda engole, o módulo para antes do `listen` — e o
+ * processo NÃO MORRE, porque os sockets que o WebTorrent já abriu seguram o
+ * laço de eventos. Fica vivo para sempre sem atender ninguém, e nada no log
+ * depois da primeira linha. Num container é pior: o Docker vê um processo de
+ * pé, `restart` nenhum dispara, e o Lumière responde "motor fora do ar" sem
+ * conseguir dizer por quê.
+ *
+ * Não existe falha de subida da qual valha a pena seguir em frente.
+ */
+let noAr = false;
+
+function seguirOuMorrer(rotulo, erro) {
+  if (noAr) {
+    console.error(`[lumiere-torrent] ${rotulo}, seguindo:`, erro?.message || erro);
+    return;
+  }
+  console.error(`[lumiere-torrent] ${rotulo} ANTES DE SUBIR — desistindo:`,
+                erro?.stack || erro?.message || erro);
+  process.exit(1);
+}
+
+process.on('uncaughtException', (erro) => seguirOuMorrer('exceção não tratada', erro));
+process.on('unhandledRejection', (erro) => seguirOuMorrer('promessa rejeitada', erro));
 
 cliente.on('error', (erro) => {
   console.error('[lumiere-torrent] cliente:', erro?.message || erro);
@@ -139,6 +175,41 @@ cliente.on('error', (erro) => {
 const emCurso = new Map();
 
 fs.mkdirSync(PASTA, { recursive: true });
+
+/**
+ * Apaga o que sobrou de uma execução anterior.
+ *
+ * Todo o estado vive no `Map emCurso`, que é memória: um `docker kill`, um
+ * OOM, um reboot — nenhum passa pelo SIGTERM que limpa as peças. Com volume
+ * persistente isso vaza gigabytes para sempre, porque nada mais olha para essa
+ * pasta depois.
+ *
+ * Apagar tudo na subida é seguro justamente porque o estado é memória: nada
+ * aqui pode estar em uso, e o cache também não sabe reaproveitar — ele nasce
+ * com o registro vazio e rebaixaria as peças de qualquer jeito. O que está no
+ * disco não é economia, é lixo.
+ */
+function varreOQueSobrou() {
+  let pastas = 0;
+  for (const nome of fs.readdirSync(PASTA, { withFileTypes: true })) {
+    if (!nome.isDirectory()) continue;
+    fs.rmSync(path.join(PASTA, nome.name), { recursive: true, force: true });
+    pastas += 1;
+  }
+  if (pastas) {
+    console.log(`[faxina] ${pastas} pasta(s) de peças de uma execução anterior, apagadas`);
+  }
+}
+varreOQueSobrou();
+
+/** Quanto disco os torrents no ar já prometeram ocupar. */
+function discoJaPrometido() {
+  let total = 0;
+  for (const entrada of emCurso.values()) {
+    if (entrada.arquivo) total += bytesEmDisco(entrada.arquivo.length, entrada.cota);
+  }
+  return total;
+}
 
 
 /**
@@ -155,6 +226,29 @@ function _cacheDe(torrent) {
     alvo = alvo.store;
   }
   return null;
+}
+
+/**
+ * Se existe rota para fora, agora.
+ *
+ * Um DNS em vez de um HTTP porque é o que quebra primeiro e mais barato: com o
+ * túnel do gluetun morto, a resolução falha na hora com EAI_AGAIN — medido —
+ * enquanto um TCP ficaria pendurado até o timeout.
+ *
+ * Resposta pessimista de propósito: na dúvida, dizemos que NÃO há rota. O
+ * custo de errar para um lado é uma frase que menciona a VPN sem necessidade;
+ * para o outro, é mandar a pessoa trocar de cópia até desistir do filme.
+ */
+async function alcancaAInternet() {
+  try {
+    await Promise.race([
+      dns.resolve4('one.one.one.one'),
+      new Promise((_, x) => setTimeout(() => x(new Error('demorou')), 4000)),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function estadoDe(entrada) {
@@ -213,14 +307,28 @@ function adiciona(magnet, cota = COTA_DO_CACHE) {
       // 2,3s com anúncio.
       announce: anunciosPara(magnet),
     });
-    const entrada = { torrent, magnet, arquivo: null, criadoEm: Date.now(),
+    const entrada = { torrent, magnet, arquivo: null, cota, criadoEm: Date.now(),
                       ultimoAcesso: Date.now(), erro: null };
 
-    const desistir = setTimeout(() => {
+    const desistir = setTimeout(async () => {
       if (entrada.arquivo) return;
-      entrada.erro = torrent.numPeers === 0
-        ? 'Nenhum semeador respondeu. Este torrent não tem quem o compartilhe agora.'
-        : 'Os metadados do torrent não chegaram a tempo.';
+
+      // "Nenhum semeador" e "sem rota para fora" produzem o MESMO silêncio, e
+      // dizer o primeiro quando é o segundo manda a pessoa procurar outra
+      // cópia para sempre — nenhuma vai funcionar.
+      //
+      // MEDIDO com o motor atrás de um gluetun cujo túnel não fechava: o
+      // container respondia `/saude` normalmente, o Docker o dava como
+      // healthy, e todo magnet voltava "nenhum semeador respondeu". A frase
+      // era falsa e acionável na direção errada.
+      const temRota = torrent.numPeers === 0 ? await alcancaAInternet() : true;
+
+      entrada.erro = !temRota
+        ? 'Sem rota para a internet. Se o motor está atrás de uma VPN, o túnel caiu — '
+          + 'confira com ./infra/confere-a-vpn.sh.'
+        : torrent.numPeers === 0
+          ? 'Nenhum semeador respondeu. Este torrent não tem quem o compartilhe agora.'
+          : 'Os metadados do torrent não chegaram a tempo.';
       reject(new Error(entrada.erro));
       torrent.destroy();
     }, SEGUNDOS_ATE_DESISTIR * 1000);
@@ -241,7 +349,8 @@ function adiciona(magnet, cota = COTA_DO_CACHE) {
       }
 
       const pedido = bytesEmDisco(arquivo.length, cota);
-      if (pedido > LIMITE_DE_BYTES) {
+      const jaEmUso = discoJaPrometido();
+      if (!cabeNoDisco(pedido, jaEmUso, LIMITE_DE_BYTES)) {
         torrent.destroy();
         const gb = (pedido / 1024 ** 3).toFixed(1);
         const teto = (LIMITE_DE_BYTES / 1024 ** 3).toFixed(0);
@@ -251,9 +360,14 @@ function adiciona(magnet, cota = COTA_DO_CACHE) {
         const culpado = cota > 0
           ? 'Reduza o cache em Configurações › Reprodução'
           : 'Defina um cache com tamanho em Configurações › Reprodução, ou escolha uma cópia menor';
+        // Dizer quanto já está ocupado muda a ação: com outro torrent no ar, o
+        // que resolve é fechar aquele, não trocar esta cópia.
+        const ocupado = jaEmUso > 0
+          ? ` Outro(s) torrent(s) já ocupam ${(jaEmUso / 1024 ** 3).toFixed(1)} GB.`
+          : '';
         return reject(new Error(
-          `Tocar esta cópia pediria ${gb} GB de disco e o limite é ${teto} GB. ` +
-          `${culpado}.`));
+          `Tocar esta cópia pediria ${gb} GB de disco e o limite é ${teto} GB.` +
+          `${ocupado} ${culpado}.`));
       }
 
       // Só o arquivo que vai tocar. Sem isto o motor baixa extras e amostras,
@@ -423,6 +537,9 @@ servidor.on('error', (erro) => {
 });
 
 servidor.listen(PORTA, INTERFACE, () => {
+  // A partir daqui um par malformado não derruba mais nada — e até aqui,
+  // qualquer tropeço derruba.
+  noAr = true;
   console.log(`[lumiere-torrent] ouvindo em ${INTERFACE}:${PORTA}`);
   console.log(`[lumiere-torrent] pares pela ${PORTA_DE_PARES}, DHT pela ${PORTA_DA_DHT}`);
   console.log(`[lumiere-torrent] peças em ${PASTA}, teto de ` +

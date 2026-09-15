@@ -383,6 +383,51 @@ celery -A lumiere worker -l info
 celery -A lumiere beat -l info
 ```
 
+### 6. Optional: direct torrent playback, behind a VPN
+
+Playing straight from a torrent puts **this machine's IP in the swarm**, visible
+to any peer. Real-Debrid never does that — it downloads on your account's behalf
+and hands the file over HTTP. If you want the feature without giving out your
+address, run the engine behind a VPN:
+
+```bash
+cp infra/torrent.env.exemplo infra/torrent.env   # fill in your VPN credentials
+docker compose -f docker-compose.torrent.yml up -d
+./infra/confere-a-vpn.sh
+```
+
+`infra/torrent.env.exemplo` lists the 22 providers gluetun accepts — the list was
+read out of the binary itself, not out of documentation — and which of them speak
+WireGuard.
+
+**The guarantee is structural, not a setting anyone can forget.** The engine
+container has no network stack of its own (`network_mode: "service:gluetun"`);
+it borrows gluetun's. There is no route by which traffic could leave outside the
+tunnel, because no alternative route exists. Measured, with a tunnel configured
+to go nowhere:
+
+| | |
+|---|---|
+| engine's `NetworkMode` | `container:<gluetun>` — no stack of its own |
+| reaching the internet with the tunnel dead | blocked (`EAI_AGAIN`) |
+| engine container with no tunnel at all | never starts — `depends_on: service_healthy` |
+| gluetun without `NET_ADMIN` | refuses to start rather than run unprotected |
+
+If something "doesn't work", the fix is never to give the engine its own network
+with `ports:`. That removes the kill switch, and the torrent starts leaving by
+your home IP in silence, with nothing on screen changing.
+
+**Without a VPN**, skip this file and run the engine directly
+(`cd clients/torrent && npm start`) — it binds `127.0.0.1` and your IP is in the
+swarm. The settings screen says so before the first click.
+
+**Port forwarding** is optional and you probably don't have it: gluetun only
+implements it natively for Private Internet Access, ProtonVPN (paid), Perfect
+Privacy and PrivateVPN. Without it the engine still finds peers through outgoing
+connections — you reach fewer of them, which on a thin torrent is the difference
+between playing and waiting. ProtonVPN's **free plan covers neither P2P nor port
+forwarding.**
+
 ## Tests
 
 ```bash

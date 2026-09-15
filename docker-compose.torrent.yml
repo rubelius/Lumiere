@@ -1,0 +1,120 @@
+# O motor de torrent, obrigatoriamente atrás de uma VPN.
+#
+# POR QUE ISTO EXISTE: tocar direto do torrent põe o IP desta casa no enxame,
+# visível a qualquer par. O Real-Debrid não faz isso — baixa em nome da conta e
+# entrega por HTTP. Este arquivo é a resposta para quem quer o recurso sem
+# entregar o endereço.
+#
+# A GARANTIA, e ela é estrutural e não uma configuração que dá para esquecer:
+# o container do motor NÃO TEM PILHA DE REDE PRÓPRIA. Ele usa a do gluetun
+# (`network_mode: service:gluetun`). Se o túnel cair, não existe rota por onde
+# vazar; se o gluetun morrer, o motor perde a rede inteira. Não há caminho em
+# que o tráfego saia por fora — não porque alguém lembrou de proibir, mas
+# porque a rota alternativa não existe.
+#
+#   subir:   docker compose -f docker-compose.torrent.yml up -d
+#   conferir: ./infra/confere-a-vpn.sh
+#   derrubar: docker compose -f docker-compose.torrent.yml down
+#
+# ANTES DE SUBIR: copie `infra/torrent.env.exemplo` para `infra/torrent.env` e
+# preencha com as suas credenciais. Esse arquivo fica fora do git.
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: lumiere-gluetun
+    cap_add:
+      # MEDIDO: sem NET_ADMIN o gluetun não sobe — ele erra em
+      # "creating iptables firewall: NET_ADMIN capability is missing" e encerra.
+      # Falhar fechado é o comportamento certo, e é por isso que esta linha não
+      # é opcional: sem ela nada sobe, em vez de subir sem proteção.
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    env_file:
+      # Suas credenciais. Nunca entram neste arquivo nem no git.
+      - ./infra/torrent.env
+    environment:
+      # O firewall do gluetun é o que impede o tráfego de sair fora do túnel.
+      # Desligar isto tira o kill switch inteiro.
+      FIREWALL: "on"
+      # NÃO ponha FIREWALL_INPUT_PORTS aqui.
+      #
+      # A documentação sugere a variável para publicar portas, e a intuição diz
+      # que sem ela o Lumière não alcançaria o motor. MEDIDO: alcança —
+      # removida a linha, `curl 127.0.0.1:8001/saude` continuou respondendo. O
+      # firewall do gluetun já deixa entrar pela rede do Docker.
+      #
+      # E mantê-la seria pior que inútil: ela abre a 8001 em TODAS as
+      # interfaces, a do túnel inclusive, e a API do motor não autentica
+      # ninguém. Seria dar ao servidor da VPN o direito de mandar esta casa
+      # baixar o que ele quiser.
+      #
+      # NÃO ponha FIREWALL_OUTBOUND_SUBNETS aqui. Ele libera tráfego para
+      # aquelas faixas POR FORA do túnel, e a rede do Docker já é liberada
+      # sozinha — o próprio log diz "local ipnet found: 172.20.0.0/16" na
+      # subida. Acrescentar 192.168/16 e 10/8 "por garantia" abriria a rede de
+      # casa inteira para sair sem VPN, que é o oposto do que este arquivo é.
+      #
+      # DNS dentro do túnel, com DoT. Impede o vazamento clássico: o tráfego
+      # sobe cifrado e a consulta de nome vai em claro para o provedor.
+      DNS_SERVER: "on"
+      TZ: ${TZ:-America/Sao_Paulo}
+    ports:
+      # AS PORTAS FICAM AQUI, e não no motor — ele não tem pilha própria para
+      # publicar nada. E publicadas em 127.0.0.1 DE PROPÓSITO: a API do motor
+      # não autentica ninguém, e quem alcança a porta manda baixar o que
+      # quiser. Trocar por "8001:8001" entrega isso à rede local inteira.
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - gluetun-config:/gluetun
+    restart: unless-stopped
+
+  motor:
+    build: ./clients/torrent
+    image: lumiere-torrent:local
+    container_name: lumiere-motor-torrent
+    # ESTA LINHA É A PROTEÇÃO. Sem ela o container ganha rede própria e o
+    # torrent passa a sair pelo IP de casa — em silêncio, sem nada na tela
+    # mudando. Se algo "não funciona", o conserto nunca é trocar isto por uma
+    # rede normal com `ports:`.
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        # Espera o túnel ESTAR DE PÉ, e não o container existir. Sem isto há
+        # uma janela em que o motor já está pronto e a VPN ainda não.
+        condition: service_healthy
+    env_file:
+      - ./infra/torrent.env
+    environment:
+      # Dentro do container, 127.0.0.1 não atende ninguém de fora. Quem tranca
+      # aqui é o firewall do gluetun e a publicação em loopback acima.
+      INTERFACE_TORRENT: "0.0.0.0"
+      PORTA_TORRENT: "8001"
+      PASTA_TORRENT: "/pecas"
+      # Dentro do gluetun não existe roteador de casa para pedir porta.
+      SEM_NAT_TORRENT: "1"
+      # Teto GLOBAL de disco, somando todos os torrents no ar. O padrão de
+      # 20 GB é pensado para um SSD; aqui o disco é o da VM do Docker, que é
+      # fixo e dividido com o resto da stack de mídia.
+      LIMITE_TORRENT_BYTES: ${LIMITE_TORRENT_BYTES:-10737418240}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      # Volume NOMEADO, não bind mount para uma pasta do macOS: o cache grava
+      # um arquivo por peça — milhares de create/unlink pequenos, que é o pior
+      # caso do sistema de arquivos compartilhado do Docker Desktop.
+      - torrent-pecas:/pecas
+    # O SIGTERM é o que dispara a limpeza das peças. Dez segundos (o padrão do
+    # Docker) podem não bastar, e o que sobra fica no volume.
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8001/saude').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  gluetun-config:
+  torrent-pecas:

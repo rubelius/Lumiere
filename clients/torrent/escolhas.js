@@ -117,3 +117,20 @@ export function anunciosPara(magnet) {
   // anunciar duas vezes ao mesmo tracker só rende tráfego.
   return [...new Set([...proprios, ...TRACKERS_PUBLICOS])];
 }
+
+/**
+ * Se o próximo torrent cabe, contando o que os outros JÁ ocupam.
+ *
+ * O teto era por torrent: cada um entrando era comparado sozinho contra o
+ * limite, e nada somava o que já estava em disco. Com três torrents no ar e
+ * teto de 20 GB, o disco podia chegar a 60. Na máquina do usuário isso disputa
+ * com um SSD de centenas de GB; dentro da VM do Docker o disco é fixo e
+ * compartilhado com a stack de mídia que já roda lá — encher significa derrubar
+ * o Prowlarr junto.
+ *
+ * É o formato de defeito que este projeto já viu: um limite que responde uma
+ * pergunta mais estreita do que a que aparenta responder.
+ */
+export function cabeNoDisco(pedido, jaEmUso, limite) {
+  return jaEmUso + pedido <= limite;
+}

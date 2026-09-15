@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { anunciosPara, arquivoPrincipal, faixaPedida, TRACKERS_PUBLICOS } from './escolhas.js';
+import { anunciosPara, arquivoPrincipal, cabeNoDisco, faixaPedida, TRACKERS_PUBLICOS } from './escolhas.js';
 
 const arq = (name, length) => ({ name, length });
 
@@ -156,4 +156,31 @@ test('um endereço repetido não é anunciado duas vezes', () => {
 
 test('o piso tem mais de um tracker, porque um sozinho cai', () => {
   assert.ok(TRACKERS_PUBLICOS.length >= 3);
+});
+
+// ── o teto de disco é do DISCO, não de um torrent ─────────────────────────
+// O defeito: cada torrent entrando era comparado sozinho contra o limite, e
+// nada somava o que já estava lá. Três torrents com teto de 20 GB davam 60 GB
+// de disco. É o formato que este projeto já viu — um limite que responde uma
+// pergunta mais estreita do que a que aparenta responder.
+
+const GB = 1024 ** 3;
+
+test('o primeiro torrent cabe', () => {
+  assert.equal(cabeNoDisco(5 * GB, 0, 20 * GB), true);
+});
+
+test('o segundo é medido contando o primeiro', () => {
+  // Sozinho caberia — 15 < 20. Somado ao que já está no ar, não.
+  assert.equal(cabeNoDisco(15 * GB, 10 * GB, 20 * GB), false,
+    'ignorou o que já estava ocupado');
+});
+
+test('couber exatamente é caber', () => {
+  assert.equal(cabeNoDisco(10 * GB, 10 * GB, 20 * GB), true);
+  assert.equal(cabeNoDisco(10 * GB + 1, 10 * GB, 20 * GB), false);
+});
+
+test('com o disco já cheio, nada mais entra', () => {
+  assert.equal(cabeNoDisco(1, 20 * GB, 20 * GB), false);
 });
