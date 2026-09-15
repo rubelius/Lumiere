@@ -1935,6 +1935,8 @@ export interface components {
             container: string | null;
             quality: string;
             release_id: string | null;
+            /** @description Resumo curto DESTA cópia, ex.: "REMUX 2160p DV ATMOS". É o que o player deve mostrar — `movie.best_quality_available` descreve a melhor cópia do acervo, que quase nunca é a que está tocando. Vazio quando não se sabe, e aí não se mostra selo nenhum. */
+            rotulo_da_copia: string;
             /**
              * @description O que o navegador não dá conta de decodificar. Com "audio" ou "tudo", a tela aponta o <video> para /transcode/ em vez de stream_url.
              *

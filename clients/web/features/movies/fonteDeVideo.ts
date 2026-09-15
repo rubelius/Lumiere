@@ -270,10 +270,20 @@ export function faixaPadrao(faixas: FaixaDeAudio[]): number {
  * está nesses dois números, e quem está olhando merece vê-los.
  */
 export function avisoDoTorrent(estado: {
-  pares: number; velocidade: number;
+  pares: number; velocidade: number; sem_rota?: boolean;
   cache?: { pausado_por_cota: boolean } | null;
 } | undefined): string {
   if (!estado) return '';
+
+  // A ROTA ANTES DO ENXAME. Zero pares e sem caminho para fora dão o mesmo
+  // número, e acusar o enxame quando o que caiu foi a VPN manda a pessoa
+  // trocar de cópia até desistir do filme — nenhuma outra vai funcionar. O
+  // motor já fazia essa distinção ao ACEITAR um magnet e não ao relatar
+  // estado; agora ele manda `sem_rota` e a frase acompanha.
+  if (estado.sem_rota) {
+    return 'SEM ROTA PARA A INTERNET. NÃO É A CÓPIA — TROCAR NÃO ADIANTA. '
+      + 'SE O MOTOR ESTÁ ATRÁS DE UMA VPN, O TÚNEL CAIU.';
+  }
 
   if (estado.pares === 0) {
     return 'NENHUM SEMEADOR. ESTA CÓPIA NÃO TEM QUEM A COMPARTILHE AGORA — '
@@ -310,4 +320,72 @@ export function temOQueTocar(
   torrentHash?: string | null,
 ): boolean {
   return Boolean(torrentHash) || Boolean(fonte);
+}
+
+/**
+ * O selo de qualidade do player: a cópia QUE ESTÁ TOCANDO.
+ *
+ * MEDIDO como defeito: o player passava `movie.best_quality_available`, que é
+ * o rótulo da cópia de MAIOR NOTA do acervo. A escolha da fonte é
+ * deliberadamente a que o navegador aceita e não a de maior nota — a própria
+ * docstring de `_por_utilidade` diz que "mandar a de maior nota para o player
+ * entrega imagem sem som". Num filme com um REMUX 2160p DV ATMOS (nota alta,
+ * DTS, não toca) e um WEB-DL 1080p pronto, o selo dourado dizia
+ * "REMUX 2160p DV ATMOS" a centímetros do painel que media, do próprio
+ * elemento, 1920×1080.
+ *
+ * `rotuloDoAcervo` entra como parâmetro DE PROPÓSITO, e é sempre ignorado:
+ * ele está aqui para que o teste consiga provar que ninguém volta a usá-lo.
+ */
+export function rotuloDaCopia(
+  fonte: Fonte | undefined | null,
+  torrentHash?: string | null,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  rotuloDoAcervo?: string | null,
+): string {
+  // Tocando do torrent, quem escolheu não foi o resolvedor — mostrar o rótulo
+  // dele seria descrever outra cópia de novo.
+  if (torrentHash) return '';
+  return fonte?.rotulo_da_copia || '';
+}
+
+/** Uma ilha de vídeo já carregado, em segundos do elemento. */
+export interface FaixaCarregada { inicio: number; fim: number }
+
+/**
+ * O trecho carregado A PARTIR DE ONDE A PESSOA ESTÁ.
+ *
+ * `video.buffered` NÃO é um intervalo — é uma lista de ilhas descontínuas.
+ * Depois de um salto o navegador mantém a ilha antiga e abre outra adiante, e
+ * entre as duas não há um byte.
+ *
+ * O defeito: a barra usava `buffered.end(length - 1)`, o fim da ÚLTIMA ilha, e
+ * pintava um bloco contínuo desde o início do fluxo. Quem assistiu os cinco
+ * primeiros minutos e saltou para 1h30 via a barra cinza cobrir tudo até
+ * 1h31 — afirmando que 1h25 de filme que não existe no navegador estavam
+ * prontos. A barra de carregado serve para responder "até onde posso ver sem
+ * esperar", e respondia outra coisa.
+ *
+ * Devolve `null` quando nada está carregado no ponto atual — logo depois de um
+ * salto, por exemplo. Mostrar nada é o certo ali: não há mesmo nada.
+ */
+export function janelaCarregada(
+  faixas: FaixaCarregada[] | undefined | null,
+  tempoAtual: number,
+): FaixaCarregada | null {
+  for (const faixa of faixas || []) {
+    // `<=` nas duas pontas: estar exatamente no fim de uma ilha ainda é estar
+    // nela, e é justamente onde a reprodução costuma parar para esperar.
+    if (tempoAtual >= faixa.inicio && tempoAtual <= faixa.fim) return faixa;
+  }
+  return null;
+}
+
+/** `video.buffered` virado em algo que dá para testar sem um DOM. */
+export function faixasDe(buffered: TimeRanges | undefined | null): FaixaCarregada[] {
+  const faixas: FaixaCarregada[] = [];
+  for (let i = 0; i < (buffered?.length || 0); i += 1) {
+    faixas.push({ inicio: buffered!.start(i), fim: buffered!.end(i) });
+  }
+  return faixas;
 }

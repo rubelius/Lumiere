@@ -28,6 +28,7 @@ from apps.integrations.jellyfin import JellyfinClient
 from apps.integrations.plex import PlexClient
 from apps.integrations.realdebrid import (RealDebridClient,
                                              chave_do_usuario)
+from apps.movies.realdebrid_sync import rotulo_de_qualidade
 from apps.movies.transcode import (NADA, SO_AUDIO, TUDO, o_que_transcodificar,
                                    sonda_o_arquivo)
 
@@ -59,6 +60,19 @@ class PlaybackSource:
     # tem resposta. Sem este campo a tela teria que reconstruir o julgamento a
     # partir de `quality`, adivinhando codec por nome de arquivo.
     precisa_converter: str = NADA
+    # O resumo curto DESTA cópia, ex.: 'REMUX 2160p DV ATMOS'.
+    #
+    # Existe porque o player mostrava `movie.best_quality_available`, que é o
+    # rótulo da melhor cópia DO ACERVO — e o player quase nunca toca essa. A
+    # escolha da fonte é deliberadamente a que o navegador aceita, e não a de
+    # maior nota ("mandar a de maior nota para o player entrega imagem sem
+    # som"), então o selo descrevia um REMUX 2160p ao lado da resolução
+    # medida, 1920×1080, do WEB-DL que estava realmente no ar.
+    #
+    # Quem sabe qual cópia foi posta no ar é este resolvedor. Vazio quando não
+    # se sabe — e aí a tela não mostra selo nenhum, que é melhor que mostrar o
+    # de outra cópia.
+    rotulo_da_copia: str = ''
     # Segundos, medidos no arquivo. None quando não foi possível medir — e a
     # tela precisa aguentar isso, porque acontece. Só é preenchido quando há
     # conversão: no caminho direto o navegador lê a duração sozinho.
@@ -238,6 +252,7 @@ async def _from_realdebrid(movie, user, release_id=None) -> Optional[PlaybackSou
         container=(unrestricted.get('filename') or '').rsplit('.', 1)[-1] or None,
         quality=release.title or '',
         release_id=str(release.id),
+        rotulo_da_copia=rotulo_de_qualidade(release),
         precisa_converter=converter,
         duracao_segundos=duracao,
         faixas_de_audio=faixas,
@@ -289,6 +304,10 @@ async def _com_julgamento(fonte: str, prefixo: str, url: str, container,
         stream_url=url,
         label=rotulo,
         container=container,
+        # A biblioteca de casa não tem nome de release nem nota. O que se sabe
+        # de concreto é o container, e dizer só isso é mais honesto que montar
+        # um selo com o que não se mediu.
+        rotulo_da_copia=(container or '').upper(),
         precisa_converter=converter,
         duracao_segundos=duracao,
         faixas_de_audio=faixas,

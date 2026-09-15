@@ -149,6 +149,15 @@ class PlaybackSourceSerializer(serializers.Serializer):
     container = serializers.CharField(allow_null=True)
     quality = serializers.CharField(allow_blank=True)
     release_id = serializers.CharField(allow_null=True)
+    rotulo_da_copia = serializers.CharField(
+        allow_blank=True,
+        help_text=(
+            'Resumo curto DESTA cópia, ex.: "REMUX 2160p DV ATMOS". É o que o '
+            'player deve mostrar — `movie.best_quality_available` descreve a '
+            'melhor cópia do acervo, que quase nunca é a que está tocando. '
+            'Vazio quando não se sabe, e aí não se mostra selo nenhum.'
+        ),
+    )
     precisa_converter = serializers.ChoiceField(
         choices=['nada', 'audio', 'tudo'],
         help_text=(

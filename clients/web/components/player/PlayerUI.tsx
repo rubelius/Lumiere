@@ -40,9 +40,13 @@ export function PlayerTopBar({ onBack, title, year, quality, resolution, sourceL
         <div>
           <motion.h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', fontWeight: 400, margin: '0 0 8px 0', lineHeight: 1 }}>{title}</motion.h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '9px', letterSpacing: '0.15em', color: 'var(--m2)' }}>
-            <span style={{ color: quality ? 'var(--gold)' : 'var(--m3)', border: `1px solid ${quality ? 'rgba(191,143,60,0.4)' : 'rgba(86,84,80,0.4)'}`, padding: '2px 6px', background: quality ? 'rgba(191,143,60,0.1)' : 'transparent' }}>
-              {quality || 'SEM MÍDIA'}
-            </span>
+            {/* Sem rótulo, sem selo. "SEM MÍDIA" sobre um filme tocando é a
+                mesma mentira do selo errado, só que na direção oposta. */}
+            {quality && (
+              <span style={{ color: 'var(--gold)', border: '1px solid rgba(191,143,60,0.4)', padding: '2px 6px', background: 'rgba(191,143,60,0.1)' }}>
+                {quality}
+              </span>
+            )}
             {year && <span>{year}</span>}
             <span>ARQUIVO LUMIÈRE</span>
           </div>

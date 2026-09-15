@@ -13,7 +13,9 @@ import { PLAYERS, urlDaLegenda } from "@/features/movies/playerExterno";
 import type { FaixaDeAudio } from "@/features/movies/fonteDeVideo";
 import { avisoDoTorrent } from "@/features/movies/fonteDeVideo";
 import { RESTO_MINIMO_S, RETOMADA_MINIMA_S, duracaoDoFilme, ehConvertida,
-         faixaPadrao, pontoDeRetomada, rotuloDaFonte, temOQueTocar, tempoDaCue,
+         faixaPadrao, faixasDe, janelaCarregada, pontoDeRetomada, rotuloDaCopia,
+         rotuloDaFonte, temOQueTocar,
+         tempoDaCue,
          urlDoVideo } from "@/features/movies/fonteDeVideo";
 import { useProgressoDeExibicao } from '@/features/movies/hooks/useProgressoDeExibicao';
 
@@ -66,6 +68,9 @@ function PlayerExperience() {
   const [isWaiting, setIsWaiting] = useState(true);
   const [progress, setProgress] = useState(0);
   const [bufferedPercent, setBufferedPercent] = useState(0);
+  // Onde o trecho carregado COMEÇA. Era fixo no ponto de abertura do fluxo, o
+  // que só está certo antes do primeiro salto.
+  const [bufferedInicioPercent, setBufferedInicioPercent] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
   const [volume, setVolume] = useState(80);
@@ -356,11 +361,22 @@ function PlayerExperience() {
   };
 
   const handleProgress = () => {
-    if (videoRef.current && videoRef.current.buffered.length > 0 && totalTime > 0) {
-      const fim = deslocamento
-        + videoRef.current.buffered.end(videoRef.current.buffered.length - 1);
-      setBufferedPercent((fim / totalTime) * 100);
+    const v = videoRef.current;
+    if (!v || totalTime <= 0) return;
+
+    // A ilha onde a pessoa ESTÁ, e não o fim da última. `buffered` é uma lista
+    // de trechos descontínuos: depois de um salto a ilha antiga continua lá, e
+    // pintar de uma ponta à outra afirma que o vão entre elas está carregado.
+    const janela = janelaCarregada(faixasDe(v.buffered), v.currentTime);
+    if (!janela) {
+      // Nada carregado no ponto atual — logo depois de um salto. Mostrar nada
+      // é o certo: não há mesmo nada.
+      setBufferedInicioPercent(0);
+      setBufferedPercent(0);
+      return;
     }
+    setBufferedInicioPercent(((deslocamento + janela.inicio) / totalTime) * 100);
+    setBufferedPercent(((deslocamento + janela.fim) / totalTime) * 100);
   };
 
   /**
@@ -663,7 +679,17 @@ function PlayerExperience() {
             onBack={handleBack}
             title={movie?.title || 'Carregando…'}
             year={movie?.year}
-            quality={movie?.best_quality_available || undefined}
+            // A cópia QUE ESTÁ TOCANDO, e não a melhor do acervo.
+            //
+            // Era `movie.best_quality_available`, que é o rótulo da cópia de
+            // maior nota do arquivo — e a escolha da fonte é deliberadamente a
+            // que o navegador aceita, não a de maior nota. O resultado era o
+            // selo dizendo "REMUX 2160p DV ATMOS" ao lado da resolução medida
+            // no elemento, 1920×1080, do WEB-DL que estava de fato no ar.
+            //
+            // Tocando do torrent não há rótulo: o resolvedor não foi quem
+            // escolheu, e mostrar o dele seria descrever outra cópia de novo.
+            quality={rotuloDaCopia(fonte, torrentHash, movie?.best_quality_available) || undefined}
             resolution={resolution}
             sourceLabel={rotuloDaFonte(fonte, modo, torrentHash)}
           />
@@ -677,7 +703,7 @@ function PlayerExperience() {
             totalTimeStr={formatTime(totalTime)}
             progressPercent={progress}
             bufferedPercent={bufferedPercent}
-            bufferedStartPercent={totalTime > 0 ? (deslocamento / totalTime) * 100 : 0}
+            bufferedStartPercent={bufferedInicioPercent}
             onSeek={handleSeek}
             isPlaying={isPlaying}
             onTogglePlay={togglePlay}

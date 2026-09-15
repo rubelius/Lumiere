@@ -251,13 +251,40 @@ async function alcancaAInternet() {
   }
 }
 
-function estadoDe(entrada) {
+// A última resposta sobre rota, e quando ela foi dada.
+//
+// A tela pergunta o estado de 3 em 3 segundos, e uma consulta de DNS a cada
+// pergunta seria trabalho à toa. Dez segundos são curtos o bastante para a
+// pessoa ver a mudança e longos o bastante para não virar tráfego.
+let _rota = { valor: true, em: 0 };
+const SEGUNDOS_DE_MEMORIA_DA_ROTA = 10;
+
+async function _temRota(agora) {
+  if (agora - _rota.em < SEGUNDOS_DE_MEMORIA_DA_ROTA * 1000) return _rota.valor;
+  _rota = { valor: await alcancaAInternet(), em: agora };
+  return _rota.valor;
+}
+
+async function estadoDe(entrada) {
   const { torrent, arquivo, erro } = entrada;
+
+  // "Zero pares" e "sem rota para fora" produzem o MESMO número, e a tela
+  // usava só o número: com o túnel caído ela acusava o enxame de estar vazio e
+  // mandava trocar de cópia — a mesma frase falsa e acionável na direção
+  // errada que o caminho de ENTRADA já tinha consertado. `adiciona()`
+  // confirmava rota antes de acusar; este caminho, não. Duas respostas para a
+  // mesma pergunta, e só uma estava certa.
+  //
+  // Só se pergunta quando o número é zero: com par conectado, existe rota por
+  // definição.
+  const semRota = torrent.numPeers === 0 && !(await _temRota(Date.now()));
+
   return {
     info_hash: torrent.infoHash,
     arquivo: arquivo ? arquivo.name : null,
     tamanho: arquivo ? arquivo.length : null,
     pares: torrent.numPeers,
+    sem_rota: semRota,
     // Do ARQUIVO, e não do torrent: um torrent com extras tem progresso baixo
     // enquanto o filme já está quase todo aqui.
     progresso: arquivo ? arquivo.progress : torrent.progress,
@@ -485,7 +512,7 @@ const servidor = http.createServer(async (requisicao, resposta) => {
       // `cota: 0` do cliente quer dizer ilimitado.
       const entrada = await adiciona(
         magnet, cota === undefined ? COTA_DO_CACHE : (Number(cota) || Infinity));
-      return jsonDe(resposta, 200, estadoDe(entrada));
+      return jsonDe(resposta, 200, await estadoDe(entrada));
     }
 
     // GET /torrent/:hash/estado  |  /stream   |  DELETE /torrent/:hash
@@ -497,7 +524,7 @@ const servidor = http.createServer(async (requisicao, resposta) => {
         remove(partes[1]);
         return jsonDe(resposta, 200, { removido: true });
       }
-      if (partes[2] === 'estado') return jsonDe(resposta, 200, estadoDe(entrada));
+      if (partes[2] === 'estado') return jsonDe(resposta, 200, await estadoDe(entrada));
       if (partes[2] === 'stream') return transmite(entrada, requisicao, resposta);
     }
 

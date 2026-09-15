@@ -9,12 +9,15 @@ import {
   duracaoDoFilme,
   ehConvertida,
   pontoDeRetomada,
+  rotuloDaCopia,
   rotuloDaFonte,
   temOQueTocar,
   tempoDaCue,
   urlDoVideo,
   ehComentario,
   faixaPadrao,
+  faixasDe,
+  janelaCarregada,
   nomeDaFaixa,
 } from './fonteDeVideo';
 
@@ -384,6 +387,7 @@ describe('conversão de uma fonte sem release', () => {
     container: 'mkv',
     quality: '',
     release_id: null,
+    rotulo_da_copia: 'MKV',
     precisa_converter: 'audio',
     duracao_segundos: 9270,
     faixas_de_audio: [],
@@ -408,5 +412,138 @@ describe('conversão de uma fonte sem release', () => {
   it('sem conversão, toca direto do servidor de casa', () => {
     const direto = { ...doJellyfin, precisa_converter: 'nada' as const, label: 'JELLYFIN' };
     expect(urlDoVideo(direto, 'filme-1')).toBe('http://casa:8096/Items/abc/stream');
+  });
+});
+
+// ── o selo descreve a cópia QUE ESTÁ TOCANDO ─────────────────────────────
+// O defeito: o player mostrava `movie.best_quality_available`, o rótulo da
+// melhor cópia DO ACERVO. A escolha da fonte é deliberadamente a que o
+// navegador aceita, e não a de maior nota — então o selo dizia
+// "REMUX 2160p DV ATMOS" ao lado da resolução medida no elemento, 1920×1080,
+// do WEB-DL que estava de fato no ar.
+
+describe('rotuloDaCopia', () => {
+  const remuxDoAcervo = 'REMUX 2160p DV ATMOS';
+  const noAr = {
+    source: 'realdebrid', stream_url: 'https://rd/f.mkv', label: 'DIRECT PLAY',
+    container: 'mkv', quality: 'Filme.1080p.WEB-DL.AAC', release_id: 'r1',
+    rotulo_da_copia: '1080p', precisa_converter: 'nada',
+    duracao_segundos: null, faixas_de_audio: [],
+  } as NonNullable<Parameters<typeof rotuloDaCopia>[0]>;
+
+  it('usa o rótulo da fonte resolvida, não o do acervo', () => {
+    expect(rotuloDaCopia(noAr, null, remuxDoAcervo)).toBe('1080p');
+  });
+
+  it('tocando do torrent não descreve a cópia do resolvedor', () => {
+    // O resolvedor não foi quem escolheu; mostrar o rótulo dele seria
+    // descrever outra cópia de novo.
+    expect(rotuloDaCopia(noAr, 'a'.repeat(40), remuxDoAcervo)).toBe('');
+  });
+
+  it('sem fonte, nada — e nunca o rótulo do acervo', () => {
+    expect(rotuloDaCopia(null, null, remuxDoAcervo)).toBe('');
+    expect(rotuloDaCopia(undefined, null, remuxDoAcervo)).toBe('');
+  });
+
+  it('fonte sem rótulo não vira o do acervo', () => {
+    const semRotulo = { ...noAr, rotulo_da_copia: '' };
+    expect(rotuloDaCopia(semRotulo, null, remuxDoAcervo)).toBe('');
+  });
+});
+
+// ── rota caída não é enxame vazio ────────────────────────────────────────
+// `pares === 0` responde "quantos pares estão conectados agora" e estava
+// respondendo "esta cópia tem quem a compartilhe". Com o túnel caído as
+// conexões morrem e o número vai a zero para QUALQUER torrent — a frase manda
+// trocar de cópia, e nenhuma outra vai funcionar.
+
+describe('avisoDoTorrent com a rota caída', () => {
+  it('acusa a rota, e não o enxame', () => {
+    const aviso = avisoDoTorrent({ pares: 0, velocidade: 0, sem_rota: true });
+    expect(aviso).toContain('SEM ROTA');
+    expect(aviso).not.toContain('NENHUM SEMEADOR');
+  });
+
+  it('diz explicitamente que trocar de cópia não resolve', () => {
+    // Sem esta frase a pessoa faz exatamente a coisa que não adianta.
+    expect(avisoDoTorrent({ pares: 0, velocidade: 0, sem_rota: true }))
+      .toMatch(/TROCAR NÃO ADIANTA/);
+  });
+
+  it('com rota, zero pares continua sendo culpa do enxame', () => {
+    const aviso = avisoDoTorrent({ pares: 0, velocidade: 0, sem_rota: false });
+    expect(aviso).toContain('NENHUM SEMEADOR');
+    expect(aviso).not.toContain('SEM ROTA');
+  });
+
+  it('a rota vence a lentidão: com o túnel caído, "poucos semeadores" é ruído', () => {
+    const aviso = avisoDoTorrent({ pares: 0, velocidade: 100, sem_rota: true });
+    expect(aviso).toContain('SEM ROTA');
+  });
+
+  it('motor antigo, sem o campo, se comporta como antes', () => {
+    // O campo é novo; um motor que não foi reiniciado não o manda.
+    expect(avisoDoTorrent({ pares: 0, velocidade: 0 })).toContain('NENHUM SEMEADOR');
+  });
+});
+
+// ── a barra de carregado não pode inventar o que não chegou ──────────────
+// `video.buffered` é uma LISTA DE ILHAS, não um intervalo. A barra usava o fim
+// da última ilha e pintava um bloco contínuo desde o início: quem assistiu
+// cinco minutos e saltou para 1h30 via a barra cobrir tudo até 1h31.
+
+describe('janelaCarregada', () => {
+  // O cenário exato: cinco minutos vistos, salto para 1h30.
+  const depoisDoSalto = [{ inicio: 0, fim: 300 }, { inicio: 5400, fim: 5460 }];
+
+  it('devolve a ilha onde a pessoa está, não a última', () => {
+    expect(janelaCarregada(depoisDoSalto, 5410)).toEqual({ inicio: 5400, fim: 5460 });
+  });
+
+  it('parado no começo, devolve a ilha do começo', () => {
+    expect(janelaCarregada(depoisDoSalto, 120)).toEqual({ inicio: 0, fim: 300 });
+  });
+
+  it('no VÃO entre as ilhas não há nada carregado', () => {
+    // O defeito inteiro morava aqui: 1h (3600s) era pintado como pronto.
+    expect(janelaCarregada(depoisDoSalto, 3600)).toBeNull();
+  });
+
+  it('estar exatamente no fim de uma ilha ainda é estar nela', () => {
+    // É onde a reprodução para para esperar; dizer "nada carregado" ali
+    // apagaria a barra justamente quando ela informa alguma coisa.
+    expect(janelaCarregada(depoisDoSalto, 300)).toEqual({ inicio: 0, fim: 300 });
+  });
+
+  it('sem nada carregado, nada', () => {
+    expect(janelaCarregada([], 0)).toBeNull();
+    expect(janelaCarregada(undefined, 0)).toBeNull();
+    expect(janelaCarregada(null, 10)).toBeNull();
+  });
+
+  it('uma ilha só se comporta como antes', () => {
+    expect(janelaCarregada([{ inicio: 0, fim: 900 }], 60))
+      .toEqual({ inicio: 0, fim: 900 });
+  });
+});
+
+describe('faixasDe', () => {
+  // O TimeRanges do DOM, que não dá para construir num teste de nó.
+  const comoODom = (pares: number[][]): TimeRanges => ({
+    length: pares.length,
+    start: (i: number) => pares[i][0],
+    end: (i: number) => pares[i][1],
+  } as TimeRanges);
+
+  it('lê todas as ilhas, e não só a última', () => {
+    expect(faixasDe(comoODom([[0, 300], [5400, 5460]]))).toEqual([
+      { inicio: 0, fim: 300 }, { inicio: 5400, fim: 5460 },
+    ]);
+  });
+
+  it('aguenta o elemento sem buffer nenhum', () => {
+    expect(faixasDe(comoODom([]))).toEqual([]);
+    expect(faixasDe(undefined)).toEqual([]);
   });
 });
