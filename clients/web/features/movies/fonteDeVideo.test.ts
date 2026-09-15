@@ -366,3 +366,39 @@ describe('rotuloDaFonte com torrent', () => {
     expect(rotuloDaFonte(null, null, null)).toBeUndefined();
   });
 });
+
+// ── fonte de biblioteca local, que não tem release ───────────────────────
+// Jellyfin e Plex resolvem para um arquivo do servidor de casa, sem
+// `TorrentRelease` por trás. Agora que essas fontes podem pedir conversão
+// (um DTS da biblioteca tocava mudo sob "JELLYFIN DIRECT"), a URL precisa
+// funcionar sem o parâmetro `release`.
+
+describe('conversão de uma fonte sem release', () => {
+  const doJellyfin = {
+    stream_url: 'http://casa:8096/Items/abc/stream',
+    precisa_converter: 'audio',
+    label: 'JELLYFIN — ÁUDIO CONVERTIDO',
+    release_id: null,
+  } as never;
+
+  it('vai para o conversor, e não para a URL crua', () => {
+    const url = urlDoVideo(doJellyfin, 'filme-1');
+    expect(url).toContain('/api/stream/filme-1');
+    expect(url).not.toContain('casa:8096');
+  });
+
+  it('não inventa um release que não existe', () => {
+    expect(urlDoVideo(doJellyfin, 'filme-1')).not.toContain('release=');
+  });
+
+  it('o ponto de partida e a faixa continuam chegando', () => {
+    const url = urlDoVideo(doJellyfin, 'filme-1', 600, null, 2);
+    expect(url).toContain('inicio=600.000');
+    expect(url).toContain('faixa=2');
+  });
+
+  it('sem conversão, toca direto do servidor de casa', () => {
+    const direto = { ...doJellyfin, precisa_converter: 'nada', label: 'JELLYFIN' };
+    expect(urlDoVideo(direto, 'filme-1')).toBe('http://casa:8096/Items/abc/stream');
+  });
+});

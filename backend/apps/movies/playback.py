@@ -22,6 +22,8 @@ from typing import Callable, List, Optional
 from asgiref.sync import sync_to_async
 from django.conf import settings
 
+from apps.movies.compatibilidade import (audio_principal,
+                                          o_que_converter_de_codecs)
 from apps.integrations.jellyfin import JellyfinClient
 from apps.integrations.plex import PlexClient
 from apps.integrations.realdebrid import (RealDebridClient,
@@ -242,6 +244,57 @@ async def _from_realdebrid(movie, user, release_id=None) -> Optional[PlaybackSou
     )
 
 
+async def _com_julgamento(fonte: str, prefixo: str, url: str, container,
+                          audio_codec, video_codec) -> PlaybackSource:
+    """
+    Uma fonte de biblioteca local, com a mesma pergunta que o Real-Debrid leva.
+
+    O DEFEITO QUE ISTO FECHA: `precisa_converter` só era calculado no caminho
+    do Real-Debrid, onde existe um `TorrentRelease` com codecs lidos do nome.
+    Jellyfin e Plex devolviam a fonte com o padrão `NADA` e o rótulo fixo
+    "JELLYFIN DIRECT" — e um arquivo com DTS tocava imagem sem som, sob um
+    rótulo que prometia reprodução direta. Era a tela afirmando o que não é
+    verdade, no formato que este projeto mais repete: uma pergunta que só
+    existia num dos caminhos.
+
+    Aqui quem responde é o PRÓPRIO SERVIDOR: Jellyfin e Plex leem o arquivo e
+    dizem os codecs, o que é melhor que o nome do release e não custa uma
+    sondagem. A sondagem só entra quando vai haver conversão — e aí é pelo
+    mesmo motivo do Real-Debrid: o conversor precisa da duração (o MP4
+    fragmentado não a declara) e das faixas (o navegador recebe uma só, já
+    misturada).
+    """
+    converter = o_que_converter_de_codecs(audio_codec, video_codec)
+
+    duracao, faixas = None, []
+    if converter != NADA:
+        # Numa thread: o ffprobe bloqueia por segundos e isto roda no laço de
+        # eventos. Contra um servidor de casa custa bem menos que os ~4,6s
+        # medidos contra o Real-Debrid.
+        try:
+            medido = await asyncio.to_thread(sonda_o_arquivo, url)
+            duracao, faixas = medido['duracao'], medido['faixas']
+        except Exception as erro:
+            # Não sondar não é motivo para não tocar: sem duração o player
+            # ainda toca, só não sabe saltar com precisão. Desistir aqui
+            # trocaria um filme com ressalva por filme nenhum.
+            logger.warning('não consegui sondar a fonte %s: %s', fonte, erro)
+
+    # O rótulo diz as DUAS coisas: de onde vem e o que vai acontecer. Só a
+    # origem escondia o tratamento; só o tratamento escondia a origem.
+    rotulo = prefixo if converter == NADA else f'{prefixo} — {ROTULOS[converter]}'
+
+    return PlaybackSource(
+        source=fonte,
+        stream_url=url,
+        label=rotulo,
+        container=container,
+        precisa_converter=converter,
+        duracao_segundos=duracao,
+        faixas_de_audio=faixas,
+    )
+
+
 async def _from_jellyfin(movie, user) -> Optional[PlaybackSource]:
     """Biblioteca Jellyfin do usuário."""
     server = getattr(user, 'jellyfin_server_url', '')
@@ -259,12 +312,10 @@ async def _from_jellyfin(movie, user) -> Optional[PlaybackSource]:
         if not item:
             return None
 
-        return PlaybackSource(
-            source='jellyfin',
-            stream_url=client.build_stream_url(item['id']),
-            label='JELLYFIN DIRECT',
-            container=item.get('container'),
-        )
+        url = client.build_stream_url(item['id'])
+        return await _com_julgamento(
+            'jellyfin', 'JELLYFIN', url, item.get('container'),
+            audio_principal(item.get('faixas')), item.get('video_codec'))
     finally:
         await client.close()
 
@@ -292,12 +343,12 @@ async def _from_plex(movie, user) -> Optional[PlaybackSource]:
 
         # O token vai na query porque a tag <video> não manda cabeçalhos.
         separador = '&' if '?' in chave else '?'
-        return PlaybackSource(
-            source='plex',
-            stream_url=f"{server.rstrip('/')}{chave}{separador}X-Plex-Token={token}",
-            label='PLEX DIRECT',
-            container=parts[0].get('container'),
-        )
+        parte = next((p for p in parts if p.get('key') == chave), parts[0])
+        return await _com_julgamento(
+            'plex', 'PLEX',
+            f"{server.rstrip('/')}{chave}{separador}X-Plex-Token={token}",
+            parte.get('container'),
+            parte.get('audio_codec'), parte.get('video_codec'))
     finally:
         await client.close()
 

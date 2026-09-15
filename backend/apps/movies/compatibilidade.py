@@ -79,3 +79,95 @@ def compatibilidade_no_navegador(release) -> str:
 def toca_no_navegador(release) -> bool:
     """Atalho para quem só quer filtrar."""
     return compatibilidade_no_navegador(release) == TOCA
+
+
+# ── quando quem responde é o SERVIDOR, e não o nome do arquivo ────────────
+#
+# Jellyfin e Plex leem o arquivo de verdade e dizem os codecs em vocabulário de
+# ffmpeg: 'dts', 'truehd', 'eac3', 'aac', 'hevc'. O parser de nome de release
+# fala outro dialeto — 'DTS-HD MA', 'Dolby TrueHD', 'DD+', 'AVC' — porque lê o
+# que o grupo de release escreveu, não o arquivo.
+#
+# Os dois dialetos precisam existir. Traduzir um para o outro seria escolher um
+# vencedor e perder informação nos dois sentidos: o nome de release distingue
+# 'DTS-HD MA' de 'DTS' (que o ffmpeg chama de 'dts' nos dois casos), e o
+# servidor sabe o que REALMENTE está no arquivo, que é mais do que o nome
+# promete.
+#
+# O que não pode acontecer é a pergunta só existir de um lado — foi o defeito:
+# `precisa_converter` só era calculado no caminho do Real-Debrid, e um DTS
+# vindo da biblioteca local tocava mudo sob o rótulo "JELLYFIN DIRECT".
+
+# Nomes de ffmpeg para o que o navegador não decodifica. Medido com
+# canPlayType; ver a tabela no topo deste arquivo.
+AUDIO_FFMPEG_QUE_NAO_TOCA = frozenset({
+    'dts', 'dca', 'truehd', 'mlp', 'ac3', 'eac3', 'ac-3', 'e-ac-3',
+    'dtshd', 'dts-hd', 'pcm_bluray', 'pcm_dvd',
+})
+
+AUDIO_FFMPEG_QUE_TOCA = frozenset({
+    'aac', 'flac', 'mp3', 'opus', 'vorbis', 'mp2',
+})
+
+VIDEO_FFMPEG_QUE_TOCA = frozenset({
+    'h264', 'avc', 'avc1', 'hevc', 'h265', 'hvc1', 'av1', 'vp9', 'vp09',
+})
+
+
+def _limpa(codec) -> str:
+    return str(codec or '').strip().lower()
+
+
+def o_que_converter_de_codecs(audio_codec, video_codec) -> str:
+    """
+    Quanto trabalho dá um arquivo cujos codecs o SERVIDOR informou.
+
+    Devolve o mesmo vocabulário de `o_que_transcodificar`: 'nada', 'audio' ou
+    'tudo' — a tela e o conversor não precisam saber de onde veio o julgamento.
+
+    DESCONHECIDO É 'NADA', e é uma escolha: converter por precaução gastaria
+    CPU em toda biblioteca local que não declara codec, e o resultado de errar
+    aqui é o comportamento de hoje (tenta direto e, se vier mudo, a pessoa tem
+    o player externo ao lado). Converter à toa não tem volta — ela espera o
+    ffmpeg para assistir algo que tocaria sozinho.
+    """
+    from apps.movies.transcode import NADA, SO_AUDIO, TUDO
+
+    audio = _limpa(audio_codec)
+    video = _limpa(video_codec)
+
+    audio_falha = audio in AUDIO_FFMPEG_QUE_NAO_TOCA
+    # Vídeo desconhecido conta como aproveitável, pelo mesmo motivo de
+    # `o_que_transcodificar`: recodificar vídeo exige o codificador de hardware
+    # e come a máquina, e o áudio é o problema real em quase todos os casos.
+    video_falha = bool(video) and video not in VIDEO_FFMPEG_QUE_TOCA
+
+    if not audio_falha and not video_falha:
+        return NADA
+    if video_falha:
+        return TUDO
+    return SO_AUDIO
+
+
+def audio_principal(faixas) -> str:
+    """
+    O codec da faixa que vai TOCAR — não de uma faixa qualquer do arquivo.
+
+    Um .mkv com DTS em inglês e AAC em português é comum, e perguntar "existe
+    alguma faixa boa?" responde a pergunta errada: o navegador toca a faixa
+    marcada como padrão, e se ela for DTS o filme vem mudo com um AAC intacto
+    ao lado.
+
+    Sem nenhuma marca de padrão, vale a primeira — que é o que os tocadores
+    fazem.
+    """
+    de_audio = [f for f in (faixas or [])
+                if str(f.get('tipo') or f.get('Type') or '').lower() == 'audio']
+    if not de_audio:
+        return ''
+
+    padrao = next(
+        (f for f in de_audio
+         if f.get('padrao') or f.get('IsDefault') or f.get('default')),
+        de_audio[0])
+    return _limpa(padrao.get('codec') or padrao.get('Codec'))

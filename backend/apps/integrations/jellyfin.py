@@ -58,12 +58,23 @@ class JellyfinClient:
             if year and item.get('ProductionYear') != year:
                 continue
             sources = item.get('MediaSources') or []
+            primeira = sources[0] if sources else {}
+            # As faixas JÁ VÊM na resposta — `Fields=MediaSources` as traz — e
+            # eram descartadas aqui. É delas que sai a resposta para "o
+            # navegador dá conta deste arquivo?", que sem isto ninguém fazia no
+            # caminho do Jellyfin: um DTS tocava mudo sob o rótulo
+            # "JELLYFIN DIRECT".
+            faixas = primeira.get('MediaStreams') or []
+            video = next((f for f in faixas
+                          if str(f.get('Type') or '').lower() == 'video'), {})
             return {
                 'id': item.get('Id'),
                 'name': item.get('Name'),
                 'year': item.get('ProductionYear'),
-                'container': (sources[0].get('Container') if sources else None),
-                'size_bytes': (sources[0].get('Size') if sources else None),
+                'container': primeira.get('Container'),
+                'size_bytes': primeira.get('Size'),
+                'video_codec': video.get('Codec'),
+                'faixas': faixas,
             }
         return None
 

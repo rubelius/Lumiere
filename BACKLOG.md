@@ -4,29 +4,44 @@ O que está decidido e ainda não construído. Cada item diz o que é, por que
 importa e o que já se sabe sobre a dificuldade — para quem pegar não precisar
 redescobrir.
 
-## Tocar direto do torrent, como o Stremio
+## ✅ Tocar direto do torrent, como o Stremio
 
-**Pedido em 2026-09-08.** Quando nenhuma cópia tem disponibilidade imediata no
-Real-Debrid, oferecer a reprodução direta do torrent, avisando que com poucos
-semeadores a reprodução pode travar.
+**Pedido em 2026-09-08. Fechado em 2026-09-14.** `clients/torrent/` é um
+serviço Node com webtorrent 3, servindo o arquivo por HTTP com `Range` enquanto
+baixa. Medido: os últimos 64 KB de um arquivo com 0% baixado chegaram em 1,2s.
 
-Hoje a tela mostra a opção desabilitada, dizendo que não existe. É honesto, mas
-é uma lacuna real: sem isso, filme sem cache no Real-Debrid não tem como ser
-visto no mesmo instante.
+**Cache deslizante** (`cacheDeslizante.js`), como o Stremio na TV: cota que o
+usuário escolhe na tela, e as peças já assistidas saem do disco. Um arquivo por
+peça porque o Node não expõe `FALLOC_FL_PUNCH_HOLE`. A parte não óbvia, medida:
+apagar a peça NÃO BASTA — o torrent segue achando que a tem, e um salto para
+trás termina com zero bytes e sem erro. A cura é `torrent._markUnverified`.
 
-**O que falta:** um motor de torrent que sirva o arquivo por HTTP enquanto
-baixa — download sequencial mais suporte a *range requests*, que é o que a tag
-`<video>` precisa para buscar posição. Nada no stack atual faz isso: o
-`rdtclient` gerencia o Real-Debrid e não transmite; o qBittorrent não transmite.
+**O que só apareceu ao ligar tudo ao vivo:** nenhum dos 1629 magnets do acervo
+traz `&tr=`. Sem tracker sobra a DHT, e os semeadores que o indexador anuncia se
+anunciam ao tracker. Medido no mesmo magnet: 30s sem um par, 2,3s com anúncio.
 
-**Candidatos:** `webtorrent-hybrid` (Node, mesmo runtime do cliente) ou
-`libtorrent` via Python. Os dois exigem serviço próprio, porta, ciclo de vida e
-um caminho de erro específico — "o torrent não tem semeadores" precisa chegar à
-tela como frase, não como vídeo travado.
+**E a escolha da cópia era uma só para duas perguntas diferentes.** "Baixar no
+Real-Debrid" e "tocar direto" só parecem a mesma: numa quem procura o enxame é
+o Real-Debrid, na outra é esta máquina, agora. O número de semeadores do
+indexador é uma afirmação, não uma medida — em Pulp Fiction, a cópia com 104
+anunciados ficou 30s sem um par e outra respondeu em 8,5s. Hoje vai uma lista
+de até três, e a view tenta a seguinte quando o motor diz que não achou ninguém.
 
-**Onde encaixa:** `components/movie/MovieSidebar.tsx`, no bloco de escolha que
-aparece quando `tocaAgora` é falso; e um resolvedor novo em
-`apps/movies/playback.py`, depois do Real-Debrid na cadeia.
+## ✅ Rodar o motor de torrent atrás de uma VPN
+
+**Fechado em 2026-09-15.** `docker-compose.torrent.yml` roteia só o motor por um
+container gluetun; o resto do Lumière continua na máquina. Os 22 provedores do
+`infra/torrent.env.exemplo` foram lidos do binário do gluetun, não da
+documentação.
+
+A garantia é estrutural: o container do motor não tem pilha de rede própria.
+Medido com um túnel apontado para o nada — `NetworkMode=container:<gluetun>`,
+internet bloqueada (`EAI_AGAIN`), e sem túnel o motor nem chega a iniciar.
+
+**Aberto:** nenhum comando local prova o que o ENXAME vê. `infra/confere-a-vpn.sh`
+termina mandando conferir no ipleak.net com o magnet de teste, manualmente.
+Automatizar isso exigiria o Lumière entrar num enxame de diagnóstico e ler o IP
+de volta — dá para fazer, e ainda não foi feito.
 
 ## O player precisa deixar de ser maquete
 
@@ -78,10 +93,22 @@ Real-Debrid custa ~4,6s — e trocar de faixa religa o ffmpeg com outro
 são marcadas: em "Mártires", duas das quatro são especialistas falando sobre o
 filme, e cair numa delas troca o filme por uma aula.
 
-**Limite conhecido:** Jellyfin e Plex nunca passam por essa pergunta —
-`precisa_converter` só é calculado no caminho do Real-Debrid, onde existe uma
-cópia com codecs declarados. Um DTS vindo da biblioteca local ainda toca mudo,
-sob o rótulo 'JELLYFIN DIRECT'.
+**Fechado em 2026-09-15:** Jellyfin e Plex passam pela mesma pergunta. Os dois
+servidores já devolviam os codecs do arquivo — o Plex em `Media@audioCodec`, o
+Jellyfin em `MediaSources[].MediaStreams[]` — e os dois eram descartados.
+`o_que_converter_de_codecs` julga em vocabulário de ffmpeg (`dts`, `truehd`,
+`eac3`), que é outro dialeto do parser de nome de release (`DTS-HD MA`,
+`Dolby TrueHD`): os dois precisam existir, porque cada um sabe algo que o outro
+não sabe.
+
+O rótulo passou a dizer as duas coisas — `JELLYFIN — ÁUDIO CONVERTIDO` — porque
+só a origem escondia o tratamento, e só o tratamento escondia a origem. O
+endpoint de conversão já funcionava para qualquer fonte; faltava só o
+julgamento.
+
+**Não verificado ao vivo:** esta instalação não tem Jellyfin nem Plex
+configurados. Os testes exercitam as formas reais das duas APIs, e oito mutações
+foram pegas, mas ninguém apontou isto para um servidor de verdade ainda.
 
 ## O Real-Debrid não diz mais o que está em cache
 
