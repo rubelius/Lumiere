@@ -221,7 +221,18 @@ function PlayerExperience() {
     // Pequeno delay para o React processar a destruição do Portal
     setTimeout(() => {
       setMounted(false);
-      router.push('/'); // Usar push('/') as vezes é mais seguro que back() em Portals
+      // VOLTA PARA A FICHA DO FILME, e não para a home.
+      //
+      // Sair do player e cair na home apaga o contexto inteiro: quem estava
+      // escolhendo uma cópia, lendo a ficha ou comparando versões perde o
+      // lugar e precisa procurar o filme de novo. O `id` está na própria URL do
+      // player — nunca foi preciso adivinhar de onde a pessoa veio.
+      //
+      // `push` e não `back()` de propósito: o comentário antigo já dizia que
+      // `back()` é traiçoeiro com o Portal, e além disso o histórico pode ter
+      // várias entradas do próprio player (trocar de faixa, saltar) — voltar
+      // uma só cairia no player de novo.
+      router.push(movieId ? `/movie/${movieId}` : '/');
     }, 300);
   };
 
