@@ -22,7 +22,7 @@ def filme(db):
 
 
 def copia(filme, *, nota, audio='', video='AVC', imediata=False, na_conta=False,
-          remux=False, magnet='magnet:?xt=urn:btih:' + 'a' * 40):
+          remux=False, magnet='magnet:?xt=urn:btih:' + 'a' * 40, semeadores=10):
     """
     Uma cópia com só o que a decisão lê.
 
@@ -40,6 +40,7 @@ def copia(filme, *, nota, audio='', video='AVC', imediata=False, na_conta=False,
         video_codec=video,
         is_remux=remux,
         magnet_link=magnet,
+        seeders=semeadores,
         instantly_available=imediata,
         in_realdebrid=na_conta,
         realdebrid_status='downloaded' if na_conta else '',
@@ -218,4 +219,48 @@ def test_a_resposta_tem_sempre_as_mesmas_chaves(filme):
     cheio = como_tocar(filme)
     assert set(vazio) == set(cheio) == {
         'decisao', 'escolhida', 'melhor_para_navegador', 'para_torrent',
-        'imediatas'}
+        'por_que_nao_torrent', 'imediatas'}
+
+
+# ── por que não dá para tocar direto ──────────────────────────────────────
+# A tela dizia sempre "NENHUMA CÓPIA COM MAGNET PARA ENVIAR AO MOTOR" — uma das
+# três razões, e quase nunca a verdadeira. Mandar procurar magnet quando magnet
+# existe aos montes é mandar fazer o que não resolve.
+
+def test_com_candidata_nao_ha_razao_nenhuma(filme):
+    copia(filme, nota=50, audio='AAC', imediata=False)
+    r = como_tocar(filme)
+    assert r['para_torrent']
+    assert r['por_que_nao_torrent'] == ''
+
+
+def test_sem_cópia_nenhuma_a_razão_é_o_acervo_vazio(filme):
+    assert 'CÓPIA NENHUMA' in como_tocar(filme)['por_que_nao_torrent']
+
+
+def test_cópias_sem_magnet_dizem_que_faltam_magnets(filme):
+    """As vindas da sincronização com o Real-Debrid nascem sem."""
+    copia(filme, nota=50, audio='AAC', imediata=True, magnet='')
+    r = como_tocar(filme)
+    assert 'MAGNET' in r['por_que_nao_torrent']
+    assert 'SEM SOM' not in r['por_que_nao_torrent']
+
+
+def test_nenhuma_tocável_diz_que_viria_sem_som(filme):
+    """
+    O caso comum, e o que a mensagem antiga escondia: há magnet de sobra, e o
+    que falta é uma cópia que o navegador toque. Tocar do torrent serve o
+    arquivo COMO ESTÁ — não há conversor neste caminho.
+    """
+    copia(filme, nota=90, audio='DTS-HD MA', imediata=False)
+    copia(filme, nota=80, audio='Dolby TrueHD', imediata=False)
+    r = como_tocar(filme)
+    assert 'SEM SOM' in r['por_que_nao_torrent']
+    assert 'MAGNET' not in r['por_que_nao_torrent']
+
+
+def test_tocável_sem_semeador_diz_que_falta_quem_compartilhe(filme):
+    copia(filme, nota=50, audio='AAC', imediata=False, semeadores=0)
+    r = como_tocar(filme)
+    assert 'SEMEADOR' in r['por_que_nao_torrent']
+    assert not r['para_torrent']

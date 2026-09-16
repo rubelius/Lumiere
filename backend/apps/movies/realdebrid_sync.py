@@ -261,6 +261,22 @@ def atualiza_resumo(filme) -> bool:
         instantly_available=True).exists()
     filme.save(update_fields=['best_quality_available', 'current_quality_score',
                               'available_instantly', 'cached_in_realdebrid'])
+
+    # QUEM REESCREVE AS COLUNAS DA FICHA DERRUBA A FICHA GUARDADA.
+    #
+    # O defeito: `retrieve` guarda a parte "estável" do filme por uma HORA na
+    # chave `movie:<id>`, e os selos de disponibilidade da lista de cópias
+    # ("TOCA AGORA", "BAIXANDO", "PRECISA BAIXAR") saem de lá. Abrir a ficha
+    # dispara a sincronização com o Real-Debrid, que reescreve essas colunas —
+    # e ninguém derrubava o cache. O cliente refazia o GET e recebia o retrato
+    # de até uma hora atrás: um filme recém-baixado seguia dizendo "PRECISA
+    # BAIXAR", e um removido da conta seguia oferecendo play.
+    #
+    # Fica aqui e não no endpoint porque esta função é o ponto por onde TODOS
+    # os caminhos passam — sincronização horária, busca por cópias e a abertura
+    # da ficha. Pôr no endpoint deixaria os outros dois mentindo.
+    from apps.core.core_cache import CacheManager
+    CacheManager.invalidate_movie(str(filme.id))
     return True
 
 

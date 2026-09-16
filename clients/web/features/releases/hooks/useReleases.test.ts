@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import type { EstadoDoMotor } from './useReleases';
 import { describe, expect, it, vi } from 'vitest';
 import { APIError, normalizaErro } from '@/services/http/errors';
-import { CORES_DA_COPIA, especificacaoDaCopia, explicaOScore, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, tamanhoLegivel, useRelogio, avisoDoMotor } from './useReleases';
+import { avisoDaBusca, CORES_DA_COPIA, especificacaoDaCopia, explicaOScore, mensagemDaBusca, motivoDaFalha, rotuloDaCopia, tamanhoLegivel, useRelogio, avisoDoMotor } from './useReleases';
 import type { EstadoDaBusca } from './useReleases';
 
 function erroDaApi(corpo: unknown, status: number) {
@@ -153,7 +153,8 @@ describe('mensagemDaBusca', () => {
   function doc(campos: Partial<EstadoDaBusca>): EstadoDaBusca {
     return {
       movie_id: 'm1', estado: 'ociosa', iniciada_em: null, concluida_em: null,
-      erro: null, new_releases_found: null, total_releases: null,
+      erro: null, new_releases_found: null, barradas_pelo_filtro: null,
+      total_releases: null,
       cache_check_failed: null, consultas_falhas: [], ...campos,
     };
   }
@@ -328,5 +329,50 @@ describe('o aviso do motor', () => {
 
   it('sem resposta do servidor, não inventa notícia', () => {
     expect(avisoDoMotor(undefined)).toBe('');
+  });
+});
+
+// ── "não havia nada" vs "seu filtro recusou doze" ────────────────────────
+// A mesma frase era dita nos dois casos, e eles pedem ações opostas: uma diz
+// que o filme não existe nos indexadores, a outra diz para afrouxar o piso de
+// 1080p / 5 semeadores. Dizer a primeira quando vale a segunda faz a pessoa
+// desistir do filme.
+
+describe('avisoDaBusca', () => {
+  it('cópias novas são contadas', () => {
+    expect(avisoDaBusca(1, 0)).toBe('1 CÓPIA NOVA.');
+    expect(avisoDaBusca(3, 0)).toBe('3 CÓPIAS NOVAS.');
+  });
+
+  it('nada novo mas cópias barradas aponta para o FILTRO', () => {
+    const aviso = avisoDaBusca(0, 12);
+    expect(aviso).toContain('FILTRO');
+    expect(aviso).not.toContain('NÃO HAVIA NADA');
+  });
+
+  it('e diz quantas foram, senão não dá para julgar se vale afrouxar', () => {
+    expect(avisoDaBusca(0, 12)).toContain('12');
+  });
+
+  it('nada novo e nada barrado é o único caso de "não havia nada"', () => {
+    expect(avisoDaBusca(0, 0)).toContain('NÃO HAVIA NADA');
+  });
+
+  it('cópias novas mandam, mesmo com outras barradas', () => {
+    // Trouxe o que interessava; o filtro fez o trabalho dele.
+    expect(avisoDaBusca(2, 9)).toBe('2 CÓPIAS NOVAS.');
+  });
+});
+
+describe('mensagemDaBusca com o pedido perdido', () => {
+  it('não dá por respondida uma busca que nunca rodou', () => {
+    const painel = mensagemDaBusca({
+      movie_id: 'm1', estado: 'perdida', iniciada_em: null, concluida_em: null,
+      erro: 'O PEDIDO NÃO FOI EXECUTADO.', new_releases_found: null,
+      barradas_pelo_filtro: null, total_releases: null,
+      cache_check_failed: null, consultas_falhas: [],
+    }, new Date('2026-01-01T12:00:00Z'));
+    expect(painel.erro).toContain('NÃO FOI EXECUTADO');
+    expect(painel.aviso).not.toContain('NENHUMA CÓPIA NOVA');
   });
 });

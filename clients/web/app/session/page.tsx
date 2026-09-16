@@ -11,10 +11,12 @@ import { useEncerrarSessao, useEntrarComCodigo, useIniciarSessao,
          usePrepararSessao } from "@/features/sessions/hooks/useSessaoMutations";
 import type { CinemaSession, SessionMovie } from "@/features/sessions/hooks/useSessoes";
 import { useRouter } from "next/navigation";
+import { etapasDaPreparacao, rotuloDaEtapa } from '@/features/sessions/etapasDaPreparacao';
 
 
 function TelemetryStep({ step, index }: any) {
   const isActive = step.status === 'active';
+  const parado = step.status === 'parado';
   const isDone = step.status === 'done';
   const [telemetry, setTelemetry] = useState("0x000000");
 
@@ -98,18 +100,18 @@ function TelemetryStep({ step, index }: any) {
 
       {/* 3. STATUS E TELEMETRIA */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, fontFamily: "'DM Mono', monospace", fontSize: '8px', letterSpacing: '0.2em' }}>
-        <div style={{ color: isActive ? 'var(--gold)' : 'var(--m3)', display: 'flex', alignItems: 'center', height: 10 }}>
-          {isDone ? 'CONCLUÍDO' : isActive ? (
-            <>
-              EM ANDAMENTO
-              {/* O Cursor de Terminal piscando */}
-              <motion.span
-                animate={{ opacity: [1, 1, 0, 0, 1] }}
-                transition={{ repeat: Infinity, duration: 0.8, ease: "linear", times: [0, 0.49, 0.5, 0.99, 1] }}
-                style={{ display: 'inline-block', width: 4, height: 9, backgroundColor: 'var(--gold)', marginLeft: 6 }}
-              />
-            </>
-          ) : 'AGUARDANDO'}
+        {/* O cursor piscando e o dourado são para trabalho EM VOO.
+            "Parado" é cor de alerta e sem animação: a preparação terminou e
+            desistiu, e quem olhava um cursor piscando ficava esperando. */}
+        <div style={{ color: isActive ? 'var(--gold)' : parado ? 'var(--terra)' : 'var(--m3)', display: 'flex', alignItems: 'center', height: 10 }}>
+          {rotuloDaEtapa(step.status)}
+          {isActive && (
+            <motion.span
+              animate={{ opacity: [1, 1, 0, 0, 1] }}
+              transition={{ repeat: Infinity, duration: 0.8, ease: "linear", times: [0, 0.49, 0.5, 0.99, 1] }}
+              style={{ display: 'inline-block', width: 4, height: 9, backgroundColor: 'var(--gold)', marginLeft: 6 }}
+            />
+          )}
         </div>
         
         {/* A Mágica: Hex Code mudando insanamente rápido */}
@@ -121,39 +123,6 @@ function TelemetryStep({ step, index }: any) {
       </div>
     </motion.div>
   )
-}
-
-/**
- * As quatro etapas da preparação, lidas do estado real da sessão.
- *
- * Eram fixas, com horários inventados: "Planejamento 19:00", "Busca de Mídia
- * 19:02", "Download Agora", "Sessão Pronta ~19:45". Os mesmos quatro horários
- * em qualquer visita, para qualquer conta, sem sessão nenhuma existir.
- *
- * O servidor guarda cada etapa como uma flag, e é delas que o painel sai. Uma
- * etapa fica 'active' quando a anterior terminou e ela não: é onde a
- * preparação está parada agora.
- */
-function etapasDaPreparacao(sessao?: CinemaSession) {
-  const marcos = [
-    { label: 'Planejamento', pronto: Boolean(sessao?.all_movies_selected) },
-    { label: 'Busca de Mídia', pronto: Boolean(sessao?.all_torrents_found) },
-    { label: 'Download', pronto: Boolean(sessao?.all_downloads_ready) },
-    { label: 'Sessão Pronta', pronto: Boolean(sessao?.playlist_created) },
-  ];
-
-  const primeiraPendente = marcos.findIndex((m) => !m.pronto);
-  return marcos.map((m, i) => ({
-    label: m.label,
-    status: m.pronto ? 'done' : i === primeiraPendente ? 'active' : 'pending',
-    // O componente já desenha o rótulo do status logo abaixo; este campo era
-    // o horário da etapa ("19:00", "~19:45"), inventado. O servidor não
-    // guarda horário por etapa, então só o que existe aparece: a
-    // porcentagem do download, quando é essa a etapa em curso.
-    time: m.label === 'Download' && sessao && !m.pronto
-      ? `${sessao.download_progress ?? 0}%`
-      : '',
-  }));
 }
 
 /** Especificação técnica da cópia escolhida, do release e não de um literal. */

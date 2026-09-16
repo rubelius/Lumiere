@@ -11,6 +11,7 @@ import pytest
 from django.core.cache import cache
 from rest_framework.test import APIClient
 
+from apps.core.core_cache import CacheManager
 from apps.integrations.prowlarr import ProwlarrIndisponivel
 from apps.movies import release_search
 from apps.movies.models import Movie, TorrentRelease
@@ -240,25 +241,43 @@ def test_a_ficha_e_invalidada_depois_de_o_resumo_ser_recalculado(filme, usuario,
     best_releases está na parte estável: qualquer GET nessa janela congelava
     dados velhos por uma hora.
     """
-    ordem = []
     monkeypatch.setattr('apps.movies.realdebrid_estado.mapa_da_conta',
                         lambda user, refazer=False: {})
-    monkeypatch.setattr('apps.movies.realdebrid_estado.atualiza_resumo',
-                        lambda m: ordem.append('resumo'))
-    monkeypatch.setattr('apps.movies.release_search.atualiza_resumo',
-                        lambda m: ordem.append('resumo'))
-    monkeypatch.setattr('apps.movies.release_search.CacheManager.invalidate_movie',
-                        lambda mid: ordem.append('invalida'))
 
-    async def sem_copias(self, **kw):
-        return []
+    # A invalidação mora DENTRO de `atualiza_resumo` desde que a regra virou
+    # "quem reescreve as colunas da ficha derruba a ficha" — havia duas
+    # chamadas explícitas ao lado dela, e duas linhas responsáveis pela mesma
+    # garantia divergem no dia em que alguém mexe só numa.
+    #
+    # A invariante que este teste guarda continua sendo a mesma: a ficha não
+    # pode ser derrubada ANTES de as colunas estarem gravadas. Por isso o espião
+    # registra o que o filme já dizia no instante da invalidação.
+    quando_invalidou = []
+    original = CacheManager.invalidate_movie
+
+    def espia(mid):
+        filme.refresh_from_db()
+        quando_invalidou.append(filme.best_quality_available)
+        return original(mid)
+
+    monkeypatch.setattr('apps.core.core_cache.CacheManager.invalidate_movie', espia)
+
+    async def uma_copia(self, **kw):
+        return [{'title': 'Stalker 1979 1080p BluRay x264 AAC-GRUPO',
+                 'info_hash': 'c' * 40, 'size_bytes': 8 * 1024 ** 3,
+                 'seeders': 30, 'leechers': 0,
+                 'magnet_link': 'magnet:?xt=urn:btih:' + 'c' * 40,
+                 'indexer_name': 'x'}]
 
     monkeypatch.setattr('apps.integrations.prowlarr.ProwlarrClient.search_movie',
-                        sem_copias)
+                        uma_copia)
 
     release_search.executa_busca(filme, usuario, None)
 
-    assert ordem == ['resumo', 'invalida'], f'ordem errada: {ordem}'
+    assert quando_invalidou, 'ninguém derrubou a ficha guardada'
+    assert all(rotulo for rotulo in quando_invalidou), (
+        'a ficha foi derrubada antes de o resumo ser gravado: um GET nessa '
+        f'janela congelaria dados velhos por uma hora. Vistos: {quando_invalidou}')
 
 
 # ── os filtros, que estavam escritos duas vezes ───────────────────────────

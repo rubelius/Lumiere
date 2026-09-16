@@ -905,15 +905,19 @@ def _grava_importacao(release):
     """
     Grava a cópia e reflete a mudança em todo lugar que a mostra.
 
-    São três passos porque são três lugares que guardam a resposta:
-    a linha da cópia, o resumo do filme (que é o que o card do acervo lê)
-    e o cache de uma hora da ficha do filme. Sem invalidar o último, a
-    tela continuaria mostrando o estado anterior por até uma hora depois
-    da importação — o botão pareceria não ter feito nada.
+    São três lugares que guardam a resposta: a linha da cópia, o resumo do
+    filme (que é o que o card do acervo lê) e o cache de uma hora da ficha.
+
+    Mas são DOIS passos, e não três: `atualiza_resumo` derruba a ficha
+    guardada por conta própria desde que a regra virou "quem reescreve as
+    colunas da ficha derruba a ficha". Havia aqui um `invalidate_movie`
+    explícito logo abaixo, que passou a ser a segunda chamada para o mesmo
+    filme — inofensiva, e mesmo assim errada de manter: duas linhas
+    responsáveis pela mesma garantia divergem no dia em que alguém mexe só
+    numa.
     """
     release.save()
     atualiza_resumo(release.movie)
-    CacheManager.invalidate_movie(str(release.movie_id))
 
 
 @extend_schema(

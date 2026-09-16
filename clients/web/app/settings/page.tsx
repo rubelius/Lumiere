@@ -28,7 +28,6 @@ export default function Settings() {
   // Toggles de Sistema
   const [toggles, setToggles] = useState({
     fxCinematic: true,
-    scrobbleTrakt: true,
     telemetry: false,
     notifDownload: true,
     notifError: true,
@@ -450,34 +449,33 @@ export default function Settings() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                      {/* CHAVES NÃO SÃO EXIBIDAS AQUI, E NÃO PODEM SER.
+                          Havia três prefixos escritos no código — 'eyJh...',
+                          'A7F9...', '98D2...' — mascarados com pontinhos e com
+                          botão de COPIAR ao lado. Nenhum vinha do servidor:
+                          eram literais, iguais para toda conta, e o Trakt
+                          sequer existe no projeto. Quem copiasse levaria um
+                          texto inventado achando que era sua credencial.
+                          
+                          E não é questão de ligar no valor certo: os tokens são
+                          write-only de propósito — o backend nunca os devolve.
+                          O que dá para dizer com verdade é SE estão gravados, e
+                          onde trocá-los. */}
                       {[
-                        { id: 'tmdb', name: 'TMDB V3 AUTH', prefix: 'eyJh...' },
-                        { id: 'trakt', name: 'TRAKT.TV PIN', prefix: 'A7F9...' },
-                        { id: 'osub', name: 'OPENSUBTITLES HASH', prefix: '98D2...' }
-                      ].map(api => (
-                        <div key={api.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 24, paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
+                        { nome: 'REAL-DEBRID', tem: !!integracoes?.realdebrid_connected, onde: 'Provedores' },
+                        { nome: 'OPENSUBTITLES', tem: !!integracoes?.opensubtitles_connected, onde: 'Provedores' },
+                        { nome: 'JELLYFIN', tem: !!integracoes?.jellyfin_connected, onde: 'Conexões' },
+                        { nome: 'PLEX', tem: !!integracoes?.plex_connected, onde: 'Conexões' },
+                      ].map((chave) => (
+                        <div key={chave.nome} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 24, paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                           <div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', marginBottom: 12 }}>// {api.name}</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '14px', color: 'var(--film)', letterSpacing: '0.1em' }}>
-                              {api.prefix}••••••••••••••••••••••••
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.2em', marginBottom: 12 }}>// {chave.nome}</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '11px', color: chave.tem ? 'var(--gold)' : 'var(--m3)', letterSpacing: '0.15em' }}>
+                              {chave.tem ? 'GRAVADA — O SERVIDOR NÃO A DEVOLVE' : 'NÃO CONFIGURADA'}
                             </div>
                           </div>
-                          
-                          <div style={{ display: 'flex', gap: 16 }}>
-                            <motion.button 
-                              onClick={() => copyToClipboard(api.id)}
-                              whileHover={{ color: 'var(--gold)', borderColor: 'var(--gold)' }} whileTap={{ scale: 0.95 }}
-                              style={{ background: 'transparent', border: '1px solid rgba(237,232,220,0.2)', color: copiedKey === api.id ? '#10b981' : 'var(--m2)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8 }}
-                            >
-                              {copiedKey === api.id ? <Check style={{ width: 12, height: 12 }} /> : <Copy style={{ width: 12, height: 12 }} />}
-                              [{copiedKey === api.id ? 'COPIADO' : 'COPIAR'}]
-                            </motion.button>
-                            <motion.button 
-                              whileHover={{ color: 'var(--void)', backgroundColor: 'var(--gold)', borderColor: 'var(--gold)' }} whileTap={{ scale: 0.95 }}
-                              style={{ background: 'transparent', border: '1px solid rgba(191,143,60,0.4)', color: 'var(--gold)', padding: '12px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', cursor: 'pointer', transition: 'all 0.2s' }}
-                            >
-                              [ REGERAR ]
-                            </motion.button>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em' }}>
+                            TROCAR EM › {chave.onde}
                           </div>
                         </div>
                       ))}
@@ -494,17 +492,15 @@ export default function Settings() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
-                        <div>
-                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>Sincronização Trakt.tv (Scrobbling)</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em', maxWidth: 600, lineHeight: 1.6 }}>MARCA AUTOMATICAMENTE FILMES E SÉRIES COMO ASSISTIDOS NO SEU PERFIL DO TRAKT.TV.</div>
-                        </div>
-                        <motion.button onClick={() => handleToggle('scrobbleTrakt')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.scrobbleTrakt ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.scrobbleTrakt ? 'var(--gold)' : 'var(--m3)' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
-                          [ {toggles.scrobbleTrakt ? 'ON' : 'OFF'} ]
-                        </motion.button>
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
+{/* O bloco de "Sincronização Trakt.tv (Scrobbling)" ficava aqui,
+                          anunciando que MARCA AUTOMATICAMENTE FILMES COMO
+                          ASSISTIDOS NO SEU PERFIL — com o botão em [ ON ].
+                          Não existe uma linha de integração com o Trakt em
+                          lugar nenhum do projeto: o interruptor era estado
+                          local que nascia `true` e não era lido nem enviado a
+                          lugar nenhum. Anunciar o que não existe, já ligado, é
+                          pior que não anunciar. Volta quando houver integração. */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
                         <div>
                           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>Telemetria Anônima</div>
                           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em', maxWidth: 600, lineHeight: 1.6 }}>ENVIA RELATÓRIOS DE CRASH E ESTATÍSTICAS DE DESEMPENHO DOS REPRODUTORES PARA MELHORIA DA PLATAFORMA.</div>

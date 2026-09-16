@@ -1265,6 +1265,8 @@ export interface components {
             escolhida: components["schemas"]["CopiaResumida"] | null;
             /** @description A melhor cópia que o navegador toca e que ainda precisa baixar. */
             melhor_para_navegador: components["schemas"]["CopiaResumida"] | null;
+            /** @description Por que `para_torrent` está vazia, na frase que a tela mostra. Vazio quando há candidata. Cada razão aponta para uma ação diferente — falta magnet, falta semeador, ou nenhuma cópia toca sem conversão — e a tela dizia sempre a primeira. */
+            por_que_nao_torrent: string;
             /** @description As cópias que valem TENTAR tocar direto, em ordem. É uma lista e não uma escolha porque o número de semeadores do indexador é uma afirmação, não uma medida: quem clica tenta a primeira, e o backend passa para a seguinte quando o motor diz que não achou ninguém. Diferente de `melhor_para_navegador`, que é para o download no Real-Debrid — lá quem procura o enxame é o Real-Debrid, e semeador deixa de ser requisito. */
             para_torrent: components["schemas"]["CopiaResumida"][];
             imediatas: components["schemas"]["CopiaResumida"][];

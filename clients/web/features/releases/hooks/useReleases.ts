@@ -10,7 +10,11 @@ import type { components } from '@/types/api-generated';
 
 export type Release = components['schemas']['TorrentRelease'];
 
-export type EstadoBusca = 'ociosa' | 'enfileirada' | 'buscando' | 'concluida' | 'erro';
+// 'perdida' é o pedido que o worker nunca pegou: o andamento expirou em 5
+// minutos e nenhum resultado veio depois dele. Sem este estado, a leitura caía
+// no resultado ANTERIOR e a tela dava por respondida uma busca que nunca rodou.
+export type EstadoBusca =
+  'ociosa' | 'enfileirada' | 'buscando' | 'concluida' | 'erro' | 'perdida';
 
 /**
  * O que está acontecendo com a busca de cópias de um filme.
@@ -28,6 +32,8 @@ export interface EstadoDaBusca {
   concluida_em: string | null;
   erro: string | null;
   new_releases_found: number | null;
+  /** Quantas eram DESTE filme e o filtro de qualidade recusou. */
+  barradas_pelo_filtro: number | null;
   total_releases: number | null;
   cache_check_failed: boolean | null;
   consultas_falhas: string[];
@@ -375,12 +381,44 @@ export function mensagemDaBusca(
     return painel;
   }
 
+  if (doc.estado === 'perdida') {
+    // O pedido não chegou a rodar. Dizer "nenhuma cópia nova" aqui daria por
+    // respondida uma busca que nunca aconteceu.
+    painel.erro = (doc.erro || 'O PEDIDO NÃO FOI EXECUTADO.').toUpperCase();
+    return painel;
+  }
+
   // concluida
-  const novas = doc.new_releases_found ?? 0;
-  painel.aviso = painel.aviso || (novas > 0
-    ? `${novas} CÓPIA${novas > 1 ? 'S' : ''} NOVA${novas > 1 ? 'S' : ''}.`
-    : 'NENHUMA CÓPIA NOVA — OS INDEXADORES RESPONDERAM E NÃO HAVIA NADA ALÉM DO QUE JÁ ESTÁ AQUI.');
+  painel.aviso = painel.aviso || avisoDaBusca(
+    doc.new_releases_found ?? 0, doc.barradas_pelo_filtro ?? 0);
   return painel;
+}
+
+/**
+ * O que dizer quando a busca terminou.
+ *
+ * O DEFEITO: "OS INDEXADORES RESPONDERAM E NÃO HAVIA NADA ALÉM DO QUE JÁ ESTÁ
+ * AQUI" era dito também quando os indexadores trouxeram doze cópias do filme
+ * certo e o FILTRO recusou todas — o piso padrão é 1080p e 5 semeadores, e
+ * `passa_no_filtro` descarta tudo abaixo disso E tudo cujo título não declare
+ * resolução.
+ *
+ * As duas frases pedem ações opostas: uma diz "este filme não existe nos
+ * indexadores", a outra diz "afrouxe o filtro". Dizer a primeira quando vale a
+ * segunda faz a pessoa desistir do filme.
+ */
+export function avisoDaBusca(novas: number, barradas: number): string {
+  if (novas > 0) {
+    const plural = novas > 1 ? 'S' : '';
+    return `${novas} CÓPIA${plural} NOVA${plural}.`;
+  }
+  if (barradas > 0) {
+    const plural = barradas > 1 ? 'S' : '';
+    return `NENHUMA CÓPIA NOVA — ${barradas} FORA${plural === 'S' ? 'M' : ''} `
+      + `RECUSADA${plural} PELO SEU FILTRO DE QUALIDADE. AFROUXE O PISO PARA VÊ-LA${plural}.`;
+  }
+  return 'NENHUMA CÓPIA NOVA — OS INDEXADORES RESPONDERAM E NÃO HAVIA NADA '
+    + 'ALÉM DO QUE JÁ ESTÁ AQUI.';
 }
 
 /**

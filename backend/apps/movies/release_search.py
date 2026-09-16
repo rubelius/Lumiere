@@ -64,6 +64,19 @@ def normaliza_filtros(bruto: dict | None) -> dict:
 CHAVE_ANDAMENTO = 'busca_releases:andamento:{}'
 CHAVE_RESULTADO = 'busca_releases:resultado:{}'
 
+# QUANDO O ÚLTIMO PEDIDO FOI FEITO, e este vive tanto quanto o resultado.
+#
+# O defeito: o andamento expira em 5 minutos e o resultado vive uma hora.
+# Passados 5 minutos sem ninguém executar a task — worker fora do ar, fila
+# lenta, broker acumulando — a chave de andamento some e a leitura cai no
+# RESULTADO ANTERIOR. A tela então escreve "NENHUMA CÓPIA NOVA — OS INDEXADORES
+# RESPONDERAM E NÃO HAVIA NADA", destrava o botão, e dá por respondida uma
+# busca que nunca rodou.
+#
+# Com o carimbo durável dá para comparar: pedido mais novo que o resultado quer
+# dizer que o pedido se perdeu.
+CHAVE_PEDIDO = 'busca_releases:pedido:{}'
+
 # O andamento expira em 5 minutos. O número é escolhido contra
 # SEGUNDOS_DE_ESPERA = 150.0 do ProwlarrClient, que vale POR CONSULTA e são
 # duas em paralelo: 300s é folga sobre o pior caso. Mexer num sem o outro
@@ -78,8 +91,8 @@ SEGUNDOS_DE_RESULTADO = 3600
 # A partir daqui, "enfileirada" sem ninguém ter pegado é notícia.
 SEGUNDOS_ATE_DESCONFIAR = 15
 
-OCIOSA, ENFILEIRADA, BUSCANDO, CONCLUIDA, ERRO = (
-    'ociosa', 'enfileirada', 'buscando', 'concluida', 'erro')
+OCIOSA, ENFILEIRADA, BUSCANDO, CONCLUIDA, ERRO, PERDIDA = (
+    'ociosa', 'enfileirada', 'buscando', 'concluida', 'erro', 'perdida')
 
 
 def documento(movie_id, **campos) -> dict:
@@ -99,6 +112,9 @@ def documento(movie_id, **campos) -> dict:
         'concluida_em': None,
         'erro': None,
         'new_releases_found': None,
+        # Quantas cópias DESTE filme o filtro recusou. Nasce None pelo mesmo
+        # motivo dos outros: "ainda não sei" não é zero.
+        'barradas_pelo_filtro': None,
         'total_releases': None,
         'cache_check_failed': None,
         'consultas_falhas': [],
@@ -119,10 +135,31 @@ def estado_da_busca(movie_id) -> dict:
         return andamento
 
     resultado = cache.get(CHAVE_RESULTADO.format(movie_id))
+    pedido_em = cache.get(CHAVE_PEDIDO.format(movie_id))
+
+    # Um resultado mais VELHO que o último pedido não responde por ele.
+    #
+    # Sem esta comparação, um pedido que se perdeu (worker fora do ar) era
+    # respondido, cinco minutos depois, com o resultado da busca anterior — e a
+    # tela dizia que os indexadores não tinham nada, sobre uma busca que nunca
+    # rodou.
+    if resultado and pedido_em and _mais_novo(pedido_em, resultado.get('concluida_em')):
+        return documento(
+            movie_id, estado=PERDIDA, iniciada_em=pedido_em,
+            erro=('O PEDIDO NÃO FOI EXECUTADO. O PROCESSADOR DE TAREFAS PODE '
+                  'ESTAR FORA DO AR — TENTE DE NOVO.'))
+
     if resultado:
         return resultado
 
     return documento(movie_id)
+
+
+def _mais_novo(quando, que) -> bool:
+    """Se `quando` é posterior a `que`. Sem `que`, qualquer coisa é posterior."""
+    if not que:
+        return True
+    return str(quando) > str(que)
 
 
 def marca_enfileirada(movie_id) -> dict | None:
@@ -133,9 +170,13 @@ def marca_enfileirada(movie_id) -> dict | None:
     mesmo tempo. Dois cliques simultâneos, ou duas pessoas da casa no mesmo
     filme, resultam numa única ida ao Prowlarr.
     """
-    doc = documento(movie_id, estado=ENFILEIRADA, iniciada_em=timezone.now().isoformat())
+    agora = timezone.now().isoformat()
+    doc = documento(movie_id, estado=ENFILEIRADA, iniciada_em=agora)
     # django_redis devolve bool aqui, não None.
     if cache.add(CHAVE_ANDAMENTO.format(movie_id), doc, SEGUNDOS_DE_ANDAMENTO):
+        # O carimbo durável, que sobrevive à expiração do andamento. É ele que
+        # permite descobrir, depois, que o pedido se perdeu.
+        cache.set(CHAVE_PEDIDO.format(movie_id), agora, SEGUNDOS_DE_RESULTADO)
         return doc
     return None
 
@@ -172,6 +213,7 @@ def grava_conclusao(movie_id, resultado: dict) -> dict:
         estado=CONCLUIDA,
         concluida_em=timezone.now().isoformat(),
         new_releases_found=resultado.get('new_releases_found', 0),
+        barradas_pelo_filtro=resultado.get('barradas_pelo_filtro', 0),
         total_releases=resultado.get('total_releases', 0),
         cache_check_failed=resultado.get('cache_check_failed'),
         consultas_falhas=resultado.get('consultas_falhas') or [],
@@ -226,6 +268,13 @@ def executa_busca(movie, user, filtros: dict | None = None,
 
     novas = 0
     fora_do_filme = 0
+    # Quantas eram DESTE filme e o filtro recusou.
+    #
+    # Sem este número, "os indexadores responderam e não havia nada" era dito
+    # sobre buscas que trouxeram doze cópias do filme certo e as descartaram
+    # todas no piso de 1080p / 5 semeadores. As duas frases pedem ações
+    # opostas: uma diz "não existe", a outra diz "afrouxe o filtro".
+    barradas = 0
     for resultado in resultados:
         resultado.update(parse_quality_from_title(resultado['title']))
         resultado.update(calculate_quality_score(resultado))
@@ -239,6 +288,7 @@ def executa_busca(movie, user, filtros: dict | None = None,
             continue
 
         if not passa_no_filtro(resultado, filtros):
+            barradas += 1
             continue
 
         _, criada = TorrentRelease.objects.update_or_create(
@@ -275,13 +325,17 @@ def executa_busca(movie, user, filtros: dict | None = None,
     # abaixo — resumo antes da invalidação — deixaria de valer. É idempotente.
     atualiza_resumo(movie)
 
-    # A invalidação vai por ÚLTIMO, e isso é conserto, não detalhe. A view
-    # invalidava a ficha ANTES da busca e só recalculava o resumo 40 a 100
-    # segundos depois; `retrieve` repopula a chave com TTL de uma hora, e
-    # best_releases, available_instantly e best_quality_available estão na
-    # parte estável. Qualquer GET nessa janela congelava dados velhos por uma
-    # hora inteira.
-    CacheManager.invalidate_movie(str(movie.id))
+    # A invalidação da ficha acontece dentro do `atualiza_resumo` logo acima, e
+    # a ORDEM é conserto, não detalhe: a view invalidava a ficha ANTES da busca
+    # e só recalculava o resumo 40 a 100 segundos depois. `retrieve` repopula a
+    # chave com TTL de uma hora, e best_releases, available_instantly e
+    # best_quality_available estão na parte estável — qualquer GET nessa janela
+    # congelava dados velhos por uma hora inteira.
+    #
+    # Havia aqui uma chamada explícita a `invalidate_movie`, que virou a
+    # segunda para o mesmo filme quando a regra passou a ser "quem reescreve as
+    # colunas da ficha derruba a ficha". Duas linhas responsáveis pela mesma
+    # garantia divergem no dia em que alguém mexe só numa.
 
     # O carimbo é o relógio do rastreador, e vai por último: gravado antes,
     # uma busca que estourasse no meio deixaria o filme marcado como visto.
@@ -289,11 +343,12 @@ def executa_busca(movie, user, filtros: dict | None = None,
     movie.save(update_fields=['copias_buscadas_em'])
 
     total = TorrentRelease.objects.filter(movie=movie).count()
-    logger.info('Busca em %r: %d cópias no acervo, %d novas, %d de outro filme',
-                movie.title, total, novas, fora_do_filme)
+    logger.info('Busca em %r: %d no acervo, %d novas, %d de outro filme, %d barradas',
+                movie.title, total, novas, fora_do_filme, barradas)
 
     return {
         'new_releases_found': novas,
+        'barradas_pelo_filtro': barradas,
         'total_releases': total,
         'cache_check_failed': cache_falhou,
         'consultas_falhas': consultas_falhas,

@@ -214,7 +214,7 @@ export function EscolhaDeProjecao({
                   <div style={DETALHE}>
                     {alvoDoTorrent
                       ? `${descreve(alvoDoTorrent)} — COMEÇA DO PRIMEIRO PEDAÇO, SEM ESPERAR O DOWNLOAD. COM POUCOS SEMEADORES, PODE TRAVAR.`
-                      : 'NENHUMA CÓPIA COM MAGNET PARA ENVIAR AO MOTOR.'}
+                      : plano.por_que_nao_torrent}
                   </div>
                 </motion.button>
               ) : (
