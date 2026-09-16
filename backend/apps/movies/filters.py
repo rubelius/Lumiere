@@ -14,8 +14,22 @@ class MovieFilter(django_filters.FilterSet):
     qualities = django_filters.CharFilter(method='filter_qualities')
     curations = django_filters.CharFilter(method='filter_curations')
     
-    # Busca legada (mantida por segurança)
-    search = django_filters.CharFilter(field_name='title', lookup_expr='icontains')
+    # NÃO declare `search` aqui.
+    #
+    # Havia neste ponto um `search = CharFilter(field_name='title',
+    # lookup_expr='icontains')`, com o comentário "busca legada (mantida por
+    # segurança)". Ele rodava ANTES do motor de busca da view — `list()` chama
+    # `filter_queryset()` primeiro — e reduzia o queryset ao que casasse no
+    # TÍTULO. O motor híbrido recebia os restos e não tinha como achar nada.
+    #
+    # MEDIDO pelo endpoint, com o filtro e sem ele:
+    #
+    #     tarantino    0  ->  246        Kurosawa    0  ->   85
+    #     Godard       2  ->  290        Tarkovky    0  ->  116
+    #
+    # "Godard" devolvia 2 porque dois filmes têm o nome dele no título. Buscar
+    # por diretor, ator ou gênero simplesmente não funcionava, e "mantida por
+    # segurança" descrevia o oposto do que a linha fazia.
 
     class Meta:
         model = Movie
