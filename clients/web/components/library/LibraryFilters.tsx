@@ -29,7 +29,16 @@ export function LibraryFilters({ filters, setFilters, isFilterOpen, setIsFilterO
   // Dicionários para popular o painel
   const filterOptions = {
     qualities: ["REMUX", "4K", "HDR", "Dolby Vision", "Dolby Atmos", "WEB-DL"],
-    genres: ["Drama", "Ficção Científica", "Terror", "Suspense", "Comédia", "Ação", "Documentário", "Romance"],
+    // ESCRITOS COMO ESTÃO NO BANCO, e não como se escreveria à mão.
+    //
+    // Dois estavam grafados de outro jeito — "Ficção Científica" com C
+    // maiúsculo e "Suspense" no lugar de "Thriller" — e o filtro compara
+    // string com string. Quem clicasse recebia zero resultados sobre 1.146 e
+    // 2.723 filmes que existem. Medido no banco: 'Ficção Científica' 0,
+    // 'Ficção científica' 1.146; 'Suspense' 0, 'Thriller' 2.723.
+    //
+    // O acervo tem 25 gêneros distintos; estes oito são os maiores.
+    genres: ["Drama", "Comédia", "Documentário", "Romance", "Thriller", "Ação", "Terror", "Ficção científica"],
     decades: ["2020s", "2010s", "2000s", "1990s", "1980s", "1970s", "Clássicos (Pré-70)"],
     curations: ["MUBI", "Criterion Collection", "Seleção do Oscar", "Seleção de Cannes", "Teste de Bechdel", "Disponível Imediatamente"]
   };
