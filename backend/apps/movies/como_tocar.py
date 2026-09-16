@@ -123,6 +123,36 @@ def _por_que_nao_torrent(copias, para_torrent) -> str:
             'DE QUEM BAIXAR AGORA.')
 
 
+def _por_que_nao_baixar(copias, candidatas) -> str:
+    """
+    Por que não há o que mandar baixar no Real-Debrid.
+
+    O DEFEITO: a tela enumerava exatamente duas causas — "ou já estão todas
+    disponíveis, ou as que faltam vieram sem magnet" — e a causa real é uma
+    TERCEIRA que ela não menciona. `melhor_para_navegador` exige
+    `compatibilidade == TOCA` além de `pode_importar`: existindo vinte cópias
+    ausentes com magnet, todas sem áudio declarado no nome, as duas frases
+    ficam falsas ao mesmo tempo — e a tabela logo abaixo, na mesma página,
+    oferece [ IMPORTAR ] em cada uma delas.
+    """
+    if candidatas:
+        return ''
+
+    importaveis = [r for r in copias if r.pode_importar]
+    if not importaveis:
+        pendentes = [r for r in copias if r.disponibilidade == r.AUSENTE]
+        if not pendentes:
+            return 'TODAS AS CÓPIAS DESTE FILME JÁ ESTÃO NA SUA CONTA.'
+        return ('AS CÓPIAS QUE FALTAM VIERAM SEM MAGNET — DA SINCRONIZAÇÃO COM '
+                'O REAL-DEBRID, E NÃO DE UM INDEXADOR. NÃO HÁ O QUE ENVIAR.')
+
+    # A terceira causa, e a comum. Há o que baixar; o que não há é uma cópia
+    # que o navegador toque SEM conversão, que é o que este botão prometia.
+    return (f'HÁ {len(importaveis)} CÓPIA(S) PARA BAIXAR, MAS NENHUMA DECLARA '
+            'ÁUDIO QUE O NAVEGADOR TOQUE — ELAS PRECISARIAM DE CONVERSÃO. '
+            'IMPORTE UMA PELA LISTA DE CÓPIAS ABAIXO.')
+
+
 def como_tocar(movie) -> dict:
     """
     O que o botão de projeção vai fazer, e o que oferecer se não der.
@@ -140,6 +170,8 @@ def como_tocar(movie) -> dict:
             'para_torrent': [],
             'por_que_nao_torrent': ('ESTE FILME NÃO TEM CÓPIA NENHUMA NO ACERVO '
                                     '— BUSQUE CÓPIAS PRIMEIRO.'),
+            'por_que_nao_baixar': ('ESTE FILME NÃO TEM CÓPIA NENHUMA NO ACERVO '
+                                   '— BUSQUE CÓPIAS PRIMEIRO.'),
             'imediatas': [],
         }
 
@@ -194,6 +226,7 @@ def como_tocar(movie) -> dict:
     # numa cópia só é confiar num número que já mentiu.
     para_torrent = [r for r in candidatas if (r.seeders or 0) >= SEMEADORES_MINIMOS]
     razao_do_torrent = _por_que_nao_torrent(copias, para_torrent)
+    razao_do_download = _por_que_nao_baixar(copias, candidatas)
 
     if imediatas_para_navegador:
         # Imediata, otimizada, e a melhor nota entre essas.
@@ -212,5 +245,6 @@ def como_tocar(movie) -> dict:
         'melhor_para_navegador': (_resumo(candidatas[0]) if candidatas else None),
         'para_torrent': [_resumo(r) for r in para_torrent[:QUANTAS_TENTAR]],
         'por_que_nao_torrent': razao_do_torrent,
+        'por_que_nao_baixar': razao_do_download,
         'imediatas': [_resumo(r) for r in imediatas[:QUANTAS_OFERECER]],
     }

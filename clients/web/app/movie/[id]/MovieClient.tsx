@@ -487,9 +487,21 @@ export default function MovieClient() {
                                 serializer: a tela nunca passava de "05" e
                                 chamava isso de total. Com o total real vindo do
                                 documento de busca, diz as duas coisas. */}
+                            {/* O denominador saía do documento de busca — um
+                                retrato tirado no fim da ÚLTIMA busca e guardado
+                                por uma hora — enquanto o numerador vem do banco
+                                agora. Nada mantinha os dois em sincronia, e o
+                                resultado era "05 DE 03": mais exibidas do que o
+                                total.
+
+                                Os dois passam a sair da mesma leitura. O total
+                                guardado só aparece quando é MAIOR, que é a
+                                única situação em que ele acrescenta algo — há
+                                mais cópias do que esta lista mostra. */}
                             {busca.data?.total_releases != null
+                             && busca.data.total_releases > releases.length
                               ? `${String(releases.length).padStart(2, '0')} DE ${String(busca.data.total_releases).padStart(2, '0')}`
-                              : `${String(releases.length).padStart(2, '0')} MELHORES`}
+                              : `${String(releases.length).padStart(2, '0')} CÓPIA${releases.length === 1 ? '' : 'S'}`}
                           </span>
                           <button
                             onClick={() => buscar.mutate({})}

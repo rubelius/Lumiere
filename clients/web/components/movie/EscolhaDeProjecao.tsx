@@ -99,8 +99,14 @@ export function EscolhaDeProjecao({
           style={{ border: '1px solid rgba(86,84,80,0.5)', backgroundColor: 'var(--void)', padding: '16px' }}
         >
           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em', lineHeight: 1.9, marginBottom: 16 }}>
+            {/* "NÃO TOCA" e "NÃO DIZ SE TOCA" são coisas diferentes, e a
+                frase antiga afirmava a primeira sobre as duas. `decisao ==
+                'escolher'` só quer dizer que nenhuma cópia pronta DECLARA um
+                codec que o navegador abre — a maioria não declara nada, e essas
+                podem muito bem tocar. Prometer que não tocam manda a pessoa
+                esperar uma conversão de que talvez não precise. */}
             {temImediatas
-              ? 'NENHUMA CÓPIA PRONTA TOCA NESTE NAVEGADOR SEM CONVERSÃO.'
+              ? 'NENHUMA CÓPIA PRONTA GARANTE ÁUDIO QUE O NAVEGADOR TOQUE.'
               : 'NENHUMA CÓPIA ESTÁ PRONTA PARA TOCAR AGORA.'}
           </div>
 
@@ -191,10 +197,7 @@ export function EscolhaDeProjecao({
               ) : (
                 <div style={{ ...CAIXA, border: '1px solid rgba(86,84,80,0.3)', color: 'var(--m3)', opacity: 0.6, cursor: 'default' }}>
                   [ BAIXAR NO REAL-DEBRID ]
-                  <div style={DETALHE}>
-                    NENHUMA CÓPIA PARA BAIXAR: OU JÁ ESTÃO TODAS DISPONÍVEIS, OU
-                    AS QUE FALTAM VIERAM SEM MAGNET E NÃO HÁ O QUE ENVIAR.
-                  </div>
+                  <div style={DETALHE}>{plano.por_que_nao_baixar}</div>
                 </div>
               )}
 

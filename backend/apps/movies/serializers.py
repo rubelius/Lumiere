@@ -228,6 +228,15 @@ class ComoTocarSerializer(serializers.Serializer):
         allow_null=True,
         help_text='A melhor cópia que o navegador toca e que ainda precisa baixar.',
     )
+    por_que_nao_baixar = serializers.CharField(
+        allow_blank=True,
+        help_text=(
+            'Por que não há o que mandar baixar, na frase que a tela mostra. '
+            'A tela enumerava duas causas e a comum era uma terceira: há '
+            'cópias importáveis, mas nenhuma que o navegador toque sem '
+            'conversão.'
+        ),
+    )
     por_que_nao_torrent = serializers.CharField(
         allow_blank=True,
         help_text=(

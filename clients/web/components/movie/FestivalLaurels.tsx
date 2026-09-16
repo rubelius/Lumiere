@@ -115,9 +115,12 @@ export const FestivalLaurels = ({ awards, maxVisible = 6 }: FestivalLaurelsProps
           onClick={() => setIsExpanded(!isExpanded)}
           className="mt-10 px-6 py-2 text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-500 transition-colors border border-transparent hover:border-yellow-600/30 rounded-full"
         >
+          {/* `hiddenCount` é quantas ficaram ESCONDIDAS; "todas as N" só pode
+              ser lido como o total, e clicar expandia para um número maior que
+              o prometido. O botão diz o que ele faz: mostra as que faltam. */}
           {isExpanded
             ? "Ocultar seleções"
-            : `+ Ver todas as ${hiddenCount} seleções`}
+            : `+ Ver mais ${hiddenCount} ${hiddenCount === 1 ? 'seleção' : 'seleções'}`}
         </button>
       )}
     </div>

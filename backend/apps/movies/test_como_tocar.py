@@ -219,7 +219,7 @@ def test_a_resposta_tem_sempre_as_mesmas_chaves(filme):
     cheio = como_tocar(filme)
     assert set(vazio) == set(cheio) == {
         'decisao', 'escolhida', 'melhor_para_navegador', 'para_torrent',
-        'por_que_nao_torrent', 'imediatas'}
+        'por_que_nao_torrent', 'por_que_nao_baixar', 'imediatas'}
 
 
 # ── por que não dá para tocar direto ──────────────────────────────────────
@@ -264,3 +264,37 @@ def test_tocável_sem_semeador_diz_que_falta_quem_compartilhe(filme):
     r = como_tocar(filme)
     assert 'SEMEADOR' in r['por_que_nao_torrent']
     assert not r['para_torrent']
+
+
+# ── por que não há o que baixar ───────────────────────────────────────────
+# A tela enumerava DUAS causas — "ou já estão todas disponíveis, ou as que
+# faltam vieram sem magnet" — e a comum é uma TERCEIRA: há vinte cópias
+# ausentes com magnet, e nenhuma declara áudio que o navegador toque. As duas
+# frases ficavam falsas ao mesmo tempo, com a tabela logo abaixo oferecendo
+# [ IMPORTAR ] em cada uma delas.
+
+def test_com_candidata_nao_ha_razao(filme):
+    copia(filme, nota=50, audio='AAC', imediata=False)
+    assert como_tocar(filme)['por_que_nao_baixar'] == ''
+
+
+def test_a_terceira_causa_e_dita(filme):
+    copia(filme, nota=90, audio='DTS-HD MA', imediata=True)   # imediata, não toca
+    copia(filme, nota=85, audio='', imediata=False)            # talvez, importável
+    copia(filme, nota=80, audio='DTS', imediata=False)         # não toca, importável
+    r = como_tocar(filme)
+    assert 'CONVERSÃO' in r['por_que_nao_baixar']
+    assert '2 CÓPIA' in r['por_que_nao_baixar'], 'não disse quantas'
+    assert 'SEM MAGNET' not in r['por_que_nao_baixar']
+
+
+def test_tudo_ja_na_conta_diz_isso(filme):
+    copia(filme, nota=90, audio='DTS-HD MA', imediata=True)
+    assert 'JÁ ESTÃO NA SUA CONTA' in como_tocar(filme)['por_que_nao_baixar']
+
+
+def test_faltando_magnet_continua_sendo_dito(filme):
+    """A razão original existe, e precisa continuar dizível."""
+    copia(filme, nota=90, audio='DTS-HD MA', imediata=True)
+    copia(filme, nota=85, audio='', imediata=False, magnet='')
+    assert 'SEM MAGNET' in como_tocar(filme)['por_que_nao_baixar']

@@ -612,7 +612,16 @@ function PlayerExperience() {
           Um REMUX 2160p toca no VLC e cala aqui. O link cru fica ao lado
           porque nenhum esquema de player confirma nada de volta: o navegador
           dispara e não fica sabendo se algum aplicativo atendeu. */}
-      {fonte?.stream_url && (
+      {/* SÓ QUANDO O QUE ESTÁ NO AR É A FONTE RESOLVIDA.
+          Todos os endereços dos players externos são montados com
+          `fonte.stream_url` — a URL da cópia que o resolvedor achou no
+          Real-Debrid. Tocando do torrent, o VLC abria OUTRO arquivo: outra
+          cópia, possivelmente outro corte e outra duração, sem relação com o
+          que está na tela. O botão some em vez de mentir sobre para onde leva;
+          a URL do motor de torrent é local e serve arquivo completo com Range,
+          então quem quiser levá-la a um player externo pode copiá-la da barra
+          de endereço. */}
+      {fonte?.stream_url && !torrentHash && (
         <div className="absolute z-50" style={{ top: 24, right: 24 }}>
           <button
             onClick={() => setPlayerExternoAberto((v) => !v)}

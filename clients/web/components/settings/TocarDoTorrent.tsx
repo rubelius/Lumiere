@@ -107,8 +107,13 @@ export function TocarDoTorrent({
             <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '8px', color: 'var(--m3)', letterSpacing: '0.1em', lineHeight: 1.9, marginBottom: 14 }}>
               O QUE JÁ FOI ASSISTIDO É APAGADO PARA CABER NESTA COTA. CHEIO, O
               DOWNLOAD PAUSA ATÉ VOCÊ AVANÇAR NO FILME.<br />
-              EM <strong style={{ color: 'var(--m2)' }}>ILIMITADO</strong> NADA
-              É APAGADO: O FILME INTEIRO FICA EM DISCO.
+              {/* "EM ILIMITADO NADA É APAGADO" era falso: quem apaga não é só
+                  a cota. Uma faxina de um minuto remove QUALQUER torrent
+                  parado há 20 minutos, e a remoção destrói as peças do disco.
+                  A frase prometia um filme guardado que some sozinho. */}
+              EM <strong style={{ color: 'var(--m2)' }}>ILIMITADO</strong> A
+              COTA NÃO APAGA NADA — MAS UM FILME PARADO POR 20 MINUTOS SAI DO
+              DISCO DE QUALQUER FORMA. NADA AQUI É ARMAZENAMENTO PERMANENTE.
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
