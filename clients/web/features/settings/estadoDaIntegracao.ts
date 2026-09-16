@@ -30,7 +30,18 @@ export interface SeloDaIntegracao {
 export function seloDaIntegracao(
   estado: string | null | undefined,
   verificadoEm?: string | null,
+  carregando?: boolean,
 ): SeloDaIntegracao {
+  // ENQUANTO NÃO SE SABE, NÃO SE AFIRMA.
+  //
+  // `useIntegrations()` era consumido só pelo `data`; `isLoading` ia fora. Com
+  // `integracoes === undefined`, todo `!!integracoes?.x` virava false e a tela
+  // mostrava TODAS as linhas como "[NÃO CONFIGURADO]" — e o bloco de torrent
+  // direto exibia a caixa de consentimento como se a permissão estivesse
+  // desligada. Quem abrisse as configurações e olhasse rápido leria que perdeu
+  // as credenciais.
+  if (carregando) return { texto: 'CONSULTANDO...', confirmado: false };
+
   if (estado === RESPONDEU) {
     const quando = verificadoEm ? horaDe(verificadoEm) : '';
     return { texto: quando ? `RESPONDEU ÀS ${quando}` : 'RESPONDEU', confirmado: true };
@@ -56,6 +67,7 @@ function horaDe(iso: string): string {
  * booleano continua sendo a resposta certa, e forçá-los nos três estados seria
  * inventar uma dúvida que não existe.
  */
-export function seloPorBooleano(conectado: boolean): SeloDaIntegracao {
+export function seloPorBooleano(conectado: boolean, carregando?: boolean): SeloDaIntegracao {
+  if (carregando) return { texto: 'CONSULTANDO...', confirmado: false };
   return { texto: conectado ? 'CONECTADO' : 'NÃO CONFIGURADO', confirmado: conectado };
 }

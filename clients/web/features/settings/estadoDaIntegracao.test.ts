@@ -56,3 +56,34 @@ describe('seloPorBooleano', () => {
     expect(seloPorBooleano(false).confirmado).toBe(false);
   });
 });
+
+// ── enquanto não se sabe, não se afirma ──────────────────────────────────
+// `useIntegrations()` era consumido só pelo `data`; `isLoading` ia fora. Com
+// os dados ainda a caminho, TODAS as linhas diziam "[NÃO CONFIGURADO]" — e o
+// bloco de torrent mostrava a caixa de consentimento como se a permissão
+// estivesse desligada. Quem abrisse rápido leria que perdeu as credenciais.
+
+describe('seloDaIntegracao enquanto carrega', () => {
+  it('não afirma que não está configurado', () => {
+    const selo = seloDaIntegracao(undefined, undefined, true);
+    expect(selo.texto).not.toContain('NÃO CONFIGURADO');
+    expect(selo.texto).toBe('CONSULTANDO...');
+  });
+
+  it('e também não afirma que está', () => {
+    expect(seloDaIntegracao(RESPONDEU, '2026-09-16T09:00:00Z', true).confirmado)
+      .toBe(false);
+  });
+
+  it('carregado, volta a responder normalmente', () => {
+    expect(seloDaIntegracao(undefined, undefined, false).texto)
+      .toBe('NÃO CONFIGURADO');
+  });
+});
+
+describe('seloPorBooleano enquanto carrega', () => {
+  it('também espera', () => {
+    expect(seloPorBooleano(false, true).texto).toBe('CONSULTANDO...');
+    expect(seloPorBooleano(true, true).confirmado).toBe(false);
+  });
+});

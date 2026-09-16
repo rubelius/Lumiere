@@ -12,6 +12,7 @@ import { useEncerrarSessao, useEntrarComCodigo, useIniciarSessao,
 import type { CinemaSession, SessionMovie } from "@/features/sessions/hooks/useSessoes";
 import { useRouter } from "next/navigation";
 import { etapasDaPreparacao, rotuloDaEtapa } from '@/features/sessions/etapasDaPreparacao';
+import { rotuloDoFilmeNaFila } from '@/features/sessions/estadoDoFilmeNaFila';
 
 
 function TelemetryStep({ step, index }: any) {
@@ -265,9 +266,9 @@ function SessionMovieRow({ movie, index, router }: any) {
         <motion.span 
           animate={movie.status === 'downloading' ? { opacity: [1, 0.5, 1] } : { opacity: 1 }}
           transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: movie.status === 'ready' ? 'var(--film)' : movie.status === 'downloading' ? 'var(--gold)' : 'var(--m3)', textTransform: 'uppercase', textAlign: 'right' }}
+          style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: { pronto: 'var(--film)', andando: 'var(--gold)', falhou: 'var(--terra)', espera: 'var(--m3)' }[rotuloDoFilmeNaFila(movie.status, movie.progress).tom], textTransform: 'uppercase', textAlign: 'right' }}
         >
-          {movie.status === 'ready' ? 'INTEGRIDADE VERIFICADA' : movie.status === 'downloading' ? `AQUISIÇÃO... ${movie.progress}%` : 'AGUARDANDO'}
+          {rotuloDoFilmeNaFila(movie.status, movie.progress).texto}
         </motion.span>
         
         {/* Aqui ficava a velocidade em MB/S, sorteada no cliente a cada
@@ -276,9 +277,13 @@ function SessionMovieRow({ movie, index, router }: any) {
             lugar: o rótulo ao lado já diz a porcentagem, e repeti-la aqui só
             duplicava o mesmo número. */}
 
-        {movie.status === 'ready' && (
+        {movie.status === 'ready' && movie.movieId && (
           <motion.button 
-            onClick={() => router.push(`/player?id=${movie.id}`)}
+            // O ID DO FILME, e não o da linha da sessão. `movie.id` aqui é a
+            // chave do SessionMovie: o botão levava a /player?id=<pk da
+            // linha>, que não é filme nenhum. O id certo já estava calculado
+            // ao lado, em `movieId`, e não era usado em lugar nenhum.
+            onClick={() => movie.movieId && router.push(`/player?id=${movie.movieId}`)}
             whileHover={{ backgroundColor: 'var(--film)', color: 'var(--bg)', scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             style={{ 

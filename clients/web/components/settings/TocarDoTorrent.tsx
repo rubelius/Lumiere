@@ -42,13 +42,17 @@ const CAIXA: React.CSSProperties = {
 };
 
 export function TocarDoTorrent({
-  integracoes, onSalvar, salvando,
+  integracoes, onSalvar, salvando, carregando,
 }: {
   integracoes: IntegrationSettings | undefined;
   onSalvar: (dados: Partial<IntegrationSettings>) => void;
   salvando: boolean;
+  carregando?: boolean;
 }) {
   const ligado = Boolean(integracoes?.torrent_direto_permitido);
+  // Sem resposta ainda, `?? 10 GB` mostraria o padrão como se fosse a escolha
+  // do usuário — e o botão de 10 GB apareceria aceso sobre uma conta que
+  // escolheu ILIMITADO.
   const cota = integracoes?.torrent_cache_bytes ?? 10 * GB;
   const [avisoLido, setAvisoLido] = useState(false);
 
@@ -73,7 +77,14 @@ export function TocarDoTorrent({
         </span>
       </div>
 
-      {ligado ? (
+      {carregando ? (
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.15em' }}>
+          {/* Sem resposta do servidor ainda, não se afirma que está desligado:
+              mostrar a caixa de consentimento aqui faria quem já ligou ler que
+              precisa ligar de novo. */}
+          CONSULTANDO...
+        </div>
+      ) : ligado ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '0.15em' }}>

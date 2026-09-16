@@ -8,6 +8,8 @@ import { useConectarOpenSubtitles, useIntegrations, useSaveIntegrations } from "
 import type { IntegrationSettings } from '@/features/settings/hooks/useIntegrations';
 import { TocarDoTorrent } from '@/components/settings/TocarDoTorrent';
 import { seloDaIntegracao, seloPorBooleano } from '@/features/settings/estadoDaIntegracao';
+import { useNotificacoes, useSalvarNotificacoes } from '@/features/settings/hooks/useNotificacoes';
+import { limpaORascunho, temOQueGravar } from '@/features/settings/rascunhoDeCredenciais';
 
 
 export default function Settings() {
@@ -29,8 +31,6 @@ export default function Settings() {
   const [toggles, setToggles] = useState({
     fxCinematic: true,
     telemetry: false,
-    notifDownload: true,
-    notifError: true,
     autoPlayNext: true,
     skipIntro: false
   });
@@ -43,7 +43,9 @@ export default function Settings() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // ── FONTES DE REPRODUÇÃO (Real-Debrid > Jellyfin > Plex) ──
-  const { data: integracoes } = useIntegrations();
+  const { data: integracoes, isLoading: carregandoIntegracoes } = useIntegrations();
+  const { data: notificacoes } = useNotificacoes();
+  const salvarNotificacoes = useSalvarNotificacoes();
   const salvar = useSaveIntegrations();
   const conectarOS = useConectarOpenSubtitles();
   const [contaOS, setContaOS] = useState({ username: '', password: '' });
@@ -303,6 +305,7 @@ export default function Settings() {
                       integracoes={integracoes}
                       onSalvar={(dados: Partial<IntegrationSettings>) => salvar.mutate(dados)}
                       salvando={salvar.isPending}
+                      carregando={carregandoIntegracoes}
                     />
                   </div>
                 )}
@@ -521,26 +524,48 @@ export default function Settings() {
                       <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '3rem', margin: 0, color: 'var(--film)' }}>Sistema de Alertas</h2>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
-                        <div>
-                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>Integridade do Download</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em' }}>NOTIFICA QUANDO UM CACHE NO REAL-DEBRID FOR CONCLUÍDO.</div>
-                        </div>
-                        <motion.button onClick={() => handleToggle('notifDownload')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.notifDownload ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.notifDownload ? 'var(--gold)' : 'var(--m3)' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
-                          [ {toggles.notifDownload ? 'ON' : 'OFF'} ]
-                        </motion.button>
-                      </div>
+                    {/* LIGADOS NO SERVIDOR, e não em `useState`.
+                        Os dois interruptores daqui eram estado local iniciado
+                        em `true`, nunca enviado nem lido: anunciavam estar
+                        LIGADOS sobre preferências que ninguém consultava. E o
+                        backend já tinha tudo — o modelo NotificationPreference
+                        e os dois endpoints —, o que torna a remoção a saída
+                        errada aqui, diferente do bloco do Trakt, que não
+                        existia em lugar nenhum.
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
-                        <div>
-                          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>Falhas de Comunicação</div>
-                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em' }}>ALERTAS SOBRE INDISPONIBILIDADE DA API DO TMDB OU TIMEOUTS DE NÓS.</div>
-                        </div>
-                        <motion.button onClick={() => handleToggle('notifError')} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={{ color: toggles.notifError ? 'var(--gold)' : 'var(--m3)', borderColor: toggles.notifError ? 'var(--gold)' : 'var(--m3)' }} style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer' }}>
-                          [ {toggles.notifError ? 'ON' : 'OFF'} ]
-                        </motion.button>
-                      </div>
+                        "Falhas de Comunicação" saiu: era o único sem campo
+                        correspondente. Anunciar alertas de TMDB fora do ar
+                        sobre nada que os produza é a mesma mentira. */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                      {[
+                        { campo: 'enable_in_app' as const, titulo: 'Avisos na tela',
+                          detalhe: 'O SINO DO CABEÇALHO E OS AVISOS QUE CHEGAM ENQUANTO VOCÊ NAVEGA.' },
+                        { campo: 'push_downloads' as const, titulo: 'Integridade do Download',
+                          detalhe: 'AVISA QUANDO UMA CÓPIA MANDADA AO REAL-DEBRID FICAR PRONTA.' },
+                        { campo: 'email_downloads' as const, titulo: 'O mesmo, por e-mail',
+                          detalhe: 'EXIGE QUE O ENVIO POR E-MAIL ESTEJA CONFIGURADO NO SERVIDOR.' },
+                      ].map((item) => {
+                        const ligado = Boolean(notificacoes?.[item.campo]);
+                        return (
+                          <div key={item.campo} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, borderBottom: '1px solid rgba(237,232,220,0.05)' }}>
+                            <div>
+                              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', color: 'var(--film)', marginBottom: 8 }}>{item.titulo}</div>
+                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--m3)', letterSpacing: '0.1em' }}>{item.detalhe}</div>
+                            </div>
+                            <motion.button
+                              onClick={() => salvarNotificacoes.mutate({ [item.campo]: !ligado })}
+                              disabled={salvarNotificacoes.isPending || !notificacoes}
+                              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                              animate={{ color: ligado ? 'var(--gold)' : 'var(--m3)', borderColor: ligado ? 'var(--gold)' : 'var(--m3)' }}
+                              style={{ background: 'transparent', border: '1px solid', padding: '8px 16px', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: notificacoes ? 'pointer' : 'wait' }}
+                            >
+                              {/* Sem resposta do servidor ainda, não se afirma
+                                  nem ON nem OFF. */}
+                              [ {!notificacoes ? '...' : ligado ? 'ON' : 'OFF'} ]
+                            </motion.button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -564,14 +589,14 @@ export default function Settings() {
                       {(activeTab === "Conexões" ? [
                         {
                           id: 'jellyfin', label: "JELLYFIN",
-                          selo: seloDaIntegracao(integracoes?.jellyfin_estado, integracoes?.jellyfin_verificado_em),
+                          selo: seloDaIntegracao(integracoes?.jellyfin_estado, integracoes?.jellyfin_verificado_em, carregandoIntegracoes),
                           detalhe: integracoes?.jellyfin_server_url || "--",
                           campoUrl: 'jellyfin_server_url', campoToken: 'jellyfin_token',
                           ordem: '2ª FONTE',
                         },
                         {
                           id: 'plex', label: "PLEX MEDIA SERVER",
-                          selo: seloDaIntegracao(integracoes?.plex_estado, integracoes?.plex_verificado_em),
+                          selo: seloDaIntegracao(integracoes?.plex_estado, integracoes?.plex_verificado_em, carregandoIntegracoes),
                           detalhe: integracoes?.plex_server_url || "--",
                           campoUrl: 'plex_server_url', campoToken: 'plex_token',
                           ordem: '3ª FONTE',
@@ -579,7 +604,7 @@ export default function Settings() {
                       ] : [
                         {
                           id: 'opensubtitles', label: "OPENSUBTITLES",
-                          selo: seloPorBooleano(!!integracoes?.opensubtitles_connected),
+                          selo: seloPorBooleano(!!integracoes?.opensubtitles_connected, carregandoIntegracoes),
                           detalhe: integracoes?.opensubtitles_pode_baixar
                             ? `CONTA ${integracoes?.opensubtitles_username || ''} — DOWNLOAD LIBERADO`
                             : integracoes?.opensubtitles_connected
@@ -590,7 +615,7 @@ export default function Settings() {
                         },
                         {
                           id: 'realdebrid', label: "REAL-DEBRID",
-                          selo: seloPorBooleano(!!integracoes?.realdebrid_connected),
+                          selo: seloPorBooleano(!!integracoes?.realdebrid_connected, carregandoIntegracoes),
                           detalhe: integracoes?.realdebrid_connected ? "CHAVE GRAVADA" : "--",
                           campoUrl: null, campoToken: 'realdebrid_api_key',
                           ordem: '1ª FONTE',
@@ -677,9 +702,9 @@ export default function Settings() {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                                     <motion.button
                                       whileHover={{ backgroundColor: 'var(--gold)', color: 'var(--void)' }}
-                                      disabled={salvar.isPending || Object.keys(rascunho).length === 0}
-                                      onClick={() => salvar.mutate(rascunho, { onSuccess: () => { setEditando(null); setRascunho({}); } })}
-                                      style={{ padding: '12px 24px', background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer', opacity: Object.keys(rascunho).length === 0 ? 0.4 : 1 }}
+                                      disabled={salvar.isPending || !temOQueGravar(rascunho)}
+                                      onClick={() => salvar.mutate(limpaORascunho(rascunho), { onSuccess: () => { setEditando(null); setRascunho({}); } })}
+                                      style={{ padding: '12px 24px', background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.2em', cursor: 'pointer', opacity: temOQueGravar(rascunho) ? 1 : 0.4 }}
                                     >
                                       {salvar.isPending ? '[ GRAVANDO... ]' : '[ GRAVAR ]'}
                                     </motion.button>
