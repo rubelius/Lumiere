@@ -588,3 +588,28 @@ describe('pontoDeRetomada com o torrent no ar', () => {
       .toBe(1900);
   });
 });
+
+// ── a duração também é do torrent quando o torrent está no ar ────────────
+// Esta foi a única função do módulo que ficou sem saber do torrent quando
+// `ehConvertida` aprendeu. A duração vinha do `duracao_segundos` que o ffprobe
+// mediu na cópia DO REAL-DEBRID — outro arquivo, possivelmente outro corte —
+// enquanto no ar estava o do torrent. A barra inteira era escalada por um
+// número de outro filme.
+
+describe('duracaoDoFilme com o torrent no ar', () => {
+  const doRd = { precisa_converter: 'audio', duracao_segundos: 7020 } as never;
+
+  it('usa a duração que o elemento leu, e não a medida na outra cópia', () => {
+    expect(duracaoDoFilme(doRd, 9270.7, 151, null, 'a'.repeat(40)))
+      .toBeCloseTo(9270.7);
+  });
+
+  it('sem torrent, a medida do ffprobe continua mandando no convertido', () => {
+    // No MP4 fragmentado `video.duration` é o tamanho do buffer, não o filme.
+    expect(duracaoDoFilme(doRd, 3.5, 151, null, null)).toBe(7020);
+  });
+
+  it('elemento sem duração ainda não inventa a da outra cópia', () => {
+    expect(duracaoDoFilme(doRd, NaN, 151, null, 'b'.repeat(40))).toBe(0);
+  });
+});

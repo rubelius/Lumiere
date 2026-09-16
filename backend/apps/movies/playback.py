@@ -16,6 +16,8 @@ apenas "esta fonte não serve".
 
 import asyncio
 import logging
+
+from django.utils import timezone
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
@@ -154,6 +156,21 @@ async def _importa_para_a_conta(release, api_key) -> bool:
         depois = await client.get_torrent_info(torrent_id)
         if depois.get('status') != 'downloaded':
             await client.delete_torrent(torrent_id)
+            # ESTA FUNÇÃO ACABOU DE MEDIR o que o selo afirma, e jogava a
+            # medição fora.
+            #
+            # `instantly_available` é o que faz a lista de cópias mostrar
+            # "DISPONIBILIDADE IMEDIATA" em dourado, clicável, com o título "o
+            # Real-Debrid já tem este arquivo — importar leva segundos". Chegar
+            # aqui é a prova de que ele NÃO tem: adicionamos o magnet,
+            # selecionamos o arquivo e o status não voltou 'downloaded'.
+            #
+            # Sem baixar a marca, o clique falhava, a pessoa voltava à ficha, o
+            # mesmo selo dourado continuava lá prometendo o mesmo, e o ciclo se
+            # repetia para sempre — nada mais abaixa essa marca fora do clique
+            # manual em [ ATUALIZAR CÓPIAS ]. É o formato da casa: uma flag que
+            # só sobe.
+            await _marca_que_nao_estava_la(release)
             return False
 
         release.in_realdebrid = True
@@ -312,6 +329,28 @@ async def _com_julgamento(fonte: str, prefixo: str, url: str, container,
         duracao_segundos=duracao,
         faixas_de_audio=faixas,
     )
+
+
+async def _marca_que_nao_estava_la(release) -> None:
+    """
+    Registra que a sondagem cara já foi feita e deu negativo.
+
+    Escreve nos DOIS lugares que respondem pela pergunta: a coluna que a lista
+    de cópias lê, e o cache de seis horas de `realdebrid_cache` — que, se
+    ficasse com a resposta antiga, reconstruiria a marca na próxima sondagem.
+    """
+    from apps.movies.realdebrid_cache import NAO_CACHEADO, guarda
+
+    await sync_to_async(type(release).objects.filter(pk=release.pk).update)(
+        instantly_available=False, instant_check_at=timezone.now())
+    release.instantly_available = False
+
+    try:
+        await sync_to_async(guarda)(release.info_hash, NAO_CACHEADO)
+    except Exception as erro:
+        # Não ter onde guardar não pode desfazer o que já foi corrigido no
+        # banco — que é o que a tela lê.
+        logger.info('não consegui registrar a sondagem negativa: %s', erro)
 
 
 async def _from_jellyfin(movie, user) -> Optional[PlaybackSource]:

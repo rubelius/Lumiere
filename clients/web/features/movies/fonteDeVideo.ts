@@ -108,8 +108,17 @@ export function duracaoDoFilme(
   duracaoDoElemento: number,
   minutosDoCatalogo?: number | null,
   modo?: string | null,
+  torrentHash?: string | null,
 ): number {
-  if (ehConvertida(fonte, modo)) {
+  // Esta era a ÚNICA função do módulo que ficou sem saber do torrent quando
+  // `ehConvertida` aprendeu — e a falta aparecia na barra: a duração vinha do
+  // `duracao_segundos` que o ffprobe mediu na cópia DO REAL-DEBRID, outro
+  // arquivo, possivelmente outro corte, enquanto no ar estava o do torrent. A
+  // barra inteira era escalada por um número de outro filme.
+  //
+  // O motor de torrent serve arquivo completo com Range, então o navegador lê
+  // a duração certa sozinho.
+  if (ehConvertida(fonte, modo, torrentHash)) {
     if (fonte?.duracao_segundos) return fonte.duracao_segundos;
     return minutosDoCatalogo ? minutosDoCatalogo * 60 : 0;
   }

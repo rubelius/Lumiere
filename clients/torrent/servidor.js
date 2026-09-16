@@ -582,8 +582,12 @@ servidor.listen(PORTA, INTERFACE, () => {
   noAr = true;
   console.log(`[lumiere-torrent] ouvindo em ${INTERFACE}:${PORTA}`);
   console.log(`[lumiere-torrent] pares pela ${PORTA_DE_PARES}, DHT pela ${PORTA_DA_DHT}`);
+  // "por arquivo" era verdade até o teto virar global. A checagem hoje é
+  // `jaEmUso + pedido <= limite`, somando todos os torrents no ar — e um log
+  // que descreve a regra antiga manda quem lê calcular errado quanto cabe.
   console.log(`[lumiere-torrent] peças em ${PASTA}, teto de ` +
-              `${(LIMITE_DE_BYTES / 1024 ** 3).toFixed(0)} GB por arquivo`);
+              `${(LIMITE_DE_BYTES / 1024 ** 3).toFixed(0)} GB de disco ` +
+              'somando todos os torrents no ar');
   if (INTERFACE !== '127.0.0.1') {
     // Vale ser barulhento: este serviço não pede senha a ninguém, e quem
     // alcança a porta manda baixar o que quiser.

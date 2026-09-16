@@ -121,7 +121,7 @@ function PlayerExperience() {
       fonte,
       movie?.watch_state?.progress_seconds,
       movie?.watch_state?.completed,
-      duracaoDoFilme(fonte, NaN, movie?.length_minutes, modo),
+      duracaoDoFilme(fonte, NaN, movie?.length_minutes, modo, torrentHash),
       modo,
       torrentHash,
     );
@@ -173,7 +173,7 @@ function PlayerExperience() {
   // deixava "00:00" no lugar do total — e, pior, `totalTime` em 0 é o valor
   // que desliga a barra e o salto.
   useEffect(() => {
-    const derivada = duracaoDoFilme(fonte, NaN, movie?.length_minutes, modo);
+    const derivada = duracaoDoFilme(fonte, NaN, movie?.length_minutes, modo, torrentHash);
     if (derivada > 0) setTotalTime(derivada);
   }, [fonte, movie]);
   // O fluxo caiu. Estado próprio porque o <video> não conta a ninguém.
@@ -541,7 +541,8 @@ function PlayerExperience() {
             onLoadedMetadata={() => {
               if (videoRef.current) {
                 const duracao = duracaoDoFilme(
-                  fonte, videoRef.current.duration, movie?.length_minutes, modo);
+                  fonte, videoRef.current.duration, movie?.length_minutes, modo,
+                  torrentHash);
                 setTotalTime(duracao);
                 const { videoWidth: w, videoHeight: h } = videoRef.current;
                 if (w && h) setResolution(`${w}×${h}`);
