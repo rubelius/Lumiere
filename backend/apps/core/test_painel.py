@@ -238,3 +238,140 @@ def test_get_indexers_levanta_quando_o_prowlarr_nao_responde():
 
     with pytest.raises((httpx.HTTPError, OSError)):
         async_to_sync(tenta)()
+
+
+# ── as ações ──────────────────────────────────────────────────────────────
+# Um painel que só mostra número obriga a abrir um terminal para agir sobre o
+# que ele mostra. Mas ação vinda da rede tem outro peso que leitura, e a guarda
+# central é a lista FECHADA.
+
+@pytest.mark.django_db
+def test_usuario_comum_nao_dispara_nada(comum):
+    r = cliente_de(comum).post(reverse('painel-acao'), {'acao': 'pulso'}, format='json')
+    assert r.status_code == 403
+
+
+@pytest.mark.django_db
+def test_acao_fora_da_lista_e_recusada(admin):
+    """
+    A guarda que impede o painel de virar um executor remoto de qualquer coisa
+    registrada no Celery.
+    """
+    r = cliente_de(admin).post(
+        reverse('painel-acao'),
+        {'acao': 'apps.movies.tasks.apaga_tudo'}, format='json')
+    assert r.status_code == 400
+    assert 'não é uma ação' in r.data['detail']
+
+
+@pytest.mark.django_db
+def test_toda_acao_da_lista_aponta_para_uma_tarefa_que_existe(admin):
+    """
+    Duas das quatro apontavam para nomes errados quando foram escritas, e isso
+    só apareceu porque este teste rodou antes de a tela existir. Um botão que
+    estoura ao ser apertado é pior que um botão a menos.
+    """
+    from importlib import import_module
+
+    from apps.core.acoes import ACOES
+
+    for chave, acao in ACOES.items():
+        modulo, nome = acao['tarefa'].rsplit('.', 1)
+        tarefa = getattr(import_module(modulo), nome, None)
+        assert tarefa is not None, f'{chave}: {acao["tarefa"]} não existe'
+        assert hasattr(tarefa, 'delay'), f'{chave}: {acao["tarefa"]} não é tarefa Celery'
+
+
+@pytest.mark.django_db
+def test_toda_acao_se_explica(admin):
+    from apps.core.acoes import disponiveis
+
+    for a in disponiveis():
+        assert a['titulo'].strip()
+        assert len(a['descricao']) > 20, (
+            f'{a["chave"]}: quem aperta precisa saber o que vai acontecer')
+
+
+@pytest.mark.django_db
+def test_disparar_registra_quem_disparou(admin):
+    """
+    O sinal do Celery vê a tarefa, não a pessoa. Sem gravar aqui, o painel
+    nunca saberia quem mandou rodar.
+    """
+    from unittest.mock import MagicMock
+
+    from apps.core.models import ExecucaoDeTarefa
+
+    with patch('apps.core.acoes._dispara', return_value=MagicMock(id='tarefa-1')):
+        r = cliente_de(admin).post(reverse('painel-acao'), {'acao': 'pulso'},
+                                   format='json')
+
+    assert r.status_code == 200
+    assert r.data['task_id'] == 'tarefa-1'
+    registro = ExecucaoDeTarefa.objects.get(task_id='tarefa-1')
+    assert registro.disparada_por_id == admin.id
+    assert registro.origem == ExecucaoDeTarefa.MANUAL
+
+
+@pytest.mark.django_db
+def test_fila_fora_do_ar_nao_vira_500(admin):
+    """
+    "Não consegui enfileirar" e "a tarefa falhou" são coisas diferentes, e quem
+    lê precisa saber qual das duas foi.
+    """
+    with patch('apps.core.acoes._dispara', side_effect=OSError('broker fora')):
+        r = cliente_de(admin).post(reverse('painel-acao'), {'acao': 'pulso'},
+                                   format='json')
+    assert r.status_code == 503
+    assert 'enfileirar' in r.data['detail']
+
+
+# ── os gráficos ───────────────────────────────────────────────────────────
+# Um gráfico é a forma mais fácil de afirmar com autoridade: uma linha subindo
+# convence antes de ser lida.
+
+@pytest.mark.django_db
+def test_serie_curta_demais_nao_vira_grafico(db):
+    """
+    Duas medições não descrevem tendência nenhuma, e a linha entre elas
+    convence sem ter o que dizer.
+    """
+    from apps.core.graficos import duracao_das_tarefas
+
+    g = duracao_das_tarefas()
+    assert g['tipo'] == 'sem-dado'
+    assert g['ressalva'].strip(), 'não explicou por que não há gráfico'
+
+
+@pytest.mark.django_db
+def test_com_massa_a_serie_vira_grafico(db):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.core.graficos import duracao_das_tarefas
+    from apps.core.models import ExecucaoDeTarefa
+
+    agora = timezone.now()
+    for i in range(8):
+        ExecucaoDeTarefa.objects.create(
+            tarefa='apps.tasks.pulso.pulso', task_id=f't{i}',
+            iniciada_em=agora - timedelta(days=i),
+            terminada_em=agora - timedelta(days=i), duracao_s=1.5 + i,
+            sucesso=True)
+
+    g = duracao_das_tarefas()
+    assert g['tipo'] == 'linhas'
+    assert g['dados'][0]['nome'] == 'pulso', 'mostrou o caminho inteiro do módulo'
+    assert len(g['dados'][0]['pontos']) >= 3
+
+
+@pytest.mark.django_db
+def test_todo_grafico_diz_de_onde_veio(db):
+    from apps.core.graficos import monta_graficos
+
+    for g in monta_graficos():
+        assert g['origem'].strip(), f'{g["chave"]} não diz de onde os dados vêm'
+        assert g['tipo'] in ('linhas', 'barras', 'sem-dado')
+        if g['tipo'] == 'sem-dado':
+            assert g['ressalva'].strip(), f'{g["chave"]} não explica a ausência'

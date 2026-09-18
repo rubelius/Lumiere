@@ -175,5 +175,47 @@ def painel_admin_view(request):
     tamanho de banco, contas, chave de integração em uso e o estado de cada
     serviço. Nenhuma dessas coisas é do usuário comum.
     """
+    from apps.core.acoes import disponiveis
+    from apps.core.graficos import monta_graficos
     from apps.core.painel import painel_guardado
-    return Response(painel_guardado())
+
+    return Response({
+        **painel_guardado(),
+        # Os gráficos não entram no cache do painel: um deles conta execuções de
+        # tarefa, e é justamente depois de apertar um botão que se quer ver o
+        # número mudar.
+        'graficos': monta_graficos(),
+        'acoes': disponiveis(),
+    })
+
+
+@extend_schema(
+    request=inline_serializer(name='AcaoDoPainel',
+                              fields={'acao': serializers.CharField()}),
+    responses=OpenApiTypes.OBJECT,
+    description=(
+        'Dispara uma das ações do painel. A lista é FECHADA: aceitar um nome '
+        'de tarefa qualquer transformaria isto num executor remoto de qualquer '
+        'coisa registrada no Celery.'
+    ),
+)
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def acao_do_painel_view(request):
+    """
+    Enfileira e devolve o `task_id`. NÃO espera terminar: algumas destas levam
+    minutos, e uma requisição presa nisso vira timeout com trabalho rodando do
+    outro lado.
+    """
+    from apps.core.acoes import AcaoDesconhecida, executa
+
+    try:
+        return Response(executa(request.data.get('acao', ''), request.user))
+    except AcaoDesconhecida as erro:
+        return Response({'detail': str(erro)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as erro:  # noqa: BLE001
+        # A fila fora do ar é o caso comum aqui, e "não consegui enfileirar" é
+        # diferente de "a tarefa falhou" — quem lê precisa saber qual dos dois.
+        return Response(
+            {'detail': f'Não consegui enfileirar: {erro}'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE)

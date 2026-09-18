@@ -695,6 +695,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/painel/acao/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Dispara uma das ações do painel. A lista é FECHADA: aceitar um nome de tarefa qualquer transformaria isto num executor remoto de qualquer coisa registrada no Celery. */
+        post: operations["painel_acao_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile/telemetry/": {
         parameters: {
             query?: never;
@@ -1245,6 +1262,9 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AcaoDoPainel: {
+            acao: string;
+        };
         /**
          * @description Números do acervo, para a home poder exibi-los sem inventá-los.
          *
@@ -3322,6 +3342,33 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    painel_acao_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcaoDoPainel"];
+                "application/x-www-form-urlencoded": components["schemas"]["AcaoDoPainel"];
+                "multipart/form-data": components["schemas"]["AcaoDoPainel"];
+            };
+        };
         responses: {
             200: {
                 headers: {

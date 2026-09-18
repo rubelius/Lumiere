@@ -17,7 +17,8 @@ from apps.users.views import UserViewSet
 
 # 1. IMPORTAÇÃO NOVA PARA O WEBSOCKET TICKET
 from apps.core.views import (issue_ws_ticket, health_check,
-                             estado_do_motor_view, painel_admin_view)
+                             estado_do_motor_view, painel_admin_view,
+                             acao_do_painel_view)
 from apps.users.views import ProfileTelemetryView # <-- Tem que vir do users/views!
 
 
@@ -58,6 +59,7 @@ urlpatterns = [
     # prometer que o botão vai adiantar alguma coisa?").
     path('api/motor/', estado_do_motor_view, name='estado-do-motor'),
     path('api/painel/', painel_admin_view, name='painel-admin'),
+    path('api/painel/acao/', acao_do_painel_view, name='painel-acao'),
 
     # API
     path('api/', include(router.urls)),

@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     'apps.integrations',   # Prowlarr, Real-Debrid, Plex, Letterboxd
     'apps.ml',             # Machine Learning e embeddings
     'apps.notifications',  # Sistema de notificações
-    'apps.core',           # Core utilities
+    'apps.core.apps.CoreConfig',           # Core utilities
     'apps.ingestion',      # Data ingestion
 ]
 

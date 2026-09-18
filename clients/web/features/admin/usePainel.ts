@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { http } from '@/services/http/client';
 
@@ -27,9 +27,31 @@ export interface Painel {
   medido_em: string;
 }
 
+export interface PontoDeLinha { dia: string; media: number; pior: number; melhor: number; n: number }
+export interface SerieDeLinhas { nome: string; pontos: PontoDeLinha[] }
+export interface Barra { nome: string; total: number; falhas: number; rodando: number }
+
+export interface Grafico {
+  chave: string;
+  titulo: string;
+  /** 'sem-dado' é uma resposta legítima: duas medições não são uma tendência. */
+  tipo: 'linhas' | 'barras' | 'sem-dado';
+  dados: SerieDeLinhas[] | Barra[];
+  origem: string;
+  ressalva: string;
+}
+
+export interface Acao {
+  chave: string;
+  titulo: string;
+  descricao: string;
+}
+
 export interface RespostaDoPainel {
   paineis: Painel[];
   falharam: string[];
+  graficos: Grafico[];
+  acoes: Acao[];
 }
 
 export const painelKeys = { all: ['painel', 'admin'] as const };
@@ -64,4 +86,25 @@ export function idadeDaMedicao(medidoEm: string | undefined, agora = new Date())
   const minutos = Math.round(segundos / 60);
   if (minutos < 60) return `HÁ ${minutos}MIN`;
   return `HÁ ${Math.round(minutos / 60)}H`;
+}
+
+
+/**
+ * Disparar uma ação do painel.
+ *
+ * Ao terminar, invalida o painel: o ponto de apertar o botão é ver o número
+ * mudar, e esperar o refetch de 60 segundos faria a tela parecer inerte.
+ */
+export function useDisparaAcao() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (acao: string) =>
+      http.post<{ chave: string; titulo: string; task_id: string }>(
+        '/api/painel/acao/', { acao }),
+    onSuccess: () => {
+      // Um respiro antes de reler: a tarefa acabou de entrar na fila e o
+      // registro de execução leva um instante para aparecer.
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: painelKeys.all }), 1500);
+    },
+  });
 }

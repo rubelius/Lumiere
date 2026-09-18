@@ -5,6 +5,8 @@ import Link from 'next/link';
 
 import { ehEquipe, useUsuario } from '@/features/auth/hooks/useUsuario';
 import { idadeDaMedicao, usePainel, type Painel } from '@/features/admin/usePainel';
+import { Acoes } from '@/components/admin/Acoes';
+import { Graficos } from '@/components/admin/Graficos';
 
 /**
  * O painel de administração.
@@ -168,6 +170,14 @@ export default function AdminPage() {
           {data!.falharam.map((f) => <div key={f} style={{ color: 'var(--m2)' }}>{f}</div>)}
         </div>
       )}
+
+      {/* AGIR vem antes de OBSERVAR, e observar antes de contar.
+          Quem abre esta tela quase sempre já sabe o que quer fazer; os
+          números existem para confirmar depois. A ordem antiga — só números —
+          obrigava a rolar a página inteira e depois abrir um terminal. */}
+      <Acoes acoes={data?.acoes ?? []} />
+
+      <Graficos graficos={data?.graficos ?? []} />
 
       {paineis.map((p) => <Bloco key={p.chave} painel={p} />)}
 
