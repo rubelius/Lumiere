@@ -40,6 +40,7 @@ from apps.integrations.torrent import estado as estado_do_motor_de_torrent
 from apps.tasks.precarga import DIAS_ATE_VENCER, pede_prioridade
 
 from .como_tocar import (QUANTAS_TENTAR, SEMEADORES_MINIMOS, como_tocar)
+from .programa import programa_do_dia
 from .compatibilidade import TOCA
 from .transcode import (NADA, SO_AUDIO, abre_fluxo, faixa_de_audio,
                         o_que_transcodificar, segundo_de_partida)
@@ -359,6 +360,37 @@ class MovieViewSet(MarcaAssistidos, viewsets.ReadOnlyModelViewSet):
             'que é justamente quando retomar importa.'
         ),
     )
+    @extend_schema(
+        responses=OpenApiTypes.OBJECT,
+        description=(
+            'O programa do dia: as seções que a home mostra. É DETERMINÍSTICO '
+            'por data — estável do primeiro ao último acesso do dia, e outro '
+            'amanhã. A tela deve mostrar a data, porque é ela que explica a '
+            'estabilidade.'
+        ),
+    )
+    @action(detail=False, url_path='programa')
+    def programa(self, request):
+        """
+        O que a home mostra hoje.
+
+        Antes disto a home inteira se alimentava da primeira página desta mesma
+        listagem — 20 filmes ordenados por ranking, dos quais o hero sorteava
+        10. Eram 0,077% das 25.908 obras, e por isso pareciam sempre os mesmos:
+        eram sempre os mesmos.
+        """
+        do_dia = programa_do_dia()
+        return Response({
+            'dia': do_dia['dia'],
+            'secoes': [{
+                'chave': s['chave'],
+                'titulo': s['titulo'],
+                'subtitulo': s['subtitulo'],
+                'filmes': MovieListSerializer(
+                    s['filmes'], many=True, context={'request': request}).data,
+            } for s in do_dia['secoes']],
+        })
+
     @action(detail=False, url_path='continue-watching')
     def continue_watching(self, request):
         # Progresso maior que zero: uma linha criada no primeiro ping, com o

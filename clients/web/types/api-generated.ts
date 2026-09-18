@@ -458,11 +458,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description ViewSet para filmes - MOTOR HÍBRIDO DEFINITIVO (Trigramas + Força-Bruta) */
+        get: operations["movies_continue_watching_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/movies/programa/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Filmes começados e ainda não terminados, do mais recente ao mais antigo.
          * @description O "retomar" da home. Vem do servidor, não do navegador: uma posição guardada só no aparelho se perde ao trocar de máquina, que é justamente quando retomar importa.
          */
-        get: operations["movies_continue_watching_list"];
+        get: operations["movies_programa_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2489,7 +2506,6 @@ export interface operations {
                 /** @description Um número de página dentro do conjunto de resultados paginado. */
                 page?: number;
                 qualities?: string;
-                search?: string;
                 year?: number;
             };
             header?: never;
@@ -2787,7 +2803,6 @@ export interface operations {
                 /** @description Um número de página dentro do conjunto de resultados paginado. */
                 page?: number;
                 qualities?: string;
-                search?: string;
                 year?: number;
             };
             header?: never;
@@ -2948,7 +2963,26 @@ export interface operations {
             };
         };
     };
-    movies_continue_watching_list: {
+    movies_continue_watching_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Movie"];
+                };
+            };
+        };
+    };
+    movies_programa_list: {
         parameters: {
             query?: {
                 available_instantly?: boolean;
@@ -2964,7 +2998,6 @@ export interface operations {
                 /** @description Um número de página dentro do conjunto de resultados paginado. */
                 page?: number;
                 qualities?: string;
-                search?: string;
                 year?: number;
             };
             header?: never;
@@ -2999,7 +3032,6 @@ export interface operations {
                 /** @description Um número de página dentro do conjunto de resultados paginado. */
                 page?: number;
                 qualities?: string;
-                search?: string;
                 year?: number;
             };
             header?: never;

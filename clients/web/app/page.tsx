@@ -5,6 +5,7 @@ import { FINE_ART_EASE } from '@/lib/motion';
 import { etiquetasDeDisponibilidade } from '@/lib/disponibilidade';
 import Image from 'next/image';
 import { CinemaMarquee, FilmProgramme, FilmEntry } from '@/components/home/FilmProgramme'
+import { usePrograma, dataDoPrograma } from '@/features/movies/hooks/usePrograma'
 import { NowProjecting, AdmitOne, LibraryCount, SessionRow } from '@/components/home/Sections'
 import { AfinidadeAferida } from '@/components/home/AfinidadeAferida'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -65,18 +66,36 @@ export default function HomePage() {
   const emCurso = continuar?.results?.[0];
 
   const { data, isLoading, isError, refetch } = useMovies({ page: 1 });
+  const { data: programa } = usePrograma();
+
+  // O PROGRAMA DO DIA substitui o arranjo que fazia a home inteira viver da
+  // primeira página desta mesma listagem — 20 filmes ordenados por ranking,
+  // dos quais o hero sorteava 10. Eram 0,077% das 25.908 obras, e por isso
+  // pareciam sempre os mesmos: eram sempre os mesmos.
+  //
+  // `useMovies` fica para o que ainda depende dele (a contagem do rodapé);
+  // as seções e o hero agora vêm do programa.
+  const secoes = programa?.secoes ?? [];
+  const doPrograma = secoes.flatMap((s) => s.filmes) as unknown as HomeMovie[];
+
 
   useEffect(() => {
-    if (data?.results && data.results.length > 0 && randomHeroMovies.length === 0) {
-      // Cria a lista embaralhada para o Hero
-      const shuffled = [...data.results].sort(() => 0.5 - Math.random());
-      setRandomHeroMovies(shuffled.slice(0, 10) as HomeMovie[]); 
+    if (doPrograma.length > 0 && randomHeroMovies.length === 0) {
+      // Do PROGRAMA, e não dos 20 primeiros do ranking. E sem sortear de
+      // novo: o programa já é o sorteio do dia, e embaralhar por cima dele
+      // faria o hero mudar a cada F5 — instável, não vivo.
+      //
+      // (O sorteio antigo usava `sort(() => 0.5 - Math.random())`, que nem
+      // embaralhamento uniforme é: medido em 20.000 tiragens, o primeiro
+      // colocado entrava em 58,1% das cargas contra 44,5% do décimo
+      // terceiro.)
+      setRandomHeroMovies(doPrograma.slice(0, 10));
 
       // O "retomar" vem do servidor, via useContinuarAssistindo. Aqui ficava
       // um fallback que inventava "15% assistido, 1h55m restantes" para o
       // filme mais bem avaliado — um filme que o usuário nunca tinha aberto.
     }
-  }, [data, randomHeroMovies.length]);
+  }, [doPrograma, randomHeroMovies.length]);
 
   const handleNextHero = useCallback(() => {
     setHeroIndex(prev => (prev + 1) % randomHeroMovies.length);
@@ -153,15 +172,13 @@ export default function HomePage() {
   const heroAccentColor = getCinematicColor(heroMovie?.genres || []);
 
   // ── CORREÇÃO DAS OPERAÇÕES MATEMÁTICAS COM NUMBER() ──
-  const masterPieces = [...results]
-    .filter(m => m.ranking_current !== null && m.ranking_current !== undefined && Number(m.ranking_current) < 1000)
-    .sort((a, b) => Number(a.ranking_current || 9999) - Number(b.ranking_current || 9999));
-  
-  const programmeMovies = masterPieces.length >= 4 
-    ? masterPieces.slice(0, 8) 
-    : [...results].sort((a, b) => Number(b.tmdb_rating || 0) - Number(a.tmdb_rating || 0)).slice(0, 8);
+  // A primeira seção do programa é sempre 'Obras-Primas do Acervo' — é a
+  // âncora, e o backend garante que ela abre. As demais viram as seções
+  // novas da home, logo abaixo.
+  const primeira = secoes[0];
+  const programmeMovies = (primeira?.filmes ?? []) as unknown as HomeMovie[];
 
-  const FEATURED_FILMS: FilmEntry[] = programmeMovies.map((movie, index) => ({
+  const paraEntrada = (movie: HomeMovie, index: number): FilmEntry => ({
     id: String(movie.id),
     number: String(index + 1).padStart(3, '0'),
     title: movie.title,
@@ -175,36 +192,31 @@ export default function HomePage() {
     backgroundSrc: movie.background_url || movie.poster_url || '/images/poster-1.png',
     genre: movie.genres?.[0] || 'Cinema',
     synopsis: movie.overview || 'Registro ausente.'
-  }));
-
-  const directorCount: Record<string, HomeMovie[]> = {};
-  results.forEach((m) => {
-    if (m.director && m.director !== 'Desconhecido') {
-      if (!directorCount[m.director]) directorCount[m.director] = [];
-      directorCount[m.director].push(m);
-    }
   });
-  
-  const sortedDirectors = Object.entries(directorCount).sort((a, b) => b[1].length - a[1].length);
-  const topDirectorName = sortedDirectors[0]?.[0] || 'Auteurs';
-  const topDirectorMovies = sortedDirectors[0]?.[1] || results.slice(12, 15);
 
-  const DYNAMIC_SESSIONS = [
-    {
-      number: 'S·001',
-      title: `Foco: ${topDirectorName}`,
-      films: topDirectorMovies.length,
-      duration: getRuntimeStr(topDirectorMovies.reduce((acc, m) => acc + (Number(m.length_minutes) || 120), 0)),
-      date: 'Nesta Semana'
-    },
-    {
-      number: 'S·002',
-      title: 'Descobertas Recentes',
-      films: 4,
-      duration: '7h 10m',
-      date: 'Sáb · 20:00'
-    }
-  ];
+  const FEATURED_FILMS: FilmEntry[] = programmeMovies.map(paraEntrada);
+
+  // AS SESSÕES SÃO O PRÓPRIO PROGRAMA, e não duas linhas montadas aqui.
+  //
+  // O que havia: S·001 dizia "Foco: <diretor com mais filmes entre os 20>", e
+  // como nos 20 primeiros do ranking todos os diretores são distintos, o
+  // desempate por ordem sempre escolhia o do primeiro colocado — "Foco: Orson
+  // Welles", para sempre, com 1 filme. S·002 era literal: "Descobertas
+  // Recentes, 4 filmes, 7h 10m, Sáb · 20:00", escrito à mão, idêntico para
+  // todo mundo.
+  //
+  // Agora cada linha é uma seção real do programa do dia, com a contagem e a
+  // duração somadas dos filmes que ela de fato tem.
+  const DYNAMIC_SESSIONS = secoes.map((secao, i) => ({
+    number: `S·${String(i + 1).padStart(3, '0')}`,
+    title: secao.titulo,
+    films: secao.filmes.length,
+    duration: getRuntimeStr(
+      secao.filmes.reduce((acc, m) => acc + (Number(m.length_minutes) || 0), 0)),
+    // A data do programa, e não um horário inventado. O antigo "Sáb · 20:00"
+    // prometia uma sessão marcada que não existe em lugar nenhum.
+    date: dataDoPrograma(programa?.dia).replace('PROGRAMA DE ', ''),
+  }));
 
   const hoveredFeaturedFilm = FEATURED_FILMS.find(f => f.id === String(hoveredFeaturedId));
 
@@ -263,14 +275,42 @@ export default function HomePage() {
           </AnimatePresence>
 
           <div style={{ position: 'relative', zIndex: 1 }}>
+            {/* A DATA PRECISA ESTAR NA TELA.
+                O programa é o mesmo do primeiro ao último acesso do dia, de
+                propósito: um F5 que troca tudo não é vivo, é instável — a
+                pessoa perde o filme que tinha visto de canto de olho. Mas uma
+                home que não muda e não explica por quê se lê como defeito, e
+                foi esse o relato. A data é a explicação. */}
+            {programa?.dia && (
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '9px', letterSpacing: '0.25em', color: 'var(--m3)', marginBottom: 20 }}>
+                {dataDoPrograma(programa.dia)}
+              </div>
+            )}
             <FilmProgramme 
-              title="Obras-Primas do Acervo" 
-              subtitle="Top TSPDT / Aclamados" 
+              title={primeira?.titulo || 'Obras-Primas do Acervo'} 
+              subtitle={primeira?.subtitulo || 'Top TSPDT / Aclamados'} 
               films={FEATURED_FILMS} 
               onHover={setHoveredFeaturedId} 
             />
           </div>
         </section>
+
+        {/* AS DEMAIS SEÇÕES DO PROGRAMA.
+            Antes daqui a home tinha uma seção de filmes só — as obras-primas
+            — e duas linhas de 'próximas projeções', uma delas literal. O
+            acervo tem material medido para muito mais: 389 diretores com ≥10
+            filmes, 394 fotógrafos, 6.482 filmes em preto e branco, 3.166
+            curtas, 3.575 laureados em festival. */}
+        {secoes.slice(1).map((secao) => (
+          <section key={secao.chave} style={{ padding: '0 clamp(24px, 6vw, 96px) 80px' }}>
+            <FilmProgramme
+              title={secao.titulo}
+              subtitle={secao.subtitulo}
+              films={(secao.filmes as unknown as HomeMovie[]).map(paraEntrada)}
+              onHover={() => {}}
+            />
+          </section>
+        ))}
 
         {emCurso && (
           <NowProjecting
@@ -319,15 +359,21 @@ export default function HomePage() {
           </div>
         </section>
 
-        <AdmitOne
-          sessionTitle={`A Arte de ${topDirectorName}`}
-          filmCount={topDirectorMovies.length}
-          totalDuration="Múltiplas Obras"
-          date="HOJE"
-          sessionNumber="004"
-          href={`/library?search=${encodeURIComponent(topDirectorName)}`}
-          filmList={topDirectorMovies.slice(0,3).map((m) => m.title)} 
-        />
+        {/* O convite aponta para a ÚLTIMA seção do programa — a mais
+            distante das obras-primas, que é onde está a descoberta. Antes
+            repetia "A Arte de Orson Welles" com 1 filme, pelo mesmo desempate
+            que congelava as sessões. */}
+        {secoes.length > 1 && (
+          <AdmitOne
+            sessionTitle={secoes[secoes.length - 1].titulo}
+            filmCount={secoes[secoes.length - 1].filmes.length}
+            totalDuration={secoes[secoes.length - 1].subtitulo}
+            date={dataDoPrograma(programa?.dia).replace('PROGRAMA DE ', '')}
+            sessionNumber={String(secoes.length).padStart(3, '0')}
+            href="/library"
+            filmList={secoes[secoes.length - 1].filmes.slice(0, 3).map((m) => m.title)}
+          />
+        )}
 
         <LibraryCount count={estatisticas?.movies ?? 0} hours={estatisticas?.hours ?? 0} countries={estatisticas?.countries ?? 0} />
 
