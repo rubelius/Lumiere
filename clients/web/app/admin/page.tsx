@@ -7,6 +7,7 @@ import { ehEquipe, useUsuario } from '@/features/auth/hooks/useUsuario';
 import { idadeDaMedicao, usePainel, type Painel } from '@/features/admin/usePainel';
 import { Acoes } from '@/components/admin/Acoes';
 import { Graficos } from '@/components/admin/Graficos';
+import { Vivo } from '@/components/admin/Vivo';
 
 /**
  * O painel de administração.
@@ -170,6 +171,10 @@ export default function AdminPage() {
           {data!.falharam.map((f) => <div key={f} style={{ color: 'var(--m2)' }}>{f}</div>)}
         </div>
       )}
+
+      {/* AGORA vem antes de tudo: é o que a pessoa olha enquanto espera, e o
+          resto do painel é para depois. */}
+      <Vivo />
 
       {/* AGIR vem antes de OBSERVAR, e observar antes de contar.
           Quem abre esta tela quase sempre já sabe o que quer fazer; os

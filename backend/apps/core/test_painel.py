@@ -375,3 +375,168 @@ def test_todo_grafico_diz_de_onde_veio(db):
         assert g['tipo'] in ('linhas', 'barras', 'sem-dado')
         if g['tipo'] == 'sem-dado':
             assert g['ressalva'].strip(), f'{g["chave"]} não explica a ausência'
+
+
+# ── o vivo ────────────────────────────────────────────────────────────────
+# O relato: apertar "rastrear cópias agora" enfileirava o trabalho e a tela não
+# dizia mais nada — nem progresso, nem fila, nem em que filme estava.
+
+@pytest.mark.django_db
+def test_o_vivo_e_so_para_a_equipe(comum):
+    assert cliente_de(comum).get(reverse('painel-vivo')).status_code == 403
+
+
+@pytest.mark.django_db
+def test_o_vivo_responde_mesmo_sem_worker_nenhum(admin):
+    """
+    É justamente quando não há worker que a pessoa está olhando esta tela. Se
+    ela quebrar aí, quebra na única hora que importa.
+    """
+    r = cliente_de(admin).get(reverse('painel-vivo'))
+    assert r.status_code == 200
+    for chave in ('progressos', 'ativas', 'filas', 'buscas', 'execucoes', 'medido_em'):
+        assert chave in r.data
+
+
+@pytest.mark.django_db
+def test_o_vivo_nao_e_guardado(admin):
+    """
+    O painel fica guardado 60s de propósito; isto NÃO pode ficar. É o que a
+    pessoa olha enquanto espera, e um número de um minuto atrás aqui é inútil.
+    """
+    from apps.core.models import ExecucaoDeTarefa
+    from django.utils import timezone
+
+    api = cliente_de(admin)
+    antes = len(api.get(reverse('painel-vivo')).data['execucoes'])
+
+    ExecucaoDeTarefa.objects.create(
+        tarefa='apps.tasks.pulso.pulso', task_id='novinha',
+        iniciada_em=timezone.now(), sucesso=True, duracao_s=0.1)
+
+    depois = len(api.get(reverse('painel-vivo')).data['execucoes'])
+    assert depois == antes + 1, 'a resposta veio guardada'
+
+
+@pytest.mark.django_db
+def test_execucao_em_curso_nao_se_parece_com_falha(admin):
+    """
+    `sucesso` nulo é "ainda rodando", e são TRÊS estados. Tratá-lo como falso
+    faria toda tarefa em voo aparecer como fracassada — bem na tela que existe
+    para acompanhar tarefas em voo.
+    """
+    from apps.core.models import ExecucaoDeTarefa
+    from django.utils import timezone
+
+    ExecucaoDeTarefa.objects.create(
+        tarefa='apps.tasks.pulso.pulso', task_id='rodando-agora',
+        iniciada_em=timezone.now())
+
+    linha = next(e for e in cliente_de(admin).get(reverse('painel-vivo')).data['execucoes']
+                 if e['task_id'] == 'rodando-'[:8])
+    assert linha['sucesso'] is None
+    assert linha['duracao_s'] is None
+
+
+# ── o progresso ───────────────────────────────────────────────────────────
+
+def test_progresso_conta_o_que_foi_feito():
+    from apps.tasks import progresso
+
+    progresso.comeca('t.de.teste', 3)
+    progresso.anuncia('t.de.teste', 'Filme A')
+    assert progresso.ler('t.de.teste')['agora_em'] == 'Filme A'
+
+    progresso.avanca('t.de.teste', agora_em='Filme A', achados=4)
+    estado = progresso.ler('t.de.teste')
+    assert estado['feitos'] == 1
+    assert estado['achados'] == 4
+
+    progresso.termina('t.de.teste', 'acabou')
+    assert progresso.ler('t.de.teste')['terminou'] is True
+
+
+def test_anunciar_antes_e_diferente_de_avancar():
+    """
+    Uma busca leva de 60 a 150 segundos. Se a tela só soubesse do filme DEPOIS
+    de ele terminar, passaria esse tempo todo mostrando o anterior.
+    """
+    from apps.tasks import progresso
+
+    progresso.comeca('t.anuncio', 2)
+    progresso.anuncia('t.anuncio', 'Filme em curso')
+    estado = progresso.ler('t.anuncio')
+    assert estado['agora_em'] == 'Filme em curso'
+    assert estado['feitos'] == 0, 'anunciar contou como feito'
+
+
+def test_avancar_sem_ter_comecado_nao_quebra():
+    """
+    Um worker que reinicia no meio perde o documento. A tarefa não pode morrer
+    por causa disso — publicar progresso é acessório ao trabalho.
+    """
+    from apps.tasks import progresso
+
+    progresso.avanca('t.que.nao.existe', agora_em='x')  # não levanta
+
+
+def test_a_lista_de_tarefas_com_progresso_bate_com_quem_publica():
+    """
+    O painel só sabe PERGUNTAR pelos nomes desta lista — não há como varrer
+    chaves do Redis. Um nome fora de sincronia é progresso publicado que
+    ninguém lê, sem nada acusar.
+    """
+    from apps.tasks.precarga import NOME_DA_TAREFA
+    from apps.tasks.progresso import TAREFAS_COM_PROGRESSO
+
+    assert NOME_DA_TAREFA in TAREFAS_COM_PROGRESSO
+
+
+@pytest.mark.django_db
+def test_o_vivo_aguenta_o_inspect_estourar(admin):
+    """
+    O teste acima passava porque HAVIA um worker de pé nesta máquina — ou seja,
+    ele testava o ambiente, não o código. Aqui a falha é forçada.
+
+    E a falha do `inspect` é o caso comum: sem worker ele espera o timeout e
+    pode levantar, e é exatamente quando não há worker que a pessoa está
+    olhando esta tela.
+    """
+    with patch('lumiere.celery.app.control.inspect', side_effect=OSError('sem broker')):
+        r = cliente_de(admin).get(reverse('painel-vivo'))
+
+    assert r.status_code == 200, 'a tela caiu justamente quando mais importa'
+    assert r.data['ativas'] == []
+
+
+@pytest.mark.django_db
+def test_o_rastreador_publica_progresso(db, django_user_model):
+    """
+    O relato inteiro em um teste: apertar o botão enfileirava o trabalho e a
+    tela não dizia mais nada.
+
+    Aqui a rodada roda com o Prowlarr simulado, e o que se verifica é que ela
+    ANUNCIOU o filme antes de buscar, CONTOU o que achou, e ENCERROU com um
+    resumo — as três coisas que a tela mostra.
+    """
+    from apps.movies.models import Movie
+    from apps.tasks import progresso
+    from apps.tasks.precarga import NOME_DA_TAREFA, rastreia_copias
+
+    user = django_user_model.objects.create_user(
+        username='dono', password='x',
+        prowlarr_url='http://localhost:9696', prowlarr_api_key='k')
+    Movie.objects.create(title='Umberto D.', year=1952, ranking_current=1)
+
+    with patch('apps.tasks.precarga.executa_busca',
+               return_value={'new_releases_found': 4}):
+        rastreia_copias(quantos=1, user_id=str(user.id))
+
+    estado = progresso.ler(NOME_DA_TAREFA)
+    assert estado is not None, 'a rodada não publicou nada'
+    assert estado['total'] == 1
+    assert estado['feitos'] == 1
+    assert estado['achados'] == 4, 'não contou as cópias encontradas'
+    assert 'Umberto D.' in estado['agora_em']
+    assert estado['terminou'] is True
+    assert '4 cópias novas' in estado['resumo']

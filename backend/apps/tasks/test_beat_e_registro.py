@@ -44,12 +44,32 @@ def test_todo_modulo_de_tarefas_esta_em_conf_imports():
     não é app instalada. Sem o import explícito elas não são encontradas, e o
     beat dispara nomes que o worker não conhece.
     """
+    import re
+    from pathlib import Path
+
     import apps.tasks
 
-    modulos = {f'apps.tasks.{m.name}' for m in pkgutil.iter_modules(apps.tasks.__path__)
-               if not m.name.startswith('test_')}
+    raiz = Path(apps.tasks.__path__[0])
+
+    # SÓ os módulos que DEFINEM tarefa.
+    #
+    # A regra era "todo módulo", e ela pegou `progresso.py` — um auxiliar sem
+    # nenhuma tarefa dentro, que o worker não precisa importar. Um módulo sem
+    # tarefa não pode produzir o defeito que esta guarda existe para impedir
+    # (beat disparando nome que o worker não conhece), e uma guarda mais larga
+    # que o risco acaba sendo afrouxada no dia em que incomoda — que é pior que
+    # ser precisa desde o começo.
+    define_tarefa = re.compile(r'^\s*@(shared_task|app\.task)', re.M)
+
+    modulos = {
+        f'apps.tasks.{m.name}'
+        for m in pkgutil.iter_modules(apps.tasks.__path__)
+        if not m.name.startswith('test_')
+        and define_tarefa.search((raiz / f'{m.name}.py').read_text(encoding='utf-8'))
+    }
     declarados = set(app.conf.imports or ())
 
+    assert modulos, 'nenhum módulo com tarefa encontrado — a guarda perdeu os dentes'
     assert modulos <= declarados, f'fora de conf.imports: {sorted(modulos - declarados)}'
 
 

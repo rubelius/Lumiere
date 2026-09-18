@@ -219,3 +219,19 @@ def acao_do_painel_view(request):
         return Response(
             {'detail': f'Não consegui enfileirar: {erro}'},
             status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+@extend_schema(
+    responses=OpenApiTypes.OBJECT,
+    description=(
+        'O que está acontecendo AGORA: progresso das tarefas longas, fila, '
+        'tarefas ativas, buscas de cópia em curso e as últimas execuções. '
+        'Endpoint separado do painel de propósito — o painel fica guardado 60s '
+        'e isto não pode ficar guardado nem um segundo.'
+    ),
+)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def vivo_view(request):
+    from apps.core.vivo import o_que_esta_acontecendo
+    return Response(o_que_esta_acontecendo())

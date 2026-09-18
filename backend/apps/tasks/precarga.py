@@ -33,6 +33,7 @@ from django.utils import timezone
 
 from apps.integrations.prowlarr import ProwlarrIndisponivel
 from apps.movies.models import Movie
+from apps.tasks import progresso
 from apps.movies.release_search import (executa_busca, grava_conclusao,
                                         grava_erro, marca_buscando,
                                         marca_enfileirada)
@@ -61,6 +62,10 @@ DIAS_ATE_VENCER = 7
 # porque `copias_buscadas_em` só é gravado no fim de cada busca.
 CHAVE_DA_RODADA = 'rastreio_de_copias:rodando'
 SEGUNDOS_DE_CADEADO = 60 * 25
+
+# O nome pelo qual esta tarefa publica progresso. Tem que bater com
+# `progresso.TAREFAS_COM_PROGRESSO`, senão o painel não sabe o que perguntar.
+NOME_DA_TAREFA = 'apps.tasks.precarga.rastreia_copias'
 
 # A fila de quem tem ficha aberta. Vive no Redis e não no banco porque é
 # efêmera: o que importa é "alguém está olhando este filme agora".
@@ -167,9 +172,17 @@ def rastreia_copias(quantos: int = POR_RODADA, user_id=None):
 
         filmes = proximos_da_fila(quantos)
         if not filmes:
+            progresso.termina(NOME_DA_TAREFA, 'a fila está vazia')
             return {'varridos': 0, 'nada': 'a fila está vazia'}
 
         varridos, falhas, novas, ocupados = 0, 0, 0, 0
+
+        # PUBLICA O QUE ESTÁ FAZENDO. O Celery sabe que esta tarefa está ativa,
+        # e só — quanto ela já andou é conhecimento que só existe aqui dentro.
+        # Sem isto o painel enfileirava o trabalho e não dizia mais nada.
+        progresso.comeca(NOME_DA_TAREFA, len(filmes),
+                         detalhe=f'em nome de {user.username}')
+
         for filme in filmes:
             # O MESMO cadeado do botão, e não um paralelo.
             #
@@ -180,12 +193,17 @@ def rastreia_copias(quantos: int = POR_RODADA, user_id=None):
             # duas gravando as mesmas cópias.
             if not marca_enfileirada(filme.pk):
                 ocupados += 1
+                progresso.avanca(NOME_DA_TAREFA, agora_em=f'{filme.title} (ocupado)')
                 continue
 
             # E o mesmo documento de estado: assim a tela de quem abriu a ficha
             # mostra "vasculhando" enquanto o rastreador trabalha, em vez de um
             # botão parado sobre um filme sem cópia nenhuma.
             marca_buscando(str(filme.pk))
+            # ANTES de buscar, e não depois: uma busca leva de 60 a 150
+            # segundos, e anunciar só no fim deixaria a tela um minuto inteiro
+            # mostrando o filme anterior.
+            progresso.anuncia(NOME_DA_TAREFA, f'{filme.title} ({filme.year or "----"})')
 
             try:
                 resultado = executa_busca(filme, user, sondar=False)
@@ -194,20 +212,29 @@ def rastreia_copias(quantos: int = POR_RODADA, user_id=None):
                 # seguintes como varridos sem terem sido.
                 grava_erro(str(filme.pk), str(erro))
                 logger.warning('Rastreio interrompido, Prowlarr fora: %s', erro)
+                progresso.termina(NOME_DA_TAREFA,
+                                  f'interrompida: Prowlarr fora do ar '
+                                  f'({varridos} varridos antes)')
                 return {'varridos': varridos, 'novas': novas,
                         'interrompido': 'prowlarr indisponível'}
             except Exception as erro:
                 logger.exception('Rastreio falhou em %s', filme.pk)
                 grava_erro(str(filme.pk), str(erro))
                 falhas += 1
+                progresso.avanca(NOME_DA_TAREFA, agora_em=filme.title, erro=True)
                 continue
 
             grava_conclusao(str(filme.pk), resultado)
             varridos += 1
-            novas += resultado.get('new_releases_found') or 0
+            achadas = resultado.get('new_releases_found') or 0
+            novas += achadas
+            progresso.avanca(NOME_DA_TAREFA, agora_em=filme.title, achados=achadas)
 
         logger.info('Rastreio: %d filmes, %d cópias novas, %d falhas',
                     varridos, novas, falhas)
+        progresso.termina(
+            NOME_DA_TAREFA,
+            f'{varridos} filmes varridos, {novas} cópias novas, {falhas} falhas')
         return {'varridos': varridos, 'novas': novas, 'falhas': falhas,
                 'ocupados': ocupados}
     finally:
