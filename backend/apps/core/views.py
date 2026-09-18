@@ -9,7 +9,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.motor import estado_do_motor
@@ -156,3 +156,24 @@ def estado_do_motor_view(request):
     o timeout inteiro justamente quando não há nenhum.
     """
     return Response(estado_do_motor())
+
+
+@extend_schema(
+    responses=OpenApiTypes.OBJECT,
+    description=(
+        'O painel de administração: o estado do Lumière inteiro. Cada painel '
+        'diz DE ONDE o número vem, QUANDO foi medido e o que ele NÃO diz.'
+    ),
+)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def painel_admin_view(request):
+    """
+    Só para quem é equipe.
+
+    `IsAdminUser` do DRF checa `is_staff`, e é o bastante: esta tela mostra
+    tamanho de banco, contas, chave de integração em uso e o estado de cada
+    serviço. Nenhuma dessas coisas é do usuário comum.
+    """
+    from apps.core.painel import painel_guardado
+    return Response(painel_guardado())

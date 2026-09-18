@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { ehEquipe, useUsuario } from '@/features/auth/hooks/useUsuario'
 
 // Route depth for direction detection
 const DEPTH: Record<string, number> = {
@@ -26,10 +27,15 @@ const NAV = [
   { href: '/party',     code: '05', label: 'Party',    abbr: 'PTY' },
   { href: '/profile',   code: '06', label: 'Profile',  abbr: 'PRF' },
   { href: '/settings',  code: '07', label: 'Settings', abbr: 'SET' },
+  // Só para quem é equipe. Mostrar a todos e dar 403 no clique seria a tela
+  // oferecendo o que o backend recusa.
+  { href: '/admin',     code: '08', label: 'Admin',    abbr: 'ADM', soEquipe: true },
 ]
 
 function NavStrip({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false)
+  const { data: usuario } = useUsuario()
+  const equipe = ehEquipe(usuario)
 
   return (
     <motion.nav
@@ -98,7 +104,7 @@ function NavStrip({ pathname }: { pathname: string }) {
 
       {/* Links */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, padding: '12px 6px' }}>
-        {NAV.map(item => {
+        {NAV.filter(item => !item.soEquipe || equipe).map(item => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
           return (
             <Link

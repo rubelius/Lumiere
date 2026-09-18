@@ -20,9 +20,17 @@ class UserSerializer(serializers.ModelSerializer):
             'avatar_url', 'bio', 'is_premium', 'premium_until',
             'letterboxd_username', 'letterboxd_connected',
             'plex_server_url', 'taste_profile_exists',
+            # QUEM É ADMIN, porque a tela não tinha como saber. Sem isto o
+            # cliente não pode esconder o que o backend vai recusar nem
+            # oferecer o que ele vai permitir.
+            'is_staff', 'is_superuser',
             'date_joined'
         ]
-        read_only_fields = ['id', 'date_joined', 'is_premium']
+        # Somente leitura, e isto NÃO é detalhe: sem a linha, um PATCH em
+        # /api/users/me/ com {"is_superuser": true} promoveria a própria
+        # conta.
+        read_only_fields = ['id', 'date_joined', 'is_premium',
+                            'is_staff', 'is_superuser']
     
     @extend_schema_field(serializers.BooleanField())
     def get_taste_profile_exists(self, obj):

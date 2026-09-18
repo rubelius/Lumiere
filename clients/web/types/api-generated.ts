@@ -678,6 +678,23 @@ export interface paths {
         patch: operations["notifications_update_preferences_partial_update"];
         trace?: never;
     };
+    "/api/painel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description O painel de administração: o estado do Lumière inteiro. Cada painel diz DE ONDE o número vem, QUANDO foi medido e o que ele NÃO diz. */
+        get: operations["painel_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile/telemetry/": {
         parameters: {
             query?: never;
@@ -1954,6 +1971,16 @@ export interface components {
             plex_server_url?: string;
             readonly taste_profile_exists?: boolean;
             /**
+             * Membro da equipe
+             * @description Indica que usuário consegue acessar este site de administração.
+             */
+            readonly is_staff?: boolean;
+            /**
+             * Status de superusuário
+             * @description Indica que este usuário tem todas as permissões sem atribuí-las explicitamente.
+             */
+            readonly is_superuser?: boolean;
+            /**
              * Data de registro
              * Format: date-time
              */
@@ -2269,6 +2296,16 @@ export interface components {
             /** Format: uri */
             plex_server_url?: string;
             readonly taste_profile_exists: boolean;
+            /**
+             * Membro da equipe
+             * @description Indica que usuário consegue acessar este site de administração.
+             */
+            readonly is_staff: boolean;
+            /**
+             * Status de superusuário
+             * @description Indica que este usuário tem todas as permissões sem atribuí-las explicitamente.
+             */
+            readonly is_superuser: boolean;
             /**
              * Data de registro
              * Format: date-time
@@ -3273,6 +3310,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Notification"];
+                };
+            };
+        };
+    };
+    painel_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

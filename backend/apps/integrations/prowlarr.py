@@ -303,14 +303,18 @@ class ProwlarrClient:
         return parsed
 
     async def get_indexers(self) -> List[Dict]:
-        """Lista indexers configurados"""
-        try:
-            response = await self.client.get(f"{self.url}/api/v1/indexer")
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPError as e:
-            print(f"Error fetching indexers: {e}")
-            return []
+        """
+        Os indexadores configurados. LEVANTA quando não dá para perguntar.
+
+        Devolvia `[]` no erro, e lista vazia é uma RESPOSTA: quem chama lê
+        "o Prowlarr está no ar e não tem indexador nenhum". O painel de
+        administração mostrava exatamente isso — "0 indexadores" — sobre um
+        Prowlarr que não tinha respondido. Zero e silêncio não são a mesma
+        coisa, e só quem chama sabe o que fazer com cada um.
+        """
+        response = await self.client.get(f"{self.url}/api/v1/indexer")
+        response.raise_for_status()
+        return response.json()
     
     async def get_indexer_stats(self) -> Dict:
         """Estatísticas dos indexers"""
